@@ -22,7 +22,7 @@ from xdsl.printer import Printer
 #     ToyAcceleratorInstructionFunctions,
 # )
 from .frontend.ir_gen import IRGen
-from .frontend.parser import ToyParser as ToyParser
+from .frontend.parser import CParser as CParser
 
 # from .interpreter import Interpreter, ToyFunctions
 
@@ -61,7 +61,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
     with open(path) as f:
         match path.suffix:
             case ".c":
-                parser = ToyParser(path, f.read())
+                parser = CParser(path, f.read())
                 ast = parser.parseModule()
                 # if emit == "ast":
                 print(ast.dump())

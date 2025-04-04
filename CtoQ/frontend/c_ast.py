@@ -83,18 +83,23 @@ class VarDeclExprAST(ExprAST):
     "Expression class for defining a variable."
 
     name: str
-    varType: VarType
-    expr: ExprAST
+    type_name: str  # C type (int, float, etc.)
+    varType: VarType = None  # For tensor dimensions if needed
+    expr: ExprAST = None  # Make initialization optional
 
     @property
     def kind(self):
         return ExprASTKind.Expr_VarDecl
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dims_str = ", ".join(f"{int(dim)}" for dim in self.varType.shape)
-        dumper.append("VarDecl ", f"{self.name}<{dims_str}> @{self.loc}")
-        child = dumper.child()
-        self.expr.inner_dump("", child)
+        dims_str = ""
+        if self.varType and self.varType.shape:
+            dims_str = "<" + ", ".join(f"{int(dim)}" for dim in self.varType.shape) + ">"
+        
+        dumper.append("VarDecl ", f"{self.type_name} {self.name}{dims_str} @{self.loc}")
+        if self.expr:
+            child = dumper.child()
+            self.expr.inner_dump("init: ", child)
 
 
 @dataclass
@@ -166,13 +171,15 @@ class VariableExprAST(ExprAST):
     'Expression class for referencing a variable, like "a".'
 
     name: str
+    type_name: str = None  # Add type information for C variables
 
     @property
     def kind(self):
         return ExprASTKind.Expr_Var
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append("var: ", f"{self.name} @{self.loc}")
+        type_info = f":{self.type_name}" if self.type_name else ""
+        dumper.append("var: ", f"{self.name}{type_info} @{self.loc}")
 
 
 @dataclass
@@ -235,13 +242,13 @@ class PrintExprAST(ExprAST):
 class PrototypeAST:
     """
     This class represents the "prototype" for a function, which captures its
-    name, and its argument names (thus implicitly the number of arguments the
-    function takes).
+    name, its return type, and its argument names and types.
     """
 
     loc: Location
     name: str
     args: list[VariableExprAST]
+    return_type: str = "void"  # Add return type for C functions
 
     def dump(self):
         dumper = Dumper([])
@@ -249,8 +256,9 @@ class PrototypeAST:
         return dumper.message
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append("", f"Proto '{self.name}' @{self.loc}")
-        dumper.append("Params: ", f"[{', '.join(arg.name for arg in self.args)}]")
+        dumper.append("", f"Proto '{self.name}' returns {self.return_type} @{self.loc}")
+        params = ", ".join(f"{arg.type_name} {arg.name}" for arg in self.args)
+        dumper.append("Params: ", f"[{params}]")
 
 
 @dataclass

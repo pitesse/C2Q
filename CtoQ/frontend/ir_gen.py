@@ -23,7 +23,7 @@ from ..dialects.toy import (
     UnrankedTensorTypeF64,
 )
 from .location import Location
-from .toy_ast import (
+from .c_ast import (
     BinaryExprAST,
     CallExprAST,
     ExprAST,

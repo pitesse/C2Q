@@ -7,56 +7,71 @@ from xdsl.utils.exceptions import ParseError
 from xdsl.utils.lexer import Lexer, Position, Span, Token
 
 
-class ToyTokenKind(Enum):
+class CTokenKind(Enum):
+    # Punctuation
     SEMICOLON = auto()
     PARENTHESE_OPEN = auto()
     PARENTHESE_CLOSE = auto()
     BRACKET_OPEN = auto()
     BRACKET_CLOSE = auto()
-    SBRACKET_OPEN = auto()
-    SBRACKET_CLOSE = auto()
-    LT = auto()
-    GT = auto()
-    EQ = auto()
     COMMA = auto()
-
-    EOF = auto()
-
+    
+    # Operators
+    PLUS = auto()
+    MINUS = auto()
+    MULTIPLY = auto()
+    DIVIDE = auto()
+    MODULO = auto()
+    ASSIGN = auto()
+    
+    # C types
+    INT = auto()
+    FLOAT = auto()
+    DOUBLE = auto()
+    CHAR = auto()
+    VOID = auto()
+    
+    # Keywords
     RETURN = auto()
-    VAR = auto()
-    DEF = auto()
-
+    
+    # Other
     IDENTIFIER = auto()
     NUMBER = auto()
-    OPERATOR = auto()
+    EOF = auto()
 
 
 SINGLE_CHAR_TOKENS = {
-    ";": ToyTokenKind.SEMICOLON,
-    "(": ToyTokenKind.PARENTHESE_OPEN,
-    ")": ToyTokenKind.PARENTHESE_CLOSE,
-    "{": ToyTokenKind.BRACKET_OPEN,
-    "}": ToyTokenKind.BRACKET_CLOSE,
-    "[": ToyTokenKind.SBRACKET_OPEN,
-    "]": ToyTokenKind.SBRACKET_CLOSE,
-    "<": ToyTokenKind.LT,
-    ">": ToyTokenKind.GT,
-    "=": ToyTokenKind.EQ,
-    ",": ToyTokenKind.COMMA,
-    "+": ToyTokenKind.OPERATOR,
-    "-": ToyTokenKind.OPERATOR,
-    "*": ToyTokenKind.OPERATOR,
-    "/": ToyTokenKind.OPERATOR,
+    ";": CTokenKind.SEMICOLON,
+    "(": CTokenKind.PARENTHESE_OPEN,
+    ")": CTokenKind.PARENTHESE_CLOSE,
+    "{": CTokenKind.BRACKET_OPEN,
+    "}": CTokenKind.BRACKET_CLOSE,
+    ",": CTokenKind.COMMA,
+    "+": CTokenKind.PLUS,
+    "-": CTokenKind.MINUS,
+    "*": CTokenKind.MULTIPLY,
+    "/": CTokenKind.DIVIDE,
+    "%": CTokenKind.MODULO,
+    "=": CTokenKind.ASSIGN,
+}
+
+C_KEYWORDS = {
+    "int": CTokenKind.INT,
+    "float": CTokenKind.FLOAT,
+    "double": CTokenKind.DOUBLE,
+    "char": CTokenKind.CHAR,
+    "void": CTokenKind.VOID,
+    "return": CTokenKind.RETURN,
 }
 
 IDENTIFIER_CHARS = re.compile(r"[\w]|[\d]|_")
 SPECIAL_CHARS = set(",")
 
 
-ToyToken: TypeAlias = Token[ToyTokenKind]
+CToken: TypeAlias = Token[CTokenKind]
 
 
-class ToyLexer(Lexer[ToyTokenKind]):
+class CLexer(Lexer[CTokenKind]):
     def _is_in_bounds(self, size: Position = 1) -> bool:
         """
         Check if the current position is within the bounds of the input.
@@ -96,7 +111,7 @@ class ToyLexer(Lexer[ToyTokenKind]):
         self.pos = match.end()
         return match
 
-    _whitespace_regex = re.compile(r"((#[^\n]*(\n)?)|(\s+))*", re.ASCII)
+    _whitespace_regex = re.compile(r"(\s+|(//[^\n]*(\n)?)|(/\*([^*]|\*[^/])*\*/))*", re.DOTALL)
 
     def _consume_whitespace(self) -> None:
         """
@@ -104,8 +119,8 @@ class ToyLexer(Lexer[ToyTokenKind]):
         """
         self._consume_regex(self._whitespace_regex)
 
-    def lex(self) -> ToyToken:
-        # First, skip whitespaces
+    def lex(self) -> CToken:
+        # First, skip whitespaces and comments
         self._consume_whitespace()
 
         start_pos = self.pos
@@ -113,17 +128,18 @@ class ToyLexer(Lexer[ToyTokenKind]):
 
         # Handle end of file
         if current_char is None:
-            return self._form_token(ToyTokenKind.EOF, start_pos)
+            return self._form_token(CTokenKind.EOF, start_pos)
 
-        # bare identifier
+        # bare identifier or keyword
         if current_char.isalpha() or current_char == "_":
             return self._lex_bare_identifier(start_pos)
 
-        # single-char punctuation that are not part of a multi-char token
+        # single-char punctuation
         single_char_token_kind = SINGLE_CHAR_TOKENS.get(current_char)
         if single_char_token_kind is not None:
             return self._form_token(single_char_token_kind, start_pos)
 
+        # number
         if current_char.isnumeric():
             return self._lex_number(start_pos)
 
@@ -135,22 +151,29 @@ class ToyLexer(Lexer[ToyTokenKind]):
     IDENTIFIER_SUFFIX = r"[a-zA-Z0-9_$.]*"
     bare_identifier_suffix_regex = re.compile(IDENTIFIER_SUFFIX)
 
-    def _lex_bare_identifier(self, start_pos: Position) -> ToyToken:
+    def _lex_bare_identifier(self, start_pos: Position) -> CToken:
         """
-        Lex a bare identifier with the following grammar:
-        `bare-id ::= (letter|[_]) (letter|digit|[_$.])*`
-
+        Lex a bare identifier or keyword with the following grammar:
+        `bare-id ::= (letter|[_]) (letter|digit|[_])*`
+    
         The first character is expected to have already been parsed.
         """
         self._consume_regex(self.bare_identifier_suffix_regex)
-
-        return self._form_token(ToyTokenKind.IDENTIFIER, start_pos)
+        
+        # Get the entire identifier
+        identifier = self.input.slice(start_pos, self.pos)
+        
+        # Check if it's a keyword
+        if identifier in C_KEYWORDS:
+            return self._form_token(C_KEYWORDS[identifier], start_pos)
+        
+        return self._form_token(CTokenKind.IDENTIFIER, start_pos)
 
     _hexdigits_star_regex = re.compile(r"[0-9a-fA-F]*")
     _digits_star_regex = re.compile(r"[0-9]*")
     _fractional_suffix_regex = re.compile(r"\.[0-9]*([eE][+-]?[0-9]+)?")
 
-    def _lex_number(self, start_pos: Position) -> ToyToken:
+    def _lex_number(self, start_pos: Position) -> CToken:
         """
         Lex a number literal, which is either a decimal or an hexadecimal.
         The first character is expected to have already been parsed.
@@ -168,7 +191,7 @@ class ToyLexer(Lexer[ToyTokenKind]):
         ):
             self._consume_chars(2)
             self._consume_regex(self._hexdigits_star_regex)
-            return self._form_token(ToyTokenKind.NUMBER, start_pos)
+            return self._form_token(CTokenKind.NUMBER, start_pos)
 
         # Decimal case
         self._consume_regex(self._digits_star_regex)
@@ -176,5 +199,5 @@ class ToyLexer(Lexer[ToyTokenKind]):
         # Check if we are lexing a floating point
         match = self._consume_regex(self._fractional_suffix_regex)
         if match is not None:
-            return self._form_token(ToyTokenKind.NUMBER, start_pos)
-        return self._form_token(ToyTokenKind.NUMBER, start_pos)
+            return self._form_token(CTokenKind.NUMBER, start_pos)
+        return self._form_token(CTokenKind.NUMBER, start_pos)
