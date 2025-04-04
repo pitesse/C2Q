@@ -21,7 +21,7 @@ from xdsl.printer import Printer
 # from .emulator.toy_accelerator_instruction_functions import (
 #     ToyAcceleratorInstructionFunctions,
 # )
-from .frontend.ir_gen import IRGen
+from .frontend.ir_gen import QuantumIRGen
 from .frontend.parser import CParser as CParser
 
 # from .interpreter import Interpreter, ToyFunctions
@@ -54,21 +54,26 @@ parser.add_argument("--print-op-generic", dest="print_generic", action="store_tr
 
 
 def main(path: Path, emit: str, ir: bool, print_generic: bool):
-    # ctx = context()
-
     path = args.source
 
     with open(path) as f:
         match path.suffix:
             case ".c":
+                # Parse the C code
                 parser = CParser(path, f.read())
                 ast = parser.parseModule()
-                # if emit == "ast":
-                print(ast.dump())
-                # write to a file
-                with open(path.with_suffix(".ast"), "w") as ast_file:
-                    ast_file.write(ast.dump())
-                return
+                
+                if emit == "ast":
+                    print(ast.dump())
+                    return
+
+                # Generate Quantum IR
+                ir_gen = QuantumIRGen()
+                module_op = ir_gen.ir_gen_module(ast)
+                
+                # Print the generated IR
+                printer = Printer(print_generic_format=print_generic)
+                printer.print(module_op)
 
             #     ir_gen = IRGen()
             #     module_op = ir_gen.ir_gen_module(ast)

@@ -306,7 +306,7 @@ class FunctionAST:
 class ModuleAST:
     "This class represents a list of functions to be processed together"
 
-    funcs: tuple[FunctionAST, ...]
+    funcs: tuple[FunctionAST, ...]  
 
     def dump(self):
         dumper = Dumper([])
