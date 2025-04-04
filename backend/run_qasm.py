@@ -1,4 +1,4 @@
-from main import QuantumIR
+from scrap.main import QuantumIR
 
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator

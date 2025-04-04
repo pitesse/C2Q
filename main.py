@@ -1,89 +1,134 @@
-from __future__ import annotations
-import subprocess
-import sys
-from pathlib import Path
-import shutil
 import argparse
-from middle_end.transformations.mlir_to_quantum import Transformator
+from pathlib import Path
 
-def find_mlir_translate():
-    # Check possible names in order of preference
-    possible_names = ["mlir-translate", "mlir-translate-15"]
-    for name in possible_names:
-        if shutil.which(name):
-            return name
-    raise RuntimeError("mlir-translate not found! Install MLIR first (read README.md)")
+from xdsl.dialects.riscv import riscv_code
+from xdsl.interpreters.affine import AffineFunctions
+from xdsl.interpreters.arith import ArithFunctions
+from xdsl.interpreters.builtin import BuiltinFunctions
+from xdsl.interpreters.func import FuncFunctions
+from xdsl.interpreters.memref import MemRefFunctions
+from xdsl.interpreters.printf import PrintfFunctions
+from xdsl.interpreters.riscv_cf import RiscvCfFunctions
+from xdsl.interpreters.riscv_debug import RiscvDebugFunctions
+from xdsl.interpreters.riscv_func import RiscvFuncFunctions
+from xdsl.interpreters.riscv_libc import RiscvLibcFunctions
+from xdsl.interpreters.riscv_scf import RiscvScfFunctions
+from xdsl.interpreters.scf import ScfFunctions
+from xdsl.parser import Parser as IRParser
+from xdsl.printer import Printer
 
-def generate_llvm_ir(input_c: str):
-    subprocess.run([
-        "clang", "-S", "-emit-llvm",
-        input_c, "temp.ll"
-    ], check=True)
-    
-    temp_ll = Path("temp.ll")
-    if not temp_ll.exists():
-        raise RuntimeError("Failed to generate temp.ll")
-    print(f"LLVM IR saved to: {temp_ll.resolve()}")
-    
-def generate_mlir(temp_ll: Path):
-    mlir_translate = find_mlir_translate()
-    subprocess.run([
-        mlir_translate, "--import-llvm", "temp.ll",
-        "-o", "temp.mlir"
-    ], check=True)
+from .compiler import context, emulate_riscv, transform
+from .emulator.toy_accelerator_instruction_functions import (
+    ToyAcceleratorInstructionFunctions,
+)
+from .frontend.ir_gen import IRGen
+from .frontend.parser import ToyParser as ToyParser
+from .interpreter import Interpreter, ToyFunctions
 
-    # Ensure temp.mlir is saved in the current directory
-    temp_mlir = Path("temp.mlir")
-    if not temp_mlir.exists():
-        raise RuntimeError("Failed to generate temp.mlir")
-    print(f"MLIR saved to: {temp_mlir.resolve()}")
+parser = argparse.ArgumentParser(description="Process Toy file")
+parser.add_argument("source", type=Path, help="toy source file")
+parser.add_argument(
+    "--emit",
+    dest="emit",
+    choices=[
+        "ast",
+        "toy",
+        "toy-opt",
+        "toy-inline",
+        "toy-infer-shapes",
+        "affine",
+        "scf",
+        "riscv",
+        "riscv-opt",
+        "riscv-regalloc",
+        "riscv-regalloc-opt",
+        "riscv-lowered",
+        "riscv-asm",
+    ],
+    default="riscv-asm",
+    help="Compilation target (default: riscv-asm)",
+)
+parser.add_argument("--ir", dest="ir", action="store_true")
+parser.add_argument("--print-op-generic", dest="print_generic", action="store_true")
 
-def c_to_qasm(input_c: str):
-    
-    generate_llvm_ir(input_c)
 
-    generate_mlir(Path("temp.ll"))
-    
+def main(path: Path, emit: str, ir: bool, print_generic: bool):
+    ctx = context()
 
-    # 3. Translate MLIR to quantum operations
-    transformed_module=Transformator.translate_mlir_to_quantum("temp.mlir")
-    print(transformed_module)
+    path = args.source
 
+    with open(path) as f:
+        match path.suffix:
+            case ".toy":
+                parser = ToyParser(path, f.read())
+                ast = parser.parseModule()
+                if emit == "ast":
+                    print(ast.dump())
+                    return
 
-    # 
-    # with open("temp.mlir") as f:
-    #     mlir_content = f.read()
-    
-    # # Parse MLIR into xDSL's IR
-    # ctx = MLContext()
-    # ctx.register_dialect(LLVMDialect)  # Register required dialects
-    # ir_module = mlir_parser.parse_mlir_module(ctx, mlir_content)
+                ir_gen = IRGen()
+                module_op = ir_gen.ir_gen_module(ast)
+            case ".mlir":
+                parser = IRParser(ctx, f.read(), name=f"{path}")
+                module_op = parser.parse_module()
+            case _:
+                print(f"Unknown file format {path}")
+                return
 
-    # temp_ll.unlink(missing_ok=True)
-    # temp_mlir.unlink(missing_ok=True)
-    
-    # Your custom lowering passes here
-    # ...
-    
-    # Generate QASM
-    # with open(output_qasm, "w") as f:
-    #     f.write(generate_qasm(ir_module))
+    asm = emit == "riscv-asm"
 
-def main():
-    parser = argparse.ArgumentParser(description="Convert C code to QASM.")
-    parser.add_argument("input_c", help="Path to the input C file")
-    # parser.add_argument("output_qasm", help="Path to the output QASM file")
-    args = parser.parse_args()
+    if asm:
+        emit = "riscv-lowered"
 
-    input_c = args.input_c
-    # output_qasm = args.output_qasm
+    transform(ctx, module_op, target=emit)
 
-    if not Path(input_c).exists():
-        print(f"Error: Input file '{input_c}' does not exist.")
-        sys.exit(1)
+    if asm:
+        code = riscv_code(module_op)
 
-    c_to_qasm(input_c)
+        if ir:
+            print(code)
+            return
+
+        emulate_riscv(code)
+        return
+
+    if ir:
+        printer = Printer(print_generic_format=print_generic)
+        printer.print(module_op)
+        return
+
+    interpreter = Interpreter(module_op)
+    if emit in ("toy", "toy-opt", "toy-inline", "toy-infer-shapes"):
+        interpreter.register_implementations(ToyFunctions())
+    if emit in ("affine"):
+        interpreter.register_implementations(AffineFunctions())
+    if emit in ("affine", "scf"):
+        interpreter.register_implementations(ArithFunctions())
+        interpreter.register_implementations(MemRefFunctions())
+        interpreter.register_implementations(PrintfFunctions())
+        interpreter.register_implementations(FuncFunctions())
+    if emit == "scf":
+        interpreter.register_implementations(ScfFunctions())
+        interpreter.register_implementations(BuiltinFunctions())
+    if emit in (
+        "riscv",
+        "riscv-opt",
+        "riscv-regalloc",
+        "riscv-regalloc-opt",
+        "riscv-lowered",
+    ):
+        interpreter.register_implementations(ToyAcceleratorInstructionFunctions())
+        interpreter.register_implementations(RiscvFuncFunctions())
+        interpreter.register_implementations(RiscvDebugFunctions())
+        interpreter.register_implementations(RiscvLibcFunctions())
+    if emit in ("riscv", "riscv-opt", "riscv-regalloc", "riscv-regalloc-opt"):
+        interpreter.register_implementations(RiscvScfFunctions())
+    if emit in ("riscv-lowered",):
+        interpreter.register_implementations(RiscvCfFunctions())
+
+    interpreter.call_op("main", ())
+
 
 if __name__ == "__main__":
-    main()
-
+    args = parser.parse_args()
+    main(args.source, args.emit, args.ir, args.print_generic)
