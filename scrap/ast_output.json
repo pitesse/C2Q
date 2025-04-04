@@ -1,0 +1,32 @@
+{
+    "filename": "add.c",
+    "functions": [
+        {
+            "name": "add",
+            "return_type": "int",
+            "parameters": [
+                "int",
+                "int"
+            ],
+            "body": [
+                {
+                    "operator": "=",
+                    "left": "a",
+                    "right": ""
+                },
+                {
+                    "operator": "=",
+                    "left": "b",
+                    "right": ""
+                },
+                {
+                    "value": {
+                        "operator": "+",
+                        "left": "a",
+                        "right": "b"
+                    }
+                }
+            ]
+        }
+    ]
+}

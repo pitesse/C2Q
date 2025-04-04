@@ -1,7 +1,8 @@
 import sys
 from clang.cindex import Index, CursorKind
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import List, Optional, Union
+import json  # For pretty-printing the output
 
 @dataclass
 class BinaryOperation:
@@ -104,6 +105,12 @@ def parse_expression(children):
             return child.spelling
     return None
 
+def pretty_print_translation_unit(tu: TranslationUnit):
+    """
+    Pretty-print the TranslationUnit as an indented JSON-like structure.
+    """
+    print(json.dumps(asdict(tu), indent=4))
+
 if __name__ == "__main__":
     # Ensure the C file is provided as an argument
     if len(sys.argv) < 2:
@@ -114,5 +121,10 @@ if __name__ == "__main__":
     filename = sys.argv[1]
     translation_unit = parse_ast(filename)
     
-    # Print the parsed AST as Python dataclasses
-    print(translation_unit)
+    # Pretty-print the parsed AST
+    pretty_print_translation_unit(translation_unit)
+
+    # Write the output to a file
+    with open("ast_output.json", "w") as f:
+        f.write(json.dumps(asdict(translation_unit), indent=4))
+    print("AST output written to ast_output.json")
