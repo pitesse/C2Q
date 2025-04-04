@@ -96,10 +96,11 @@ class VarDeclExprAST(ExprAST):
         if self.varType and self.varType.shape:
             dims_str = "<" + ", ".join(f"{int(dim)}" for dim in self.varType.shape) + ">"
         
-        dumper.append("VarDecl ", f"{self.type_name} {self.name}{dims_str} @{self.loc}")
+        # Remove location info
+        dumper.append("Variable declaration: ", f"{self.type_name} {self.name}{dims_str}")
         if self.expr:
             child = dumper.child()
-            self.expr.inner_dump("init: ", child)
+            self.expr.inner_dump("Initial value: ", child)
 
 
 @dataclass
@@ -113,10 +114,10 @@ class ReturnExprAST(ExprAST):
         return ExprASTKind.Expr_Return
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append(prefix, "Return")
+        dumper.append(prefix, "Return statement")
         if self.expr is not None:
-            child = dumper.child()
-            self.expr.inner_dump("", child)
+            expr_child = dumper.child()
+            self.expr.inner_dump("Return value: ", expr_child)
 
 
 @dataclass
@@ -127,10 +128,14 @@ class NumberExprAST(ExprAST):
 
     @property
     def kind(self):
-        return ExprASTKind.Expr_Num
+        return ExprASTKind.Expr_Number
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append(prefix, f" {self.val:.6e}")
+        # Format number more nicely without scientific notation for small integers
+        if self.val.is_integer() and abs(self.val) < 1000000:
+            dumper.append(prefix, f"{int(self.val)}")
+        else:
+            dumper.append(prefix, f"{self.val:.6g}")
 
 
 @dataclass
@@ -179,7 +184,8 @@ class VariableExprAST(ExprAST):
 
     def inner_dump(self, prefix: str, dumper: Dumper):
         type_info = f":{self.type_name}" if self.type_name else ""
-        dumper.append("var: ", f"{self.name}{type_info} @{self.loc}")
+        # Remove location info
+        dumper.append("Variable: ", f"{self.name}{type_info}")
 
 
 @dataclass
@@ -195,15 +201,17 @@ class BinaryExprAST(ExprAST):
         return ExprASTKind.Expr_BinOp
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append(prefix, f"BinOp: {self.op} @{self.loc}")
-        child = dumper.child()
-        self.lhs.inner_dump("", child)
-        self.rhs.inner_dump("", child)
+        # Replace with more readable format without location
+        dumper.append(f"Operation: {self.op}", "")
+        lhs_child = dumper.child()
+        self.lhs.inner_dump("Left operand: ", lhs_child)
+        rhs_child = dumper.child()
+        self.rhs.inner_dump("Right operand: ", rhs_child)
 
 
 @dataclass
 class CallExprAST(ExprAST):
-    "Expression class for function calls."
+    "Expression class for a function call."
 
     callee: str
     args: list[ExprAST]
@@ -213,13 +221,15 @@ class CallExprAST(ExprAST):
         return ExprASTKind.Expr_Call
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append_list(
-            prefix,
-            f"Call '{self.callee}' [ @{self.loc}",
-            self.args,
-            "]",
-            lambda dd, arg: arg.inner_dump("", dd),
-        )
+        # Remove location info
+        dumper.append(prefix, f"Function call: '{self.callee}'")
+        
+        if self.args:
+            args_child = dumper.child()
+            args_child.append("Arguments:", "")
+            for i, arg in enumerate(self.args):
+                arg_child = args_child.child()
+                arg.inner_dump(f"Arg {i}: ", arg_child)
 
 
 @dataclass
@@ -248,7 +258,7 @@ class PrototypeAST:
     loc: Location
     name: str
     args: list[VariableExprAST]
-    return_type: str = "void"  # Add return type for C functions
+    return_type: str = "void"  
 
     def dump(self):
         dumper = Dumper([])
@@ -256,14 +266,17 @@ class PrototypeAST:
         return dumper.message
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append("", f"Proto '{self.name}' returns {self.return_type} @{self.loc}")
+        # Remove location info and use more descriptive name
+        dumper.append("", f"Function signature: '{self.name}' -> {self.return_type}")
         params = ", ".join(f"{arg.type_name} {arg.name}" for arg in self.args)
-        dumper.append("Params: ", f"[{params}]")
+        dumper.append("Parameters: ", f"[{params}]")
 
 
 @dataclass
 class FunctionAST:
-    "This class represents a function definition itself."
+    """
+    This class represents a function definition itself.
+    """
 
     loc: Location
     proto: PrototypeAST
@@ -275,16 +288,18 @@ class FunctionAST:
         return dumper.message
 
     def inner_dump(self, prefix: str, dumper: Dumper):
-        dumper.append(prefix, "Function ")
-        child = dumper.child()
-        self.proto.inner_dump("proto: ", child)
-        child.append_list(
-            "Block ",
-            "{",
-            self.body,
-            "} // Block",
-            lambda dd, stmt: stmt.inner_dump("", dd),
-        )
+        # Use more descriptive format without location info
+        dumper.append("Function Definition:", "")
+        proto_child = dumper.child()
+        self.proto.inner_dump("", proto_child)
+        
+        if self.body:
+            body_child = dumper.child()
+            body_child.append("Body:", "")
+            for stmt in self.body:
+                stmt_child = body_child.child()
+                stmt.inner_dump("", stmt_child)
+            body_child.append("End of function body", "")
 
 
 @dataclass

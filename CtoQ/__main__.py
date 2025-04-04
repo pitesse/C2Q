@@ -65,6 +65,9 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
                 ast = parser.parseModule()
                 # if emit == "ast":
                 print(ast.dump())
+                # write to a file
+                with open(path.with_suffix(".ast"), "w") as ast_file:
+                    ast_file.write(ast.dump())
                 return
 
             #     ir_gen = IRGen()

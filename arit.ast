@@ -1,0 +1,48 @@
+Module:
+  Function Definition:
+    Function signature: 'operations' -> int
+    Parameters: [int a, int b]
+    Body:
+      Variable declaration: int c
+      Variable declaration: int d
+      Operation: =
+        Variable: a
+        Operation: +
+          Variable: a
+          Right operand: 1
+      Operation: =
+        Variable: b
+        Operation: +
+          Variable: b
+          Right operand: 1
+      Operation: =
+        Variable: c
+        Operation: +
+          Variable: a
+          Variable: b
+      Operation: =
+        Variable: d
+        Operation: -
+          Variable: a
+          Variable: b
+      Return statement
+        Operation: +
+          Variable: a
+          Variable: b
+    End of function body
+  Function Definition:
+    Function signature: 'main' -> int
+    Parameters: []
+    Body:
+      Variable declaration: int a
+        Initial value: 5
+      Variable declaration: int b
+        Initial value: 10
+      Variable declaration: int result
+        Initial value: Function call: 'operations'
+          Arguments:
+            Variable: a
+            Variable: b
+      Return statement
+        Return value: 0
+    End of function body
