@@ -1,27 +1,30 @@
-### Dependencies
+# Running C to Quantum
 
-To build and use this project, ensure the following dependencies are installed:
+## Installation
 
-1. **Clang**:
-   - On Ubuntu/Debian:
-     ```bash
-     sudo apt update
-     sudo apt install clang
-     ```
-   - On Arch-based systems:
-     ```bash
-     sudo pacman -S clang
-     ```
+First, ensure you have Python 3 installed on your system.
 
-2. **MLIR Tools**:
-   - On Ubuntu/Debian:
-     ```bash
-     sudo apt update
-     sudo apt install mlir-15-tools
-     ```
-   - On Arch-based systems:
-     ```bash
-     sudo yay -S mlir
-     ```
+## Usage
 
-Ensure both tools are properly installed and available in your system's PATH.
+Convert a C file to quantum representation:
+
+```bash
+# Run using the module syntax
+python -m CtoQ <file_name>.c
+```
+
+### Example
+
+```bash
+python -m CtoQ examples/simple.c
+```
+
+## Options
+
+Add any additional command-line options here:
+
+- 
+
+## Troubleshooting
+
+If you encounter import errors, ensure you're running the tool as a module with `python -m CtoQ` rather than directly executing a script.

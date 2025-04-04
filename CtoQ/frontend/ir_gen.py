@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import NoReturn
-
 from xdsl.builder import Builder, InsertPoint
 from xdsl.dialects.builtin import ModuleOp, TensorType, UnrankedTensorType, f64
 from xdsl.ir import Block, Region, SSAValue
