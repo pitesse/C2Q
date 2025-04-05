@@ -19,5 +19,5 @@ var searchData=
   ['unsigned_16',['UNSIGNED',['../classbuiltin_1_1Signedness.html#ad0b98fa38d80903cc0634bdc4bf6acfe',1,'builtin::Signedness']]],
   ['unused_5foperand_17',['unused_operand',['../classin__placing_1_1InPlacing.html#ab9711b3e16635a8208495a5db849769d',1,'in_placing::InPlacing']]],
   ['uremop_18',['URemOp',['../classmlir__dialect_1_1URemOp.html',1,'mlir_dialect']]],
-  ['usage_19',['Usage',['../index.html#autotoc_md3',1,'']]]
+  ['usage_19',['Usage',['../index.html#autotoc_md4',1,'']]]
 ];

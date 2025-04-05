@@ -126,7 +126,14 @@ Variables</h2></td></tr>
 <tr class="memitem:a9cb50377dcfe2387bc0aeebf911d1f2b" id="r_a9cb50377dcfe2387bc0aeebf911d1f2b"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9cb50377dcfe2387bc0aeebf911d1f2b">_NEWLINE</a> = re.compile(r&quot;\n&quot;)</td></tr>
 <tr class="separator:a9cb50377dcfe2387bc0aeebf911d1f2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@file location.py
+@brief Source code location tracking for the C to Quantum compiler.
+
+This module provides utilities for tracking and representing source code locations
+in the C to Quantum compiler. It's used primarily to map compiled quantum code
+back to the original C source, which is essential for debugging and error reporting.
+</pre> </div><h2 class="groupheader">Function Documentation</h2>
 <a id="a15cc4e74cdb35cc93791734118f5b580" name="a15cc4e74cdb35cc93791734118f5b580"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a15cc4e74cdb35cc93791734118f5b580">&#9670;&#160;</a></span>loc()</h2>
 
@@ -141,7 +148,16 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Convert a lexer token to a source code location.
 
+This function calculates the line and column numbers for a token
+by counting newlines in the source text. It's used to map tokens
+from the lexer to their original positions in the source file.
+
+@param token: The token whose location needs to be determined
+@return A Location object with file, line, and column information
+@throws AssertionError if the token's location cannot be determined
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

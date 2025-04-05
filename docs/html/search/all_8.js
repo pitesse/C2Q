@@ -10,5 +10,6 @@ var searchData=
   ['hermitian_5fgates_5ftransformation_7',['hermitian_gates_transformation',['../namespacehermitian__gates__transformation.html',1,'']]],
   ['hermitian_5fgates_5ftransformation_2epy_8',['hermitian_gates_transformation.py',['../hermitian__gates__transformation_8py.html',1,'']]],
   ['hermitiangateselimination_9',['HermitianGatesElimination',['../classhermitian__gates__transformation_1_1HermitianGatesElimination.html',1,'hermitian_gates_transformation']]],
-  ['hgedriver_10',['HGEDriver',['../classhermitian__gates__transformation_1_1HGEDriver.html',1,'hermitian_gates_transformation']]]
+  ['hgedriver_10',['HGEDriver',['../classhermitian__gates__transformation_1_1HGEDriver.html',1,'hermitian_gates_transformation']]],
+  ['html_20documentation_11',['HTML Documentation',['../index.html#autotoc_md8',1,'']]]
 ];

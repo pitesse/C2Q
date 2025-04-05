@@ -141,7 +141,16 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:af006a4ea77a4720ff4409c8f996a7657" id="r_af006a4ea77a4720ff4409c8f996a7657"><td class="memItemLeft" align="right" valign="top">OpResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af006a4ea77a4720ff4409c8f996a7657">res</a> = result_def()</td></tr>
 <tr class="separator:af006a4ea77a4720ff4409c8f996a7657"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Operation to apply the CCNOT gate (Toffoli gate) to qubits.
+
+The CCNOT gate is a three-qubit operation where the state of the target qubit
+is flipped if both control qubits are in the |1⟩ state. It is a universal gate
+for classical reversible computation within quantum computing.
+
+@see NotOp
+@see CNotOp
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ad3e9729db4aa45644629e814d99874b4" name="ad3e9729db4aa45644629e814d99874b4"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad3e9729db4aa45644629e814d99874b4">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -170,7 +179,12 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Apply a CCNOT gate with the specified control and target qubits.
 
+@param control1: The first control qubit (or vector of control qubits)
+@param control2: The second control qubit (or vector of control qubits)
+@param target: The target qubit (or vector of target qubits)
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -205,7 +219,13 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Factory method to create a CCNotOp from control and target values.
 
+@param control1: The first control qubit (or vector of control qubits)
+@param control2: The second control qubit (or vector of control qubits)
+@param target: The target qubit (or vector of target qubits)
+@return A new CCNotOp instance
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

@@ -145,7 +145,17 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:af46e9691ef34f8835cddfadeeeed93b7 inherit pub_attribs_classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST" id="r_af46e9691ef34f8835cddfadeeeed93b7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html#af46e9691ef34f8835cddfadeeeed93b7">loc</a> = loc</td></tr>
 <tr class="separator:af46e9691ef34f8835cddfadeeeed93b7 inherit pub_attribs_classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Expression class for defining a variable.
+
+Represents a variable declaration in the source code, including its name,
+type information, and optional initialization expression.
+
+@param name: The variable name
+@param type_name: The C type name (int, float, etc.)
+@param varType: Optional tensor dimensions information
+@param expr: Optional initialization expression
+</pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="ae31dbe78b39016a6c8476675755bff64" name="ae31dbe78b39016a6c8476675755bff64"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae31dbe78b39016a6c8476675755bff64">&#9670;&#160;</a></span>inner_dump()</h2>
 
@@ -169,7 +179,11 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Format this variable declaration for debugging output.
 
+@param prefix: String to prepend to the output
+@param dumper: Dumper instance to append formatted output to
+</pre> 
 <p>Reimplemented from <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html#afd590ac601edc231cac8f92dfa55d6ac">CtoQ.frontend.c_ast.ExprAST</a>.</p>
 
 </div>
@@ -188,7 +202,10 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Get the kind of this expression.
 
+@return ExprASTKind.Expr_VarDecl
+</pre> 
 <p>Reimplemented from <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html#a5258cf9d08c29782dbde8c9555c9fd49">CtoQ.frontend.c_ast.ExprAST</a>.</p>
 
 </div>

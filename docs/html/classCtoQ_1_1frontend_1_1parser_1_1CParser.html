@@ -216,7 +216,20 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:a1c3c3511993fb424805fedd993d1c543 inherit pub_static_attribs_classCtoQ_1_1frontend_1_1lexer_1_1CTokenKind" id="r_a1c3c3511993fb424805fedd993d1c543"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classCtoQ_1_1frontend_1_1lexer_1_1CTokenKind.html#a1c3c3511993fb424805fedd993d1c543">EOF</a> = auto()</td></tr>
 <tr class="separator:a1c3c3511993fb424805fedd993d1c543 inherit pub_static_attribs_classCtoQ_1_1frontend_1_1lexer_1_1CTokenKind"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Parser for C language source code.
+
+This parser implements a recursive descent algorithm to parse a subset of the
+C programming language. It builds an Abstract Syntax Tree (AST) that represents
+the structure and semantics of the C program, which can be further processed
+for quantum transformation.
+
+The parser supports function definitions, variable declarations, expressions,
+function calls, and control flow constructs like conditionals and loops.
+
+@see CLexer
+@see c_ast.py
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a9e1b7642c8da372b14a419d5f7ab8eb8" name="a9e1b7642c8da372b14a419d5f7ab8eb8"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9e1b7642c8da372b14a419d5f7ab8eb8">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -240,7 +253,11 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Initialize the C parser with source file and program text.
 
+@param file: Path object representing the source file path
+@param program: String containing the C program text to parse
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -262,8 +279,10 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Verifies that the current token fits the pattern,
-returns False otherwise
+<pre class="fragment">@brief Verifies that the current token fits the pattern.
+
+@param pattern: String or token kind to match against
+@return True if the current token matches the pattern, False otherwise
 </pre> 
 </div>
 </div>
@@ -281,7 +300,10 @@ returns False otherwise
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Returns current token in parser</pre> 
+<pre class="fragment">@brief Returns current token in parser.
+
+@return The current token being processed
+</pre> 
 </div>
 </div>
 <a id="ae6964e07e8e4eda572192641e97efe65" name="ae6964e07e8e4eda572192641e97efe65"></a>
@@ -298,7 +320,13 @@ returns False otherwise
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Returns precedence if the current token is a binary operation, -1 otherwise</pre> 
+<pre class="fragment">@brief Returns precedence if the current token is a binary operation.
+
+Determines the precedence level of the current token if it's a binary
+operator. Higher values indicate higher precedence.
+
+@return Precedence value or -1 if the token is not a binary operator
+</pre> 
 </div>
 </div>
 <a id="a8a0f18fe8aa09412378925ea0b3ed371" name="a8a0f18fe8aa09412378925ea0b3ed371"></a>
@@ -324,7 +352,15 @@ returns False otherwise
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Parse the right-hand side of a binary expression.
 
+This method handles operator precedence and builds the appropriate
+expression tree based on operator precedence.
+
+@param exprPrec: Current precedence level
+@param lhs: Left-hand side expression
+@return Complete binary expression with correct precedence handling
+</pre> 
 </div>
 </div>
 <a id="abdf5d7ebfdf289426635da000fd6d519" name="abdf5d7ebfdf289426635da000fd6d519"></a>
@@ -341,10 +377,14 @@ returns False otherwise
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a C block: a list of statements wrapped in curly braces
+<pre class="fragment">@brief Parse a C block: a list of statements wrapped in curly braces.
+
 block ::= '{' statement_list '}'
 statement_list ::= statement | statement statement_list
 statement ::= declaration_list | expression_statement | return_statement
+
+@return Tuple of ExprAST objects representing the statements in the block
+@throws ParseError if the block syntax is invalid
 </pre> 
 </div>
 </div>
@@ -362,8 +402,12 @@ statement ::= declaration_list | expression_statement | return_statement
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a C variable declaration
+<pre class="fragment">@brief Parse a C variable declaration.
+
 declaration ::= type identifier ['=' expr] ';'
+
+@return VarDeclExprAST representing the variable declaration
+@throws ParseError if the declaration syntax is invalid
 </pre> 
 </div>
 </div>
@@ -381,8 +425,12 @@ declaration ::= type identifier ['=' expr] ';'
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a list of C variable declarations of the same type
+<pre class="fragment">@brief Parse a list of C variable declarations of the same type.
+
 declaration_list ::= type identifier ['=' expr] [, identifier ['=' expr]]* ';'
+
+@return List of VarDeclExprAST objects representing the variable declarations
+@throws ParseError if the declaration syntax is invalid
 </pre> 
 </div>
 </div>
@@ -400,8 +448,12 @@ declaration_list ::= type identifier ['=' expr] [, identifier ['=' expr]]* ';'
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a C function definition
+<pre class="fragment">@brief Parse a C function definition.
+
 definition ::= prototype '{' statement_list '}'
+
+@return FunctionAST representing the complete function definition
+@throws ParseError if the function definition syntax is invalid
 </pre> 
 </div>
 </div>
@@ -419,7 +471,12 @@ definition ::= prototype '{' statement_list '}'
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">expression::= primary binop rhs</pre> 
+<pre class="fragment">@brief Parse a complete expression.
+
+expression ::= primary binop rhs
+
+@return ExprAST representing the full expression
+</pre> 
 </div>
 </div>
 <a id="a1b8bad5ab1a45b3eab4cbb65848713ab" name="a1b8bad5ab1a45b3eab4cbb65848713ab"></a>
@@ -436,9 +493,12 @@ definition ::= prototype '{' statement_list '}'
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">identifierexpr
-::= identifier
-::= identifier '(' expression ')'
+<pre class="fragment">@brief Parse an identifier expression (variable or function call).
+
+identifierexpr ::= identifier
+                ::= identifier '(' expression ')'
+
+@return VariableExprAST, CallExprAST, or PrintExprAST for the parsed expression
 </pre> 
 </div>
 </div>
@@ -456,8 +516,11 @@ definition ::= prototype '{' statement_list '}'
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a full C module (a collection of function definitions)
+<pre class="fragment">@brief Parse a full C module (a collection of function definitions).
+
 module ::= definition*
+
+@return ModuleAST object containing the parsed functions
 </pre> 
 </div>
 </div>
@@ -475,8 +538,11 @@ module ::= definition*
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a literal number.
+<pre class="fragment">@brief Parse a literal number.
+
 numberexpr ::= number
+
+@return NumberExprAST representing the parsed number
 </pre> 
 </div>
 </div>
@@ -494,7 +560,12 @@ numberexpr ::= number
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Parse a parenthesized expression.
 
+parenexpr ::= '(' expression ')'
+
+@return ExprAST representing the parsed expression
+</pre> 
 </div>
 </div>
 <a id="ad4f116aa76f62867d029e7a113ad8c1d" name="ad4f116aa76f62867d029e7a113ad8c1d"></a>
@@ -511,11 +582,14 @@ numberexpr ::= number
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">primary
-::= identifierexpr
-::= numberexpr
-::= parenexpr
-::= tensorliteral
+<pre class="fragment">@brief Parse a primary expression.
+
+primary ::= identifierexpr
+        ::= numberexpr
+        ::= parenexpr
+        ::= tensorliteral
+
+@return ExprAST representing the parsed expression or None if end of block
 </pre> 
 </div>
 </div>
@@ -533,11 +607,15 @@ numberexpr ::= number
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">primary
-::= identifierexpr
-::= numberexpr
-::= parenexpr
-::= tensorliteral
+<pre class="fragment">@brief Parse a primary expression, requiring a valid expression.
+
+primary ::= identifierexpr
+        ::= numberexpr
+        ::= parenexpr
+        ::= tensorliteral
+
+@return ExprAST representing the parsed expression
+@throws ParseError if no valid expression is found
 </pre> 
 </div>
 </div>
@@ -555,10 +633,14 @@ numberexpr ::= number
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a C function prototype
+<pre class="fragment">@brief Parse a C function prototype.
+
 prototype ::= return_type id '(' param_list ')'
 param_list ::= param | param, param_list
 param ::= type id
+
+@return PrototypeAST representing the function prototype
+@throws ParseError if the prototype syntax is invalid
 </pre> 
 </div>
 </div>
@@ -576,8 +658,11 @@ param ::= type id
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a return statement:
+<pre class="fragment">@brief Parse a return statement.
+
 return_statement ::= 'return' [expression] ';'
+
+@return ReturnExprAST representing the return statement
 </pre> 
 </div>
 </div>
@@ -595,9 +680,13 @@ return_statement ::= 'return' [expression] ';'
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse a literal array expression.
+<pre class="fragment">@brief Parse a literal array expression.
+
 tensorLiteral ::= [ literalList ] | number
 literalList ::= tensorLiteral | tensorLiteral, literalList
+
+@return LiteralExprAST or NumberExprAST representing the parsed tensor/array
+@throws ParseError if the tensor literal is malformed
 </pre> 
 </div>
 </div>
@@ -615,8 +704,12 @@ literalList ::= tensorLiteral | tensorLiteral, literalList
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">type ::= &lt; shape_list &gt;
+<pre class="fragment">@brief Parse a variable type with shape information.
+
+type ::= &lt; shape_list &gt;
 shape_list ::= num | num , shape_list
+
+@return VarType object with shape information
 </pre> 
 </div>
 </div>
@@ -638,7 +731,10 @@ shape_list ::= num | num , shape_list
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Returns token matching pattern or None
+<pre class="fragment">@brief Check if the current token matches a pattern without consuming it.
+
+@param pattern: String or token kind to match against
+@return The matching token or None if no match
 </pre> 
 </div>
 </div>
@@ -656,7 +752,10 @@ shape_list ::= num | num , shape_list
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Consume and return the current token.
 
+@return The consumed token
+</pre> 
 </div>
 </div>
 <a id="a8eb5ff54a1bc07bc33386722c6fa5b9c" name="a8eb5ff54a1bc07bc33386722c6fa5b9c"></a>
@@ -677,8 +776,11 @@ shape_list ::= num | num , shape_list
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Verifies that the current token fits the pattern,
-raises ParseError otherwise
+<pre class="fragment">@brief Verify that the current token matches a pattern and consume it.
+
+@param pattern: String pattern to match against
+@return The consumed token
+@throws ParseError if the current token doesn't match the pattern
 </pre> 
 </div>
 </div>
@@ -700,8 +802,11 @@ raises ParseError otherwise
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Verifies that the current token is of expected type,
-raises ParseError otherwise
+<pre class="fragment">@brief Verify that the current token is of expected type and consume it.
+
+@param tokenType: Expected token kind
+@return The consumed token
+@throws ParseError if the current token is not of the expected type
 </pre> 
 </div>
 </div>

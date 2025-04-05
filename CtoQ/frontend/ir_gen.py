@@ -1,3 +1,16 @@
+"""
+@file ir_gen.py
+@brief IR generator that converts C AST to Quantum IR.
+
+This module implements the IR generation phase of the C to Quantum compiler.
+It takes an Abstract Syntax Tree (AST) produced by the parser and generates
+corresponding Quantum IR operations using the quantum dialect.
+
+The generator supports basic C constructs such as variable declarations,
+assignments, arithmetic operations, function calls, and return statements,
+and maps them to appropriate quantum operations.
+"""
+
 from __future__ import annotations
 
 # Change this import line
@@ -15,10 +28,39 @@ from ..dialects.quantum_dialect import (
 )
 
 class IRGenError(Exception):
+    """
+    @brief Exception raised for errors during IR generation.
+    
+    This exception is raised when the IR generator encounters an issue that
+    prevents it from generating valid quantum IR, such as unsupported expressions
+    or undefined variables.
+    """
     pass
 
 class QuantumIRGen:
+    """
+    @brief IR Generator that converts C AST to Quantum IR.
+    
+    This class is responsible for transforming the C Abstract Syntax Tree (AST)
+    into Quantum Intermediate Representation (IR) using quantum operations.
+    It traverses the AST recursively and generates equivalent quantum operations
+    for each C language construct.
+    
+    The class maintains a symbol table to keep track of variables and their
+    corresponding quantum registers during compilation.
+    
+    @see ModuleAST
+    @see FunctionAST
+    @see Quantum
+    """
+    
     def __init__(self):
+        """
+        @brief Initialize the Quantum IR Generator.
+        
+        Creates a new context, loads the quantum dialect, initializes the module,
+        builder, and symbol table for IR generation.
+        """
         self.context = Context()
         # Load the quantum dialect
         self.context.load_dialect(Quantum)
@@ -29,14 +71,29 @@ class QuantumIRGen:
         self.symbol_table = ScopedDict()
     
     def ir_gen_module(self, module_ast: ModuleAST) -> ModuleOp:
-        """Generate Quantum IR from C AST Module"""
+        """
+        @brief Generate Quantum IR from C AST Module.
+        
+        This is the top-level method that processes an entire C module,
+        generating IR for each function defined in the module.
+        
+        @param module_ast: The ModuleAST node representing the C module
+        @return The generated ModuleOp containing quantum IR
+        """
         for func_ast in module_ast.funcs:  # Use the correct attribute name
             self.ir_gen_function(func_ast)
             
         return self.module
     
     def ir_gen_function(self, function_ast: FunctionAST):
-        """Generate a quantum function from a C function AST"""
+        """
+        @brief Generate a quantum function from a C function AST.
+        
+        Creates a new function in the IR with its own region and block,
+        processes the function parameters, and generates IR for the function body.
+        
+        @param function_ast: The FunctionAST node representing the C function
+        """
         # Create a new scope for this function
         self.symbol_table = ScopedDict()
         
@@ -63,7 +120,15 @@ class QuantumIRGen:
             self.ir_gen_expr(expr)
     
     def ir_gen_expr(self, expr: ExprAST):
-        """Generate IR for a C expression"""
+        """
+        @brief Generate IR for a C expression.
+        
+        This method dispatches to the appropriate method based on the expression type.
+        
+        @param expr: The ExprAST node representing a C expression
+        @return The resulting quantum value (usually a qubit reference)
+        @throws IRGenError if the expression type is unsupported
+        """
         if isinstance(expr, BinaryExprAST):
             return self.ir_gen_binary_expr(expr)
         elif isinstance(expr, VariableExprAST):
@@ -80,7 +145,16 @@ class QuantumIRGen:
             raise IRGenError(f"Unsupported expression type: {type(expr)}")
     
     def ir_gen_binary_expr(self, expr: BinaryExprAST):
-        """Generate quantum operations for binary expressions"""
+        """
+        @brief Generate quantum operations for binary expressions.
+        
+        Handles binary operators like assignment (=), addition (+), and subtraction (-).
+        For unsupported operators, uses the left-hand side value as a fallback.
+        
+        @param expr: The BinaryExprAST node representing a binary operation
+        @return The resulting quantum value
+        @throws IRGenError if the left side of an assignment is not a variable
+        """
         # Handle assignment separately
         if expr.op == "=":
             if isinstance(expr.lhs, VariableExprAST):
@@ -113,7 +187,17 @@ class QuantumIRGen:
             
     
     def ir_gen_quantum_addition(self, a, b):
-        """Generate quantum circuit for addition (simplified)"""
+        """
+        @brief Generate quantum circuit for addition.
+        
+        Implements a simplified quantum adder using Hadamard gates, CNOT gates,
+        and Toffoli gates (CCNOT). This is a simplified implementation that
+        demonstrates the concept rather than a full quantum adder.
+        
+        @param a: First quantum operand
+        @param b: Second quantum operand
+        @return The resulting quantum value representing the sum
+        """
         # This is a simplified quantum adder implementation
         # In a real quantum computer, addition would be more complex
         
@@ -132,7 +216,16 @@ class QuantumIRGen:
         return final
     
     def ir_gen_quantum_subtraction(self, a, b):
-        """Generate quantum circuit for subtraction (simplified)"""
+        """
+        @brief Generate quantum circuit for subtraction.
+        
+        Implements subtraction by first inverting the second operand using a NOT gate,
+        and then performing addition. This is a simplified implementation.
+        
+        @param a: First quantum operand (minuend)
+        @param b: Second quantum operand (subtrahend)
+        @return The resulting quantum value representing the difference
+        """
         # Invert b using a NOT gate
         not_b = self.builder.insert(NotOp.from_value(b)).res
         
@@ -140,14 +233,30 @@ class QuantumIRGen:
         return self.ir_gen_quantum_addition(a, not_b)
     
     def ir_gen_variable_expr(self, expr: VariableExprAST):
-        """Generate IR for a variable reference"""
+        """
+        @brief Generate IR for a variable reference.
+        
+        Looks up the variable in the symbol table and returns its quantum value.
+        
+        @param expr: The VariableExprAST node representing a variable reference
+        @return The quantum value associated with the variable
+        @throws IRGenError if the variable is undefined
+        """
         if expr.name in self.symbol_table:
             return self.symbol_table[expr.name]
         else:
             raise IRGenError(f"Undefined variable: {expr.name}")
     
     def ir_gen_number_expr(self, expr: NumberExprAST):
-        """Generate IR for a number literal"""
+        """
+        @brief Generate IR for a number literal.
+        
+        Creates a qubit representation of the number. If the number is non-zero,
+        applies a NOT gate to flip the qubit to the |1⟩ state.
+        
+        @param expr: The NumberExprAST node representing a number literal
+        @return The quantum value representing the number
+        """
         # Initialize a qubit
         qubit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
         
@@ -158,7 +267,14 @@ class QuantumIRGen:
         return qubit
     
     def ir_gen_var_decl_expr(self, expr: VarDeclExprAST):
-        """Generate IR for a variable declaration"""
+        """
+        @brief Generate IR for a variable declaration.
+        
+        Initializes a new qubit for the variable and handles initialization if provided.
+        
+        @param expr: The VarDeclExprAST node representing a variable declaration
+        @return The quantum value associated with the new variable
+        """
         # Initialize a new qubit for this variable
         qubit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
         
@@ -178,7 +294,15 @@ class QuantumIRGen:
             return qubit
     
     def ir_gen_return_expr(self, expr: ReturnExprAST):
-        """Generate IR for a return statement"""
+        """
+        @brief Generate IR for a return statement.
+        
+        Evaluates the return expression if provided and measures the quantum state
+        to get a classical result. For void returns or errors, provides a default value.
+        
+        @param expr: The ReturnExprAST node representing a return statement
+        @return The measured quantum value
+        """
         try:
             if expr.expr is not None:
                 # Evaluate the return expression
@@ -205,7 +329,15 @@ class QuantumIRGen:
             return result
     
     def ir_gen_call_expr(self, expr: CallExprAST):
-        """Generate IR for a function call"""
+        """
+        @brief Generate IR for a function call.
+        
+        Evaluates the function arguments and combines them using quantum operations.
+        This is a simplified implementation that doesn't handle actual function calls.
+        
+        @param expr: The CallExprAST node representing a function call
+        @return The resulting quantum value
+        """
         # For simplicity, we'll just evaluate the arguments
         # A full implementation would need to handle function calls properly
         args = [self.ir_gen_expr(arg) for arg in expr.args]

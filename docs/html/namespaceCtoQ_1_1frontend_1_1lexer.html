@@ -130,7 +130,18 @@ Variables</h2></td></tr>
 <tr class="memitem:a92518734b4b7a8a661c997b9fcb2c84d" id="r_a92518734b4b7a8a661c997b9fcb2c84d"><td class="memItemLeft" align="right" valign="top">TypeAlias&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a92518734b4b7a8a661c997b9fcb2c84d">CToken</a> = Token[<a class="el" href="classCtoQ_1_1frontend_1_1lexer_1_1CTokenKind.html">CTokenKind</a>]</td></tr>
 <tr class="separator:a92518734b4b7a8a661c997b9fcb2c84d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Variable Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@file lexer.py
+@brief Lexical analyzer for C source code in the C to Quantum compiler.
+
+This module implements a lexical analyzer (lexer) for a subset of the C 
+programming language. It tokenizes C source code by breaking it into individual
+tokens such as identifiers, keywords, operators, and literals, which can then
+be processed by the parser to build an Abstract Syntax Tree (AST).
+
+The lexer handles C constructs such as comments, identifiers, numbers, operators,
+and punctuation. It is built on top of the xdsl lexer utilities.
+</pre> </div><h2 class="groupheader">Variable Documentation</h2>
 <a id="ae8db371aa5d379dc44cbe55cfaf2a405" name="ae8db371aa5d379dc44cbe55cfaf2a405"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae8db371aa5d379dc44cbe55cfaf2a405">&#9670;&#160;</a></span>C_KEYWORDS</h2>
 

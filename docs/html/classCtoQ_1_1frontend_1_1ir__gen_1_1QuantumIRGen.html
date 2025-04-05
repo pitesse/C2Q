@@ -149,7 +149,21 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:a8425b1e106c7b1e7c2315d3e7715f299" id="r_a8425b1e106c7b1e7c2315d3e7715f299"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8425b1e106c7b1e7c2315d3e7715f299">symbol_table</a> = ScopedDict()</td></tr>
 <tr class="separator:a8425b1e106c7b1e7c2315d3e7715f299"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief IR Generator that converts C AST to Quantum IR.
+
+This class is responsible for transforming the C Abstract Syntax Tree (AST)
+into Quantum Intermediate Representation (IR) using quantum operations.
+It traverses the AST recursively and generates equivalent quantum operations
+for each C language construct.
+
+The class maintains a symbol table to keep track of variables and their
+corresponding quantum registers during compilation.
+
+@see ModuleAST
+@see FunctionAST
+@see Quantum
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a3906e5d9ac7cca6ea8a38ba573a32532" name="a3906e5d9ac7cca6ea8a38ba573a32532"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a3906e5d9ac7cca6ea8a38ba573a32532">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -164,7 +178,11 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Initialize the Quantum IR Generator.
 
+Creates a new context, loads the quantum dialect, initializes the module,
+builder, and symbol table for IR generation.
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -186,7 +204,15 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate quantum operations for binary expressions</pre> 
+<pre class="fragment">@brief Generate quantum operations for binary expressions.
+
+Handles binary operators like assignment (=), addition (+), and subtraction (-).
+For unsupported operators, uses the left-hand side value as a fallback.
+
+@param expr: The BinaryExprAST node representing a binary operation
+@return The resulting quantum value
+@throws IRGenError if the left side of an assignment is not a variable
+</pre> 
 </div>
 </div>
 <a id="ac705162e3df5a4a2f87922afada0b94a" name="ac705162e3df5a4a2f87922afada0b94a"></a>
@@ -207,7 +233,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate IR for a function call</pre> 
+<pre class="fragment">@brief Generate IR for a function call.
+
+Evaluates the function arguments and combines them using quantum operations.
+This is a simplified implementation that doesn't handle actual function calls.
+
+@param expr: The CallExprAST node representing a function call
+@return The resulting quantum value
+</pre> 
 </div>
 </div>
 <a id="ab2ad254c18128093b63be30390f4856d" name="ab2ad254c18128093b63be30390f4856d"></a>
@@ -228,7 +261,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate IR for a C expression</pre> 
+<pre class="fragment">@brief Generate IR for a C expression.
+
+This method dispatches to the appropriate method based on the expression type.
+
+@param expr: The ExprAST node representing a C expression
+@return The resulting quantum value (usually a qubit reference)
+@throws IRGenError if the expression type is unsupported
+</pre> 
 </div>
 </div>
 <a id="aba2592f285075a740e07dc626847335b" name="aba2592f285075a740e07dc626847335b"></a>
@@ -249,7 +289,13 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate a quantum function from a C function AST</pre> 
+<pre class="fragment">@brief Generate a quantum function from a C function AST.
+
+Creates a new function in the IR with its own region and block,
+processes the function parameters, and generates IR for the function body.
+
+@param function_ast: The FunctionAST node representing the C function
+</pre> 
 </div>
 </div>
 <a id="a5fe5ba4c541dd77ed404ae1b36c70ec2" name="a5fe5ba4c541dd77ed404ae1b36c70ec2"></a>
@@ -270,7 +316,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate Quantum IR from C AST Module</pre> 
+<pre class="fragment">@brief Generate Quantum IR from C AST Module.
+
+This is the top-level method that processes an entire C module,
+generating IR for each function defined in the module.
+
+@param module_ast: The ModuleAST node representing the C module
+@return The generated ModuleOp containing quantum IR
+</pre> 
 </div>
 </div>
 <a id="a4c980cbd0ab8242ab05745f9a56bf32b" name="a4c980cbd0ab8242ab05745f9a56bf32b"></a>
@@ -291,7 +344,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate IR for a number literal</pre> 
+<pre class="fragment">@brief Generate IR for a number literal.
+
+Creates a qubit representation of the number. If the number is non-zero,
+applies a NOT gate to flip the qubit to the |1⟩ state.
+
+@param expr: The NumberExprAST node representing a number literal
+@return The quantum value representing the number
+</pre> 
 </div>
 </div>
 <a id="a5fa92146e4cea23d8dd2267473911fee" name="a5fa92146e4cea23d8dd2267473911fee"></a>
@@ -317,7 +377,16 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate quantum circuit for addition (simplified)</pre> 
+<pre class="fragment">@brief Generate quantum circuit for addition.
+
+Implements a simplified quantum adder using Hadamard gates, CNOT gates,
+and Toffoli gates (CCNOT). This is a simplified implementation that
+demonstrates the concept rather than a full quantum adder.
+
+@param a: First quantum operand
+@param b: Second quantum operand
+@return The resulting quantum value representing the sum
+</pre> 
 </div>
 </div>
 <a id="af4b5733df0c0c26d982e2a59ee2c9446" name="af4b5733df0c0c26d982e2a59ee2c9446"></a>
@@ -343,7 +412,15 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate quantum circuit for subtraction (simplified)</pre> 
+<pre class="fragment">@brief Generate quantum circuit for subtraction.
+
+Implements subtraction by first inverting the second operand using a NOT gate,
+and then performing addition. This is a simplified implementation.
+
+@param a: First quantum operand (minuend)
+@param b: Second quantum operand (subtrahend)
+@return The resulting quantum value representing the difference
+</pre> 
 </div>
 </div>
 <a id="a46c89519ac1b9dec78ebd6e5d1a4d50f" name="a46c89519ac1b9dec78ebd6e5d1a4d50f"></a>
@@ -364,7 +441,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate IR for a return statement</pre> 
+<pre class="fragment">@brief Generate IR for a return statement.
+
+Evaluates the return expression if provided and measures the quantum state
+to get a classical result. For void returns or errors, provides a default value.
+
+@param expr: The ReturnExprAST node representing a return statement
+@return The measured quantum value
+</pre> 
 </div>
 </div>
 <a id="acd298e9edd8d400773b35ae42adc0165" name="acd298e9edd8d400773b35ae42adc0165"></a>
@@ -385,7 +469,13 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate IR for a variable declaration</pre> 
+<pre class="fragment">@brief Generate IR for a variable declaration.
+
+Initializes a new qubit for the variable and handles initialization if provided.
+
+@param expr: The VarDeclExprAST node representing a variable declaration
+@return The quantum value associated with the new variable
+</pre> 
 </div>
 </div>
 <a id="a8aa8d78e488f1f24e217fadd592b6f3c" name="a8aa8d78e488f1f24e217fadd592b6f3c"></a>
@@ -406,7 +496,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Generate IR for a variable reference</pre> 
+<pre class="fragment">@brief Generate IR for a variable reference.
+
+Looks up the variable in the symbol table and returns its quantum value.
+
+@param expr: The VariableExprAST node representing a variable reference
+@return The quantum value associated with the variable
+@throws IRGenError if the variable is undefined
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

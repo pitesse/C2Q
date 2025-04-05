@@ -1,3 +1,12 @@
+"""
+@file __main__.py
+@brief Main entry point for the C to Quantum compiler.
+
+This module serves as the entry point for the C to Quantum (CtoQ) tool,
+which parses C source code and generates corresponding Quantum IR.
+It handles command-line arguments and orchestrates the compilation process.
+"""
+
 import argparse
 from pathlib import Path
 
@@ -26,6 +35,7 @@ from .frontend.parser import CParser as CParser
 
 # from .interpreter import Interpreter, ToyFunctions
 
+# Set up command-line argument parser
 parser = argparse.ArgumentParser(description="Process Toy file")
 parser.add_argument("source", type=Path, help="toy source file")
 parser.add_argument(
@@ -54,6 +64,19 @@ parser.add_argument("--print-op-generic", dest="print_generic", action="store_tr
 
 
 def main(path: Path, emit: str, ir: bool, print_generic: bool):
+    """
+    @brief Main compilation function that processes input files and generates quantum IR.
+    
+    This function drives the compilation pipeline by reading the input file,
+    parsing it based on its extension, and generating the appropriate IR.
+    Currently, it supports C files for conversion to Quantum IR.
+    
+    @param path: Path object pointing to the source file
+    @param emit: Target compilation format (e.g., "ast", "toy", "riscv-asm")
+    @param ir: Flag to indicate whether to print the IR
+    @param print_generic: Flag to indicate whether to print in generic format
+    @return: None
+    """
     path = args.source
 
     with open(path) as f:
@@ -139,5 +162,10 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
 
 
 if __name__ == "__main__":
+    """
+    @brief Entry point when script is executed directly.
+    
+    Parses command-line arguments and calls the main function with the provided options.
+    """
     args = parser.parse_args()
     main(args.source, args.emit, args.ir, args.print_generic)

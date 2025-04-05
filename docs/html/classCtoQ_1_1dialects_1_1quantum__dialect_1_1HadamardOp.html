@@ -137,7 +137,13 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a689548bcd3d7a827d0f4a9869a6642d3" id="r_a689548bcd3d7a827d0f4a9869a6642d3"><td class="memItemLeft" align="right" valign="top">OpResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a689548bcd3d7a827d0f4a9869a6642d3">res</a> = result_def()</td></tr>
 <tr class="separator:a689548bcd3d7a827d0f4a9869a6642d3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Hadamard gate operation for creating superposition.
+
+The Hadamard gate creates a superposition by transforming states |0⟩ to |+⟩ and
+|1⟩ to |-⟩. It is fundamental for creating superposition states in quantum
+algorithms and is often used as the first step in many quantum circuits.
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a1aba6e090684ab718bd5be8f4db53524" name="a1aba6e090684ab718bd5be8f4db53524"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a1aba6e090684ab718bd5be8f4db53524">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -156,7 +162,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Apply a Hadamard gate to a target qubit or vector of qubits.
 
+@param target: The qubit or vector of qubits to apply the Hadamard gate to
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -182,7 +191,11 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Factory method to create a HadamardOp from a target value.
 
+@param target: The qubit or vector of qubits to apply the Hadamard gate to
+@return A new HadamardOp instance
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

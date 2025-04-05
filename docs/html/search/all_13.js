@@ -34,11 +34,12 @@ var searchData=
   ['stringattr_31',['StringAttr',['../classbuiltin_1_1StringAttr.html',1,'builtin']]],
   ['struct_5fname_32',['struct_name',['../classmlir__dialect_1_1LLVMStructType.html#ad69ed37bc70fabc9fc11488ca47da494',1,'mlir_dialect::LLVMStructType']]],
   ['structpackabletype_33',['StructPackableType',['../classbuiltin_1_1StructPackableType.html',1,'builtin']]],
-  ['sub_5foperand_34',['sub_operand',['../classcommon__subexpr__elimination_1_1OperationInfo.html#a9c8cd7828efb9e38c938e0ff35827ec1',1,'common_subexpr_elimination::OperationInfo']]],
-  ['subop_35',['SubOp',['../classmlir__dialect_1_1SubOp.html',1,'mlir_dialect']]],
-  ['sym_5fname_36',['sym_name',['../classCtoQ_1_1dialects_1_1toy_1_1FuncOp.html#a42fe24bc1af444bbc946242ccfc2bfcd',1,'CtoQ.dialects.toy.FuncOp.sym_name'],['../classbuiltin_1_1ModuleOp.html#aef73ea1f857df24a3e5c07d322ffc8a6',1,'builtin.ModuleOp.sym_name'],['../classmlir__dialect_1_1GlobalOp.html#aa23e3cabf5c2b06884e06d43f463d3be',1,'mlir_dialect.GlobalOp.sym_name'],['../classmlir__dialect_1_1FuncOp.html#aba8c4b93d4aae8e6ff6f8538fc72236b',1,'mlir_dialect.FuncOp.sym_name']]],
-  ['sym_5fvisibility_37',['sym_visibility',['../classCtoQ_1_1dialects_1_1toy_1_1FuncOp.html#aa1ba2203c2b3134c002faff0dac906a6',1,'CtoQ.dialects.toy.FuncOp.sym_visibility'],['../classmlir__dialect_1_1FuncOp.html#aec88689dee99a83c48141b17b72adc9d',1,'mlir_dialect.FuncOp.sym_visibility']]],
-  ['symbol_5ftable_38',['symbol_table',['../classCtoQ_1_1frontend_1_1ir__gen_1_1QuantumIRGen.html#a8425b1e106c7b1e7c2315d3e7715f299',1,'CtoQ.frontend.ir_gen.QuantumIRGen.symbol_table'],['../classir__gen_1_1IRGen.html#ac17f41b3dbb1bafe92c9a688102ab897',1,'ir_gen.IRGen.symbol_table']]],
-  ['symbolnameattr_39',['SymbolNameAttr',['../classbuiltin_1_1SymbolNameAttr.html',1,'builtin']]],
-  ['symbolrefattr_40',['SymbolRefAttr',['../classbuiltin_1_1SymbolRefAttr.html',1,'builtin']]]
+  ['structure_34',['Project Structure',['../index.html#autotoc_md9',1,'']]],
+  ['sub_5foperand_35',['sub_operand',['../classcommon__subexpr__elimination_1_1OperationInfo.html#a9c8cd7828efb9e38c938e0ff35827ec1',1,'common_subexpr_elimination::OperationInfo']]],
+  ['subop_36',['SubOp',['../classmlir__dialect_1_1SubOp.html',1,'mlir_dialect']]],
+  ['sym_5fname_37',['sym_name',['../classCtoQ_1_1dialects_1_1toy_1_1FuncOp.html#a42fe24bc1af444bbc946242ccfc2bfcd',1,'CtoQ.dialects.toy.FuncOp.sym_name'],['../classbuiltin_1_1ModuleOp.html#aef73ea1f857df24a3e5c07d322ffc8a6',1,'builtin.ModuleOp.sym_name'],['../classmlir__dialect_1_1GlobalOp.html#aa23e3cabf5c2b06884e06d43f463d3be',1,'mlir_dialect.GlobalOp.sym_name'],['../classmlir__dialect_1_1FuncOp.html#aba8c4b93d4aae8e6ff6f8538fc72236b',1,'mlir_dialect.FuncOp.sym_name']]],
+  ['sym_5fvisibility_38',['sym_visibility',['../classCtoQ_1_1dialects_1_1toy_1_1FuncOp.html#aa1ba2203c2b3134c002faff0dac906a6',1,'CtoQ.dialects.toy.FuncOp.sym_visibility'],['../classmlir__dialect_1_1FuncOp.html#aec88689dee99a83c48141b17b72adc9d',1,'mlir_dialect.FuncOp.sym_visibility']]],
+  ['symbol_5ftable_39',['symbol_table',['../classCtoQ_1_1frontend_1_1ir__gen_1_1QuantumIRGen.html#a8425b1e106c7b1e7c2315d3e7715f299',1,'CtoQ.frontend.ir_gen.QuantumIRGen.symbol_table'],['../classir__gen_1_1IRGen.html#ac17f41b3dbb1bafe92c9a688102ab897',1,'ir_gen.IRGen.symbol_table']]],
+  ['symbolnameattr_40',['SymbolNameAttr',['../classbuiltin_1_1SymbolNameAttr.html',1,'builtin']]],
+  ['symbolrefattr_41',['SymbolRefAttr',['../classbuiltin_1_1SymbolRefAttr.html',1,'builtin']]]
 ];

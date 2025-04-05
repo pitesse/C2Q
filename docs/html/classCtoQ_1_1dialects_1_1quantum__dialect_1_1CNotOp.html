@@ -139,7 +139,16 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a9977804bf91117cf7dbeb14b8f1f1c0f" id="r_a9977804bf91117cf7dbeb14b8f1f1c0f"><td class="memItemLeft" align="right" valign="top">OpResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9977804bf91117cf7dbeb14b8f1f1c0f">res</a> = result_def()</td></tr>
 <tr class="separator:a9977804bf91117cf7dbeb14b8f1f1c0f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Operation to apply the CNOT gate (Controlled-NOT) to qubits.
+
+The CNOT gate is a two-qubit operation where the state of the target qubit
+is flipped if the control qubit is in the |1⟩ state. It is fundamental for
+creating entanglement between qubits.
+
+@see NotOp
+@see CCNotOp
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ac2667da27e589ff890679e3e06d0057e" name="ac2667da27e589ff890679e3e06d0057e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac2667da27e589ff890679e3e06d0057e">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -163,7 +172,11 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Apply a CNOT gate with the specified control and target qubits.
 
+@param control: The control qubit (or vector of control qubits)
+@param target: The target qubit (or vector of target qubits)
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -193,7 +206,12 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Factory method to create a CNotOp from control and target values.
 
+@param control: The control qubit (or vector of control qubits)
+@param target: The target qubit (or vector of target qubits)
+@return A new CNotOp instance
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

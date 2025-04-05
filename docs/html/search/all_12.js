@@ -29,6 +29,5 @@ var searchData=
   ['root_26',['Root',['../classJSON__to__DataClasses_1_1Root.html',1,'JSON_to_DataClasses']]],
   ['root_5freference_27',['root_reference',['../classbuiltin_1_1SymbolRefAttr.html#a1f2930c66faa9dabbb7e90e32440851e',1,'builtin::SymbolRefAttr']]],
   ['run_5fqasm_2epy_28',['run_qasm.py',['../run__qasm_8py.html',1,'']]],
-  ['run_5fsimulation_29',['run_simulation',['../namespaceCtoQ_1_1backend_1_1qiskit__translator.html#aa7eed382c767f62d95c066dbd8aa59eb',1,'CtoQ::backend::qiskit_translator']]],
-  ['running_20c_20to_20quantum_30',['Running C to Quantum',['../index.html',1,'']]]
+  ['run_5fsimulation_29',['run_simulation',['../namespaceCtoQ_1_1backend_1_1qiskit__translator.html#aa7eed382c767f62d95c066dbd8aa59eb',1,'CtoQ::backend::qiskit_translator']]]
 ];

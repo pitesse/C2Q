@@ -143,7 +143,14 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:af46e9691ef34f8835cddfadeeeed93b7" id="r_af46e9691ef34f8835cddfadeeeed93b7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af46e9691ef34f8835cddfadeeeed93b7">loc</a> = loc</td></tr>
 <tr class="separator:af46e9691ef34f8835cddfadeeeed93b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Base class for all expression AST nodes.
+
+This abstract class serves as the parent for all expression types in the AST.
+It provides common functionality like source location tracking and debugging output.
+
+@param loc: Source code location information for this expression
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a74bb3eafdaf409647dd4f3c9d32aafe9" name="a74bb3eafdaf409647dd4f3c9d32aafe9"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a74bb3eafdaf409647dd4f3c9d32aafe9">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -162,7 +169,10 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Initialize an expression AST node.
 
+@param loc: Source code location information for this expression
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -180,7 +190,10 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Create a string representation of this expression.
 
+@return Formatted string representation of the expression
+</pre> 
 </div>
 </div>
 <a id="afd590ac601edc231cac8f92dfa55d6ac" name="afd590ac601edc231cac8f92dfa55d6ac"></a>
@@ -206,7 +219,11 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Format this expression for debugging output.
 
+@param prefix: String to prepend to the output
+@param dumper: Dumper instance to append formatted output to
+</pre> 
 <p>Reimplemented in <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1BinaryExprAST.html#ad046465a1afaa1669ee391266252327b">CtoQ.frontend.c_ast.BinaryExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1CallExprAST.html#a017ca3dd4adbefb7dcfbee9fcdd8cc07">CtoQ.frontend.c_ast.CallExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1LiteralExprAST.html#ace7dde69cfebdaf654c3f4d42a6e2833">CtoQ.frontend.c_ast.LiteralExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1NumberExprAST.html#afb4a1cd7f3ef9ec032ac9fdb5a1dd146">CtoQ.frontend.c_ast.NumberExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1PrintExprAST.html#ade78fa2faa2bc1ab93bfef4ceed1265c">CtoQ.frontend.c_ast.PrintExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ReturnExprAST.html#ae0351e24ce12a5c191bc24af2e1f796f">CtoQ.frontend.c_ast.ReturnExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1VarDeclExprAST.html#ae31dbe78b39016a6c8476675755bff64">CtoQ.frontend.c_ast.VarDeclExprAST</a>, and <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1VariableExprAST.html#afa5ce6fabaa4f86f8f16127c58065d12">CtoQ.frontend.c_ast.VariableExprAST</a>.</p>
 
 </div>
@@ -225,7 +242,11 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Get the kind of this expression.
 
+@return The ExprASTKind enumeration value for this expression type
+@throws AssertionError if not implemented by subclass
+</pre> 
 <p>Reimplemented in <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1BinaryExprAST.html#a054fcf17ae0c4f9709d631487f0699fb">CtoQ.frontend.c_ast.BinaryExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1CallExprAST.html#ae259b2db6504e89a110bcf1827675e6c">CtoQ.frontend.c_ast.CallExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1LiteralExprAST.html#a84b8ca8c64fd5ce4f128f9e31ffdc452">CtoQ.frontend.c_ast.LiteralExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1NumberExprAST.html#a97220c76e566bfb125fc726e942fa38d">CtoQ.frontend.c_ast.NumberExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1PrintExprAST.html#a3e66510f0df54c04ca8c2a8484ccc761">CtoQ.frontend.c_ast.PrintExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ReturnExprAST.html#a7c95690b515163c1aaa505b282157c5f">CtoQ.frontend.c_ast.ReturnExprAST</a>, <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1VarDeclExprAST.html#a359e7cbc67fb1fac44eb3105a1b8a683">CtoQ.frontend.c_ast.VarDeclExprAST</a>, and <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1VariableExprAST.html#ac728615d006abb4ba260cc5c14101054">CtoQ.frontend.c_ast.VariableExprAST</a>.</p>
 
 </div>

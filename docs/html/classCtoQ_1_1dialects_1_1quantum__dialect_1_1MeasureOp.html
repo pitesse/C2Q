@@ -137,7 +137,15 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a32ba26946fd58bfd7e6822e42ce07b9e" id="r_a32ba26946fd58bfd7e6822e42ce07b9e"><td class="memItemLeft" align="right" valign="top">OpResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a32ba26946fd58bfd7e6822e42ce07b9e">res</a> = result_def()</td></tr>
 <tr class="separator:a32ba26946fd58bfd7e6822e42ce07b9e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Operation to measure a qubit or vector of qubits.
+
+This operation collapses the quantum state and returns a classical bit result.
+It is typically used at the end of quantum circuits to extract classical
+information from the quantum computation.
+
+@see InitOp
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ac1079ee4586da8882bd327a0abf3657d" name="ac1079ee4586da8882bd327a0abf3657d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ac1079ee4586da8882bd327a0abf3657d">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -156,7 +164,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Measure a target qubit or vector of qubits.
 
+@param target: The qubit or vector of qubits to measure
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -182,7 +193,11 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Factory method to create a MeasureOp from a target value.
 
+@param target: The qubit or vector of qubits to measure
+@return A new MeasureOp instance
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

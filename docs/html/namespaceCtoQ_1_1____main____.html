@@ -136,7 +136,14 @@ Variables</h2></td></tr>
 <tr class="memitem:a953cf0bd6b4ec9e6a4669d1c1f0b2a94" id="r_a953cf0bd6b4ec9e6a4669d1c1f0b2a94"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a953cf0bd6b4ec9e6a4669d1c1f0b2a94">args</a> = parser.parse_args()</td></tr>
 <tr class="separator:a953cf0bd6b4ec9e6a4669d1c1f0b2a94"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@file __main__.py
+@brief Main entry point for the C to Quantum compiler.
+
+This module serves as the entry point for the C to Quantum (CtoQ) tool,
+which parses C source code and generates corresponding Quantum IR.
+It handles command-line arguments and orchestrates the compilation process.
+</pre> </div><h2 class="groupheader">Function Documentation</h2>
 <a id="a6754ee3a52b681ec2f4b71b2da52d6ae" name="a6754ee3a52b681ec2f4b71b2da52d6ae"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a6754ee3a52b681ec2f4b71b2da52d6ae">&#9670;&#160;</a></span>main()</h2>
 
@@ -165,7 +172,18 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Main compilation function that processes input files and generates quantum IR.
 
+This function drives the compilation pipeline by reading the input file,
+parsing it based on its extension, and generating the appropriate IR.
+Currently, it supports C files for conversion to Quantum IR.
+
+@param path: Path object pointing to the source file
+@param emit: Target compilation format (e.g., "ast", "toy", "riscv-asm")
+@param ir: Flag to indicate whether to print the IR
+@param print_generic: Flag to indicate whether to print in generic format
+@return: None
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

@@ -215,7 +215,19 @@ Static Protected Attributes</h2></td></tr>
 <tr class="memitem:a816a3e07a7e903599fb1f92da96d4394" id="r_a816a3e07a7e903599fb1f92da96d4394"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a816a3e07a7e903599fb1f92da96d4394">_fractional_suffix_regex</a> = re.compile(r&quot;\.[0-9]*([eE][+-]?[0-9]+)?&quot;)</td></tr>
 <tr class="separator:a816a3e07a7e903599fb1f92da96d4394"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Lexical analyzer for C source code.
+
+This class implements a lexer for a subset of the C programming language.
+It processes C source code character by character and produces a stream of
+tokens that can be consumed by the parser.
+
+The lexer handles whitespace, comments, identifiers, keywords, numbers,
+and various operators and punctuation marks defined in the C language.
+
+@see CTokenKind
+@see CParser
+</pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="afe339bae22b3269a71c9bda8ab8e9262" name="afe339bae22b3269a71c9bda8ab8e9262"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#afe339bae22b3269a71c9bda8ab8e9262">&#9670;&#160;</a></span>_consume_chars()</h2>
 
@@ -242,7 +254,9 @@ Static Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Advance the lexer position in the input by the given amount.
+<pre class="fragment">@brief Advance the lexer position in the input by the given amount.
+
+@param size: Number of characters to skip
 </pre> 
 </div>
 </div>
@@ -272,8 +286,13 @@ Static Protected Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Advance the lexer position to the end of the next match of the given
-regular expression.
+<pre class="fragment">@brief Advance the lexer position to the end of the next regex match.
+
+Attempts to match the given regular expression at the current position
+and advances the position to the end of the match if successful.
+
+@param regex: Regular expression pattern to match
+@return The match object if matched, None otherwise
 </pre> 
 </div>
 </div>
@@ -299,7 +318,10 @@ regular expression.
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Consume whitespace and comments.
+<pre class="fragment">@brief Consume whitespace and comments.
+
+Advances the lexer position past any whitespace characters and C-style
+comments (both // line comments and /* block comments */).
 </pre> 
 </div>
 </div>
@@ -329,8 +351,13 @@ regular expression.
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Get the character at the current location, or multiple characters ahead.
-Return None if the position is out of bounds.
+<pre class="fragment">@brief Get the character at the current location and advance the position.
+
+Retrieves one or more characters starting at the current position and
+advances the lexer position accordingly.
+
+@param size: Number of characters to retrieve
+@return The retrieved characters or None if position is out of bounds
 </pre> 
 </div>
 </div>
@@ -360,7 +387,10 @@ Return None if the position is out of bounds.
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Check if the current position is within the bounds of the input.
+<pre class="fragment">@brief Check if the current position is within the bounds of the input.
+
+@param size: Number of characters ahead to check
+@return True if the position plus size is within bounds, False otherwise
 </pre> 
 </div>
 </div>
@@ -390,10 +420,15 @@ Return None if the position is out of bounds.
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Lex a bare identifier or keyword with the following grammar:
+<pre class="fragment">@brief Lex a bare identifier or keyword.
+
+Processes an identifier or keyword according to the following grammar:
 `bare-id ::= (letter|[_]) (letter|digit|[_])*`
 
-The first character is expected to have already been parsed.
+The first character is expected to have already been consumed.
+
+@param start_pos: Starting position of the identifier
+@return A token of type IDENTIFIER or the appropriate keyword type
 </pre> 
 </div>
 </div>
@@ -423,8 +458,16 @@ The first character is expected to have already been parsed.
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Lex a number literal, which is either a decimal or an hexadecimal.
-The first character is expected to have already been parsed.
+<pre class="fragment">@brief Lex a numeric literal.
+
+Processes a numeric literal, which can be either:
+- A decimal number (possibly with fractional part)
+- A hexadecimal number (0x prefix followed by hex digits)
+
+The first character is expected to have already been consumed.
+
+@param start_pos: Starting position of the number
+@return A token of type NUMBER
 </pre> 
 </div>
 </div>
@@ -454,8 +497,10 @@ The first character is expected to have already been parsed.
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Peek at the character at the current location, or multiple characters ahead.
-Return None if the position is out of bounds.
+<pre class="fragment">@brief Peek at the character(s) at the current location without advancing.
+
+@param size: Number of characters to peek at
+@return The characters at the current position or None if out of bounds
 </pre> 
 </div>
 </div>
@@ -473,7 +518,15 @@ Return None if the position is out of bounds.
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Lex the next token from the input.
 
+This is the main lexing function that identifies and returns the next
+token from the input. It handles whitespace, identifiers, keywords,
+numbers, and single-character tokens.
+
+@return The next token from the input
+@throws ParseError if an unexpected character is encountered
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

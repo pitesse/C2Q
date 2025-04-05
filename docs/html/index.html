@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.13.2"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>C to Quantum: Running C to Quantum</title>
+<title>C to Quantum: C to Quantum</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -103,19 +103,29 @@ $(function(){initNavTree('index.html',''); initResizable(true); });
 </div>
 
 <div><div class="header">
-  <div class="headertitle"><div class="title">Running C to Quantum </div></div>
+  <div class="headertitle"><div class="title">C to Quantum </div></div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="md_README"></a></p>
-<h1><a class="anchor" id="autotoc_md1"></a>
-Installation</h1>
-<p>First, ensure you have Python 3 installed on your system.</p>
+<div class="textblock"><p><a class="anchor" id="md_README"></a> TODO review this readme</p>
+<h1><a class="anchor" id="autotoc_md0"></a>
+C to Quantum Compiler</h1>
+<p>A tool for converting C code to quantum representations using the XDSL compiler infrastructure.</p>
+<h2><a class="anchor" id="autotoc_md1"></a>
+Overview</h2>
+<p>C_to_Quantum is a compiler that transforms classical C programs into quantum intermediate representations, allowing for translation between classical algorithms and their quantum counterparts. The compiler uses a custom lexer and parser built on top of XDSL utilities to analyze C code and generate appropriate quantum representations.</p>
 <h2><a class="anchor" id="autotoc_md2"></a>
-Dependencies</h2>
+Installation</h2>
+<p>First, ensure you have Python 3.10+ installed on your system.</p>
+<h3><a class="anchor" id="autotoc_md3"></a>
+Dependencies</h3>
 <p>This tool requires the following Python packages:</p><ul>
-<li>xdsl</li>
+<li>xdsl (MLIR-based compiler infrastructure)</li>
 </ul>
-<div class="fragment"><div class="line"># Create a virtual environment</div>
+<div class="fragment"><div class="line"># Clone the repository</div>
+<div class="line">git clone https://github.com/yourusername/C_to_Quantum.git</div>
+<div class="line">cd C_to_Quantum</div>
+<div class="line"> </div>
+<div class="line"># Create a virtual environment</div>
 <div class="line">python -m venv .venv</div>
 <div class="line"> </div>
 <div class="line"># Activate the virtual environment</div>
@@ -123,27 +133,64 @@ Dependencies</h2>
 <div class="line"> </div>
 <div class="line"># Install dependencies</div>
 <div class="line">pip install xdsl</div>
-</div><!-- fragment --><h1><a class="anchor" id="autotoc_md3"></a>
-Usage</h1>
+<div class="line"> </div>
+<div class="line">pip install libclang</div>
+<div class="line"> </div>
+<div class="line">pip install qiskit</div>
+<div class="line"> </div>
+<div class="line">pip install qiskit-aer</div>
+<div class="line"> </div>
+<div class="line">pip install matplotlib</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md4"></a>
+Usage</h2>
 <p>Convert a C file to quantum representation:</p>
 <div class="fragment"><div class="line"># Ensure your virtual environment is activated</div>
 <div class="line">source .venv/bin/activate</div>
 <div class="line"> </div>
 <div class="line"># Run using the module syntax</div>
 <div class="line">python -m CtoQ &lt;file_name&gt;.c</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md4"></a>
-Example</h2>
-<div class="fragment"><div class="line">python -m CtoQ examples/simple.c</div>
-</div><!-- fragment --><h1><a class="anchor" id="autotoc_md5"></a>
-Options</h1>
-<p>Add any additional command-line options here:</p>
+</div><!-- fragment --><h3><a class="anchor" id="autotoc_md5"></a>
+Examples</h3>
+<p>Basic usage: </p><div class="fragment"><div class="line">python -m CtoQ examples/simple.c</div>
+</div><!-- fragment --><p>Generate AST without conversion: </p><div class="fragment"><div class="line">python -m CtoQ examples/simple.c --emit ast</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md6"></a>
+Documentation</h2>
+<h3><a class="anchor" id="autotoc_md7"></a>
+Viewing Documentation</h3>
+<p>This project includes comprehensive documentation generated with Doxygen.</p>
+<h4><a class="anchor" id="autotoc_md8"></a>
+HTML Documentation</h4>
+<div class="fragment"><div class="line">xdg-open docs/html/index.html</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md9"></a>
+Project Structure</h2>
 <ul>
-<li></li>
+<li><a class="el" href="namespaceCtoQ.html">CtoQ</a> - Main package directory<ul>
+<li><code>frontend/</code> - C lexing, parsing and initial IR generation<ul>
+<li><code><a class="el" href="lexer_8py.html">lexer.py</a></code> - Custom C lexer implementation</li>
+<li><code><a class="el" href="parser_8py.html">parser.py</a></code> - C parser using the lexer to generate AST</li>
+<li><code>ir_gen.py</code> - Converts AST to quantum IR</li>
 </ul>
-<h1><a class="anchor" id="autotoc_md6"></a>
-Troubleshooting</h1>
-<p>If you encounter import errors, ensure you're running the tool as a module with <code>python -m <a class="el" href="namespaceCtoQ.html">CtoQ</a></code> rather than directly executing a script.</p>
-<p>Make sure your virtual environment is activated before running the tool. </p>
+</li>
+<li><code>midend/</code> - IR transformations and optimizations</li>
+<li><code>backend/</code> - Target-specific code generation</li>
+<li><code>examples/</code> - Example C programs</li>
+</ul>
+</li>
+</ul>
+<h2><a class="anchor" id="autotoc_md10"></a>
+Implementation Details</h2>
+<p>The compiler uses a custom implementation of a C lexer and parser rather than relying on external libraries like libClang. This gives precise control over the parsing process and allows for specialized handling of C constructs that are relevant to quantum transformation.</p>
+<h2><a class="anchor" id="autotoc_md11"></a>
+Troubleshooting</h2>
+<ul>
+<li><b>Import Errors</b>: Ensure you're running the tool as a module with <code>python -m <a class="el" href="namespaceCtoQ.html">CtoQ</a></code> rather than directly executing a script.</li>
+<li><b>Missing Dependencies</b>: Make sure your virtual environment is activated before running the tool.</li>
+<li><b>Documentation Issues</b>: If documentation doesn't generate correctly, ensure Doxygen is properly installed.</li>
+</ul>
+<h2><a class="anchor" id="autotoc_md12"></a>
+Contributing</h2>
+<h2><a class="anchor" id="autotoc_md13"></a>
+License</h2>
 </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
 </div><!-- contents -->

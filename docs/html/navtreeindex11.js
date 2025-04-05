@@ -1,5 +1,12 @@
 var NAVTREEINDEX11 =
 {
+"namespacehermitian__gates__transformation.html":[1,0,4],
+"namespacehermitian__gates__transformation.html#a40870a10a875671fdae7b647ae2617cf":[1,0,4,4],
+"namespacein__placing.html":[1,0,5],
+"namespaceir__gen.html":[1,0,6],
+"namespacemain.html":[1,0,8],
+"namespacemain.html#a3140e9a5b6a71ffbf498198cfc471b88":[1,0,8,4],
+"namespacemain.html#a442c50aaa71227f9d81318e89fdcbcfb":[1,0,8,2],
 "namespacemain.html#abd7be4cba62aeeae7380dce08e4b3d6f":[1,0,8,0],
 "namespacemain.html#adb637d95afc1f900b4b23744e10b089b":[1,0,8,3],
 "namespacemain.html#ae6eef5adb7ed727b94e18807cd3641d8":[1,0,8,1],

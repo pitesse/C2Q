@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['quantum_0',['Running C to Quantum',['../index.html',1,'']]]
+  ['quantum_0',['C to Quantum',['../index.html',1,'']]]
 ];

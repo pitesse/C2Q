@@ -137,7 +137,15 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:ad2f904a85b7c87a7122d57ad0e4fc9fe" id="r_ad2f904a85b7c87a7122d57ad0e4fc9fe"><td class="memItemLeft" align="right" valign="top">OpResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad2f904a85b7c87a7122d57ad0e4fc9fe">res</a> = result_def()</td></tr>
 <tr class="separator:ad2f904a85b7c87a7122d57ad0e4fc9fe"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Operation to initialize a qubit or a vector of qubits to zero.
+
+This operation creates a new qubit or vector of qubits, initializing
+them to the |0⟩ state, which is the standard initial state for 
+quantum computation.
+
+@see MeasureOp
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a7e814fa3078a0aa9353890648d5f4404" name="a7e814fa3078a0aa9353890648d5f4404"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7e814fa3078a0aa9353890648d5f4404">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -156,7 +164,11 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Initialize a qubit or vector of qubits to zero.
 
+@param values: An IntegerType for a single qubit or a VectorType for multiple qubits
+@throws TypeError if values is not an IntegerType or VectorType of IntegerType
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -182,7 +194,11 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Factory method to create an InitOp from a value.
 
+@param value: The value to initialize qubits from
+@return A new InitOp instance
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

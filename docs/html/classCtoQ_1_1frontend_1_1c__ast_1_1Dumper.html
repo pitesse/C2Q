@@ -129,7 +129,15 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a7d4634eae7e2e5727f03e723ccabce24" id="r_a7d4634eae7e2e5727f03e723ccabce24"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7d4634eae7e2e5727f03e723ccabce24">indentation</a> = 0</td></tr>
 <tr class="separator:a7d4634eae7e2e5727f03e723ccabce24"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Utility class for pretty-printing AST nodes.
+
+This class provides methods to format and output the structure of AST nodes
+with proper indentation, making it easier to visualize and debug the AST.
+
+@param lines: List of strings representing the output lines
+@param indentation: Current indentation level
+</pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="ab774bf59db1f132a41e2caaeee43b737" name="ab774bf59db1f132a41e2caaeee43b737"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab774bf59db1f132a41e2caaeee43b737">&#9670;&#160;</a></span>append()</h2>
 
@@ -153,7 +161,11 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Append a line to the output with the current indentation.
 
+@param prefix: String to prepend to the line
+@param line: The line content to append
+</pre> 
 </div>
 </div>
 <a id="a7c19b71b9474f017439029a586557939" name="a7c19b71b9474f017439029a586557939"></a>
@@ -194,7 +206,14 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Append a list of expressions with opening and closing delimiters.
 
+@param prefix: String to prepend to the opening delimiter
+@param open_paren: Opening delimiter string
+@param exprs: Iterable of expressions to format
+@param close_paren: Closing delimiter string
+@param block: Callback function to format each expression
+</pre> 
 </div>
 </div>
 <a id="a32da23ad874a1a3c01550d020ba0c09c" name="a32da23ad874a1a3c01550d020ba0c09c"></a>
@@ -211,7 +230,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Create a new Dumper with increased indentation.
 
+@return A new Dumper instance with indentation incremented
+</pre> 
 </div>
 </div>
 <a id="abcf0af509688aa307dd6a3395363376e" name="abcf0af509688aa307dd6a3395363376e"></a>
@@ -228,7 +250,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Get the complete formatted output as a string.
 
+@return The joined lines as a single string
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

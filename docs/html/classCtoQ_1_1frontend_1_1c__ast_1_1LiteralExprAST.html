@@ -155,7 +155,14 @@ Additional Inherited Members</h2></td></tr>
 <tr class="memitem:af46e9691ef34f8835cddfadeeeed93b7 inherit pub_attribs_classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST" id="r_af46e9691ef34f8835cddfadeeeed93b7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html#af46e9691ef34f8835cddfadeeeed93b7">loc</a> = loc</td></tr>
 <tr class="separator:af46e9691ef34f8835cddfadeeeed93b7 inherit pub_attribs_classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Expression class for a literal array or tensor value.
+
+Represents a multi-dimensional array or tensor literal in the source code.
+
+@param values: Nested list of literal or number expressions
+@param dims: List of dimensions for this literal
+</pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="a90cc1588570b38cbc4bea1393e0baf2c" name="a90cc1588570b38cbc4bea1393e0baf2c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a90cc1588570b38cbc4bea1393e0baf2c">&#9670;&#160;</a></span>__dump()</h2>
 
@@ -178,7 +185,10 @@ Additional Inherited Members</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Helper method to create a string representation of this literal.
 
+@return Formatted string representation of the literal
+</pre> 
 </div>
 </div>
 <a id="a234a13e98c30711e4fa80f11ce7cf1a2" name="a234a13e98c30711e4fa80f11ce7cf1a2"></a>
@@ -195,7 +205,10 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Get all numeric values in this literal as a flat list.
 
+@return List containing all numeric values in the literal
+</pre> 
 </div>
 </div>
 <a id="ace7dde69cfebdaf654c3f4d42a6e2833" name="ace7dde69cfebdaf654c3f4d42a6e2833"></a>
@@ -221,7 +234,11 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Format this literal for debugging output.
 
+@param prefix: String to prepend to the output
+@param dumper: Dumper instance to append formatted output to
+</pre> 
 <p>Reimplemented from <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html#afd590ac601edc231cac8f92dfa55d6ac">CtoQ.frontend.c_ast.ExprAST</a>.</p>
 
 </div>
@@ -240,7 +257,12 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Iterate through all numeric values in this literal.
 
+Recursively traverses the literal structure and yields all numeric values.
+
+@return Generator that yields each numeric value
+</pre> 
 </div>
 </div>
 <a id="a84b8ca8c64fd5ce4f128f9e31ffdc452" name="a84b8ca8c64fd5ce4f128f9e31ffdc452"></a>
@@ -257,7 +279,10 @@ Additional Inherited Members</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Get the kind of this expression.
 
+@return ExprASTKind.Expr_Literal
+</pre> 
 <p>Reimplemented from <a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html#a5258cf9d08c29782dbde8c9555c9fd49">CtoQ.frontend.c_ast.ExprAST</a>.</p>
 
 </div>

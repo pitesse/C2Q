@@ -142,7 +142,12 @@ Public Attributes</h2></td></tr>
 <tr class="separator:aa8a91b59a0dfc78a6c1444134afde1b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">Translates xDSL Quantum IR to Qiskit quantum circuits
+<div class="textblock"><pre class="fragment">@brief Translates xDSL Quantum IR to Qiskit quantum circuits.
+
+This class handles the translation of Quantum IR operations to Qiskit
+quantum circuits. It maps IR result identifiers to qubit indices and
+converts quantum operations like NOT, CNOT, Hadamard, etc. to their
+corresponding Qiskit gates.
 </pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="ad22d641fbcba52f23b0f4acea120d4b6" name="ad22d641fbcba52f23b0f4acea120d4b6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ad22d641fbcba52f23b0f4acea120d4b6">&#9670;&#160;</a></span>__init__()</h2>
@@ -162,7 +167,10 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Initialize the Qiskit translator.
 
+@param verbose: Whether to print verbose debug information
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -189,7 +197,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Add a quantum operation to the circuit</pre> 
+<pre class="fragment">@brief Add a quantum operation to the circuit.
+
+Maps Quantum IR operations to their corresponding Qiskit gate
+implementations and adds them to the provided circuit.
+
+@param circuit: The Qiskit quantum circuit to add the operation to
+@param op: Dictionary describing the Quantum IR operation
+</pre> 
 </div>
 </div>
 <a id="a6ead6d73236886d96cca4e4705d4a157" name="a6ead6d73236886d96cca4e4705d4a157"></a>
@@ -210,7 +225,11 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Create a Qiskit circuit from parsed operations</pre> 
+<pre class="fragment">@brief Create a Qiskit circuit from parsed operations.
+
+@param operations: List of parsed Quantum IR operations
+@return A Qiskit QuantumCircuit object implementing the operations
+</pre> 
 </div>
 </div>
 <a id="a7d0b575d3b2121f7a9c028cc2f608cf6" name="a7d0b575d3b2121f7a9c028cc2f608cf6"></a>
@@ -231,7 +250,14 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Get or assign a qubit index for a result ID</pre> 
+<pre class="fragment">@brief Get or assign a qubit index for a result ID.
+
+Maps a Quantum IR result identifier to a specific qubit index
+in the Qiskit circuit, creating a new mapping if none exists.
+
+@param result_id: The result identifier from the Quantum IR
+@return The qubit index for this result in the Qiskit circuit
+</pre> 
 </div>
 </div>
 <a id="aa3626d77160427bac2843533fff263db" name="aa3626d77160427bac2843533fff263db"></a>
@@ -252,7 +278,13 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse quantum IR operations from text output</pre> 
+<pre class="fragment">@brief Parse quantum IR operations from text output.
+
+Extracts quantum operations from the textual representation of the
+Quantum IR, identifying functions and their operations.
+
+@param ir_text: The string representation of the Quantum IR
+</pre> 
 </div>
 </div>
 <a id="aa4f8cff45c65bf116cf8b1e80b646386" name="aa4f8cff45c65bf116cf8b1e80b646386"></a>
@@ -273,8 +305,10 @@ Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Parse quantum IR and convert to Qiskit circuits
-Returns a dictionary of function names to circuits
+<pre class="fragment">@brief Parse quantum IR and convert to Qiskit circuits.
+
+@param ir_text: The string representation of the Quantum IR
+@return A dictionary mapping function names to Qiskit QuantumCircuit objects
 </pre> 
 </div>
 </div>

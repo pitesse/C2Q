@@ -115,7 +115,14 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a620c2645acbcdcf819d2978bc3ee7ce7" id="r_a620c2645acbcdcf819d2978bc3ee7ce7"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a620c2645acbcdcf819d2978bc3ee7ce7">__repr__</a> (self)</td></tr>
 <tr class="separator:a620c2645acbcdcf819d2978bc3ee7ce7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Structure representing a location in a source file.
+
+This dataclass stores the file path, line number, and column number
+that pinpoints a specific location in the source code. It's used for
+error reporting and debugging to provide precise information about
+where issues occur in the original source.
+</pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="a620c2645acbcdcf819d2978bc3ee7ce7" name="a620c2645acbcdcf819d2978bc3ee7ce7"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a620c2645acbcdcf819d2978bc3ee7ce7">&#9670;&#160;</a></span>__repr__()</h2>
 
@@ -130,7 +137,10 @@ Public Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief String representation of the location.
 
+@return String in the format "file:line:column"
+</pre> 
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>

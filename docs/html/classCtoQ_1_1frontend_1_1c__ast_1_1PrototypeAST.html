@@ -126,8 +126,16 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:aa1970284df3592d4ff59477a65892d13"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">This class represents the "prototype" for a function, which captures its
-name, its return type, and its argument names and types.
+<div class="textblock"><pre class="fragment">@brief Class representing a function prototype.
+
+This class captures the signature of a function, including its name,
+return type, and parameter information. It's used both for function
+declarations and definitions.
+
+@param loc: Source code location information for this prototype
+@param name: The function name
+@param args: List of parameter variable expressions
+@param return_type: The function's return type as a string
 </pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="a23847a23a430e332832bb7a77af1495d" name="a23847a23a430e332832bb7a77af1495d"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a23847a23a430e332832bb7a77af1495d">&#9670;&#160;</a></span>dump()</h2>
@@ -143,7 +151,10 @@ name, its return type, and its argument names and types.
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Create a string representation of this prototype.
 
+@return Formatted string representation of the prototype
+</pre> 
 </div>
 </div>
 <a id="adca5450a09a23aa66d628c84ca284f29" name="adca5450a09a23aa66d628c84ca284f29"></a>
@@ -169,7 +180,11 @@ name, its return type, and its argument names and types.
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Format this prototype for debugging output.
 
+@param prefix: String to prepend to the output
+@param dumper: Dumper instance to append formatted output to
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

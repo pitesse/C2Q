@@ -123,7 +123,14 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a0a4fb56a96c872d71fce98fb7fe4c3bd" id="r_a0a4fb56a96c872d71fce98fb7fe4c3bd"><td class="memItemLeft" align="right" valign="top">tuple&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a0a4fb56a96c872d71fce98fb7fe4c3bd">funcs</a> [<a class="el" href="classCtoQ_1_1frontend_1_1c__ast_1_1FunctionAST.html">FunctionAST</a>, ...]</td></tr>
 <tr class="separator:a0a4fb56a96c872d71fce98fb7fe4c3bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Class representing a module (compilation unit).
+
+This class represents a complete C module, which consists of a collection
+of function definitions that are processed together.
+
+@param funcs: Tuple of function definitions in this module
+</pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="aee187bf84582d32d6a5c40e832201883" name="aee187bf84582d32d6a5c40e832201883"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#aee187bf84582d32d6a5c40e832201883">&#9670;&#160;</a></span>dump()</h2>
 
@@ -138,7 +145,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Create a string representation of this module.
 
+@return Formatted string representation of the module
+</pre> 
 </div>
 </div>
 <a id="ab3ef1a2b8931a1a265f3c0befc5189e1" name="ab3ef1a2b8931a1a265f3c0befc5189e1"></a>
@@ -164,7 +174,11 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Format this module for debugging output.
 
+@param prefix: String to prepend to the output
+@param dumper: Dumper instance to append formatted output to
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

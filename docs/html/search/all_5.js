@@ -11,7 +11,7 @@ var searchData=
   ['eof_8',['EOF',['../classCtoQ_1_1frontend_1_1lexer_1_1CTokenKind.html#a1c3c3511993fb424805fedd993d1c543',1,'CtoQ::frontend::lexer::CTokenKind']]],
   ['eq_9',['EQ',['../classmlir__dialect_1_1ICmpPredicateFlag.html#a9fe19e8ae3c152c0b6cb79a81216310f',1,'mlir_dialect::ICmpPredicateFlag']]],
   ['error_10',['error',['../classir__gen_1_1IRGen.html#ac728510a600f57f704584d38a7cf9cc3',1,'ir_gen::IRGen']]],
-  ['example_11',['Example',['../index.html#autotoc_md4',1,'']]],
+  ['examples_11',['Examples',['../index.html#autotoc_md5',1,'']]],
   ['execute_12',['execute',['../namespaceCtoQ_1_1backend_1_1qiskit__translator.html#ae2fdc8feed3dc2c357941958550769fa',1,'CtoQ::backend::qiskit_translator']]],
   ['expr_13',['expr',['../classCtoQ_1_1frontend_1_1c__ast_1_1VarDeclExprAST.html#a1de8fdcbd183875aaada80b0597a0209',1,'CtoQ.frontend.c_ast.VarDeclExprAST.expr'],['../classCtoQ_1_1frontend_1_1c__ast_1_1ReturnExprAST.html#adeab68d6fbd290b9a4b7aa3f91015b84',1,'CtoQ.frontend.c_ast.ReturnExprAST.expr'],['../classJSON__to__DataClasses_1_1ExpressionStatement.html#a8321e5f488cd742fa0bcd623bda0e36f',1,'JSON_to_DataClasses.ExpressionStatement.expr']]],
   ['expr_5fbinop_14',['Expr_BinOp',['../classCtoQ_1_1frontend_1_1c__ast_1_1ExprASTKind.html#ad22e3ec1ef5ae995e5dd6a3a511540d5',1,'CtoQ::frontend::c_ast::ExprASTKind']]],

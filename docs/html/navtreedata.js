@@ -25,7 +25,25 @@
 var NAVTREE =
 [
   [ "C to Quantum", "index.html", [
-    [ "Running C to Quantum", "index.html", "index" ],
+    [ "C to Quantum Compiler", "index.html#autotoc_md0", [
+      [ "Overview", "index.html#autotoc_md1", null ],
+      [ "Installation", "index.html#autotoc_md2", [
+        [ "Dependencies", "index.html#autotoc_md3", null ]
+      ] ],
+      [ "Usage", "index.html#autotoc_md4", [
+        [ "Examples", "index.html#autotoc_md5", null ]
+      ] ],
+      [ "Documentation", "index.html#autotoc_md6", [
+        [ "Viewing Documentation", "index.html#autotoc_md7", [
+          [ "HTML Documentation", "index.html#autotoc_md8", null ]
+        ] ]
+      ] ],
+      [ "Project Structure", "index.html#autotoc_md9", null ],
+      [ "Implementation Details", "index.html#autotoc_md10", null ],
+      [ "Troubleshooting", "index.html#autotoc_md11", null ],
+      [ "Contributing", "index.html#autotoc_md12", null ],
+      [ "License", "index.html#autotoc_md13", null ]
+    ] ],
     [ "Packages", "namespaces.html", [
       [ "Package List", "namespaces.html", "namespaces_dup" ],
       [ "Package Members", "namespacemembers.html", [
@@ -67,7 +85,7 @@ var NAVTREEINDEX =
 "classmlir__dialect_1_1FuncOp.html#a435239c5a1b1029c89f3e3a1594bdaab",
 "classmlir__dialect_1_1LLVMFunctionType.html#a9ef1d605c21cf466e67c39f782460c1c",
 "classqubit__renumber_1_1QubitRenumber.html#a8f10e4d84cab622c23154fdc3e40d02e",
-"namespacemain.html#abd7be4cba62aeeae7380dce08e4b3d6f"
+"namespacehermitian__gates__transformation.html"
 ];
 
 var SYNCONMSG = 'click to disable panel synchronization';

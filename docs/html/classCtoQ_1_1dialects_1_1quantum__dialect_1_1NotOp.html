@@ -137,7 +137,15 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a9db9dd157170aa926a533a789fbe11c8" id="r_a9db9dd157170aa926a533a789fbe11c8"><td class="memItemLeft" align="right" valign="top">OpResult&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9db9dd157170aa926a533a789fbe11c8">res</a> = result_def()</td></tr>
 <tr class="separator:a9db9dd157170aa926a533a789fbe11c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><pre class="fragment">@brief Operation to apply the NOT gate (X gate) to a qubit or vector of qubits.
+
+The NOT gate flips the state of a qubit, changing |0⟩ to |1⟩ and vice versa.
+It is one of the fundamental single-qubit gates in quantum computing.
+
+@see CNotOp
+@see CCNotOp
+</pre> </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a29150ae083dae9bee051631c0ba6b3fc" name="a29150ae083dae9bee051631c0ba6b3fc"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a29150ae083dae9bee051631c0ba6b3fc">&#9670;&#160;</a></span>__init__()</h2>
 
@@ -156,7 +164,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Apply a NOT gate to a target qubit or vector of qubits.
 
+@param target: The qubit or vector of qubits to apply the NOT gate to
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -182,7 +193,11 @@ Static Public Attributes</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Factory method to create a NotOp from a value.
 
+@param value: The target qubit or vector of qubits
+@return A new NotOp instance
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>

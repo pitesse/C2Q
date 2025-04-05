@@ -124,7 +124,14 @@ Static Public Attributes</h2></td></tr>
 <tr class="separator:ae34cdbf091e524b373a097685c187cca"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">This class represents a function definition itself.
+<div class="textblock"><pre class="fragment">@brief Class representing a function definition.
+
+This class represents a complete function definition, including its
+prototype (signature) and body (sequence of statements).
+
+@param loc: Source code location information for this function
+@param proto: The function prototype/signature
+@param body: Tuple of expressions forming the function body
 </pre> </div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="a348ac995f0d775f1f7b798232a488d9e" name="a348ac995f0d775f1f7b798232a488d9e"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a348ac995f0d775f1f7b798232a488d9e">&#9670;&#160;</a></span>dump()</h2>
@@ -140,7 +147,10 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Create a string representation of this function.
 
+@return Formatted string representation of the function
+</pre> 
 </div>
 </div>
 <a id="a8ee8b4bf11243f542639056e1712d1c5" name="a8ee8b4bf11243f542639056e1712d1c5"></a>
@@ -166,7 +176,11 @@ Static Public Attributes</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<pre class="fragment">@brief Format this function for debugging output.
 
+@param prefix: String to prepend to the output
+@param dumper: Dumper instance to append formatted output to
+</pre> 
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
