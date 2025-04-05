@@ -23,12 +23,14 @@ from qiskit.visualization import plot_histogram
 try:
     # First try qiskit_aer (newest)
     from qiskit_aer import Aer, QasmSimulator
-    AerSimulator = Aer.get_backend('qasm_simulator')
+
+    AerSimulator = Aer.get_backend("qasm_simulator")
 except ImportError:
     try:
         # Fall back to older structure
         from qiskit import Aer
-        AerSimulator = Aer.get_backend('qasm_simulator')
+
+        AerSimulator = Aer.get_backend("qasm_simulator")
     except ImportError:
         print("Warning: Could not import Aer. Install with: pip install qiskit-aer")
         AerSimulator = None
@@ -44,7 +46,7 @@ except ImportError:
         def execute(circuits, backend, **kwargs):
             """
             @brief Fallback execution function when Qiskit's execute is not available.
-            
+
             @param circuits: The quantum circuits to execute
             @param backend: The backend to run the circuits on
             @param kwargs: Additional keyword arguments to pass to the backend
@@ -52,19 +54,21 @@ except ImportError:
             """
             return backend.run(circuits, **kwargs)
 
+
 class QiskitTranslator:
     """
     @brief Translates xDSL Quantum IR to Qiskit quantum circuits.
-    
+
     This class handles the translation of Quantum IR operations to Qiskit
     quantum circuits. It maps IR result identifiers to qubit indices and
     converts quantum operations like NOT, CNOT, Hadamard, etc. to their
     corresponding Qiskit gates.
     """
+
     def __init__(self, verbose=False):
         """
         @brief Initialize the Qiskit translator.
-        
+
         @param verbose: Whether to print verbose debug information
         """
         self.verbose = verbose
@@ -77,47 +81,47 @@ class QiskitTranslator:
         self.operations = {}
         # Store function operations
         self.functions = {}
-        
+
     def translate_ir(self, ir_text: str) -> dict[str, QuantumCircuit]:
         """
         @brief Parse quantum IR and convert to Qiskit circuits.
-        
+
         @param ir_text: The string representation of the Quantum IR
         @return A dictionary mapping function names to Qiskit QuantumCircuit objects
         """
         # Parse the IR operations
         self.parse_ir_operations(ir_text)
-        
+
         # Create circuits for each function
         circuits = {}
         for func_name, func_info in self.functions.items():
-            circuits[func_name] = self.create_circuit(func_info['region'])
-        
+            circuits[func_name] = self.create_circuit(func_info["region"])
+
         return circuits
-        
+
     def parse_ir_operations(self, ir_text: str):
         """
         @brief Parse quantum IR operations from text output.
-        
+
         Extracts quantum operations from the textual representation of the
         Quantum IR, identifying functions and their operations.
-        
+
         @param ir_text: The string representation of the Quantum IR
         """
         # Track current function being parsed
         current_function = None
         current_region = None
         region_level = 0
-        
+
         # Regex patterns for parsing
         func_pattern = r'"quantum\.func"\(\) \(\{(.+?)\}\) \{func_name = "([^"]+)"\}'
         op_pattern = r'%(\d+) = "quantum\.([^"]+)"\(([^)]*)\)(?: \{([^}]+)\})? : \([^)]*\) -> ([a-z0-9]+)'
-        
+
         # Split by lines and process each line
-        lines = ir_text.split('\n')
+        lines = ir_text.split("\n")
         for i, line in enumerate(lines):
             line = line.strip()
-            
+
             # Check for function declarations
             if "quantum.func" in line:
                 match = re.search(r'\{func_name = "([^"]+)"\}', line)
@@ -125,14 +129,12 @@ class QiskitTranslator:
                     func_name = match.group(1)
                     current_function = func_name
                     current_region = []
-                    self.functions[func_name] = {
-                        'region': current_region
-                    }
+                    self.functions[func_name] = {"region": current_region}
                     if self.verbose:
                         print(f"Found function: {func_name}")
                     region_level += 1
                     continue
-            
+
             # Check for region end
             if line.strip() == "}) {func_name" or line.strip() == "})":
                 region_level -= 1
@@ -140,22 +142,26 @@ class QiskitTranslator:
                     current_function = None
                     current_region = None
                 continue
-                
+
             # Parse quantum operations
             match = re.search(op_pattern, line)
             if match and current_region is not None:
-                result_id, op_name, operands_str, attributes_str, result_type = match.groups()
-                
+                result_id, op_name, operands_str, attributes_str, result_type = (
+                    match.groups()
+                )
+
                 # Parse operands
                 operands = []
                 if operands_str:
-                    operands = [op.strip() for op in operands_str.split(',')]
-                
+                    operands = [op.strip() for op in operands_str.split(",")]
+
                 # Parse attributes
                 attributes = {}
                 if attributes_str:
                     # Match attribute name and value pairs
-                    attr_matches = re.finditer(r'([a-zA-Z0-9_]+) = ([^,]+)(?:,|$)', attributes_str)
+                    attr_matches = re.finditer(
+                        r"([a-zA-Z0-9_]+) = ([^,]+)(?:,|$)", attributes_str
+                    )
                     for attr_match in attr_matches:
                         key, value = attr_match.groups()
                         # Handle different attribute types
@@ -167,26 +173,28 @@ class QiskitTranslator:
                             attributes[key] = int(value)
                         else:
                             attributes[key] = value
-                
+
                 # Store the operation
                 op = {
-                    'id': f"%{result_id}",
-                    'name': op_name,
-                    'operands': operands,
-                    'attributes': attributes,
-                    'result_type': result_type
+                    "id": f"%{result_id}",
+                    "name": op_name,
+                    "operands": operands,
+                    "attributes": attributes,
+                    "result_type": result_type,
                 }
-                
+
                 self.operations[f"%{result_id}"] = op
                 current_region.append(op)
-                
+
                 if self.verbose:
-                    print(f"Parsed op: {op_name} with id {result_id}, operands {operands}")
-    
+                    print(
+                        f"Parsed op: {op_name} with id {result_id}, operands {operands}"
+                    )
+
     def create_circuit(self, operations: list) -> QuantumCircuit:
         """
         @brief Create a Qiskit circuit from parsed operations.
-        
+
         @param operations: List of parsed Quantum IR operations
         @return A Qiskit QuantumCircuit object implementing the operations
         """
@@ -194,27 +202,27 @@ class QiskitTranslator:
         self.result_to_qubit = {}
         self.next_qubit = 0
         self.next_cbit = 0
-        
+
         # First pass: count required qubits and classical bits
         for op in operations:
-            if op['name'] == 'measure':
+            if op["name"] == "measure":
                 self.next_cbit += 1
-        
+
         # Create circuit - add extra qubits to account for ancillas
         n_qubits = max(len(operations), self.next_qubit + 5)
         circuit = QuantumCircuit(n_qubits, self.next_cbit)
-        
+
         # Second pass: add operations to circuit
         for op in operations:
             self.add_operation_to_circuit(circuit, op)
-            
+
         # Final cleanup - remove unused qubits and bits
         # Get the highest qubit and classical bit indices used
         max_qubit = -1
         for qubit_idx in self.result_to_qubit.values():
             if qubit_idx > max_qubit:
                 max_qubit = qubit_idx
-                
+
         # Create a new circuit with the exact number of qubits and bits needed
         if max_qubit >= 0:
             optimized_circuit = QuantumCircuit(max_qubit + 1, self.next_cbit)
@@ -222,19 +230,22 @@ class QiskitTranslator:
             for instr in circuit.data:
                 # Only include instructions that operate on qubits within our range
                 if all(q.index <= max_qubit for q in instr.qubits):
-                    optimized_circuit.append(instr.operation, [q.index for q in instr.qubits], 
-                                            [c.index for c in instr.clbits])
+                    optimized_circuit.append(
+                        instr.operation,
+                        [q.index for q in instr.qubits],
+                        [c.index for c in instr.clbits],
+                    )
             return optimized_circuit
-            
+
         return circuit
-    
+
     def get_qubit_index(self, result_id: str) -> int:
         """
         @brief Get or assign a qubit index for a result ID.
-        
+
         Maps a Quantum IR result identifier to a specific qubit index
         in the Qiskit circuit, creating a new mapping if none exists.
-        
+
         @param result_id: The result identifier from the Quantum IR
         @return The qubit index for this result in the Qiskit circuit
         """
@@ -242,32 +253,32 @@ class QiskitTranslator:
             self.result_to_qubit[result_id] = self.next_qubit
             self.next_qubit += 1
         return self.result_to_qubit[result_id]
-    
+
     def add_operation_to_circuit(self, circuit: QuantumCircuit, op: dict):
         """
         @brief Add a quantum operation to the circuit.
-        
+
         Maps Quantum IR operations to their corresponding Qiskit gate
         implementations and adds them to the provided circuit.
-        
+
         @param circuit: The Qiskit quantum circuit to add the operation to
         @param op: Dictionary describing the Quantum IR operation
         """
         # Assign a qubit for the result
-        result_id = op['id']
+        result_id = op["id"]
         result_qubit = self.get_qubit_index(result_id)
-        
+
         # Map operand IDs to qubit indices
         operand_qubits = []
-        for operand in op['operands']:
+        for operand in op["operands"]:
             operand_qubits.append(self.get_qubit_index(operand))
-        
+
         # Apply the appropriate gate based on operation name
-        if op['name'] == 'init':
+        if op["name"] == "init":
             # Initialize qubit - handled by default state |0⟩
             pass
-            
-        elif op['name'] == 'not':
+
+        elif op["name"] == "not":
             # X gate (NOT)
             if len(operand_qubits) > 0:
                 circuit.x(operand_qubits[0])
@@ -275,16 +286,16 @@ class QiskitTranslator:
             else:
                 # Apply to result qubit directly if no operands
                 circuit.x(result_qubit)
-        
-        elif op['name'] == 'h':
+
+        elif op["name"] == "h":
             # Hadamard gate
             if len(operand_qubits) > 0:
                 circuit.h(operand_qubits[0])
                 self.result_to_qubit[result_id] = operand_qubits[0]
             else:
                 circuit.h(result_qubit)
-        
-        elif op['name'] == 'cnot':
+
+        elif op["name"] == "cnot":
             # Controlled-NOT gate
             if len(operand_qubits) >= 2:
                 circuit.cx(operand_qubits[0], operand_qubits[1])
@@ -292,8 +303,8 @@ class QiskitTranslator:
             else:
                 if self.verbose:
                     print(f"Warning: CNOT needs 2 operands, got {len(operand_qubits)}")
-        
-        elif op['name'] == 'ccnot':
+
+        elif op["name"] == "ccnot":
             # Toffoli gate (CCNOT)
             if len(operand_qubits) >= 3:
                 circuit.ccx(operand_qubits[0], operand_qubits[1], operand_qubits[2])
@@ -301,24 +312,24 @@ class QiskitTranslator:
             else:
                 if self.verbose:
                     print(f"Warning: CCNOT needs 3 operands, got {len(operand_qubits)}")
-        
-        elif op['name'] == 't':
+
+        elif op["name"] == "t":
             # T gate
             if len(operand_qubits) > 0:
                 circuit.t(operand_qubits[0])
                 self.result_to_qubit[result_id] = operand_qubits[0]
             else:
                 circuit.t(result_qubit)
-        
-        elif op['name'] == 'tdagger':
+
+        elif op["name"] == "tdagger":
             # T dagger gate
             if len(operand_qubits) > 0:
                 circuit.tdg(operand_qubits[0])
                 self.result_to_qubit[result_id] = operand_qubits[0]
             else:
                 circuit.tdg(result_qubit)
-                
-        elif op['name'] == 'measure':
+
+        elif op["name"] == "measure":
             # Measurement
             if len(operand_qubits) > 0:
                 cbit_idx = self.next_cbit
@@ -327,7 +338,7 @@ class QiskitTranslator:
             else:
                 if self.verbose:
                     print("Warning: Measure operation without qubit operand")
-                
+
         else:
             if self.verbose:
                 print(f"Unsupported operation: {op['name']}")
@@ -336,45 +347,49 @@ class QiskitTranslator:
 def run_simulation(circuit: QuantumCircuit, shots: int = 1024):
     """
     @brief Run the quantum circuit on a simulator and return results.
-    
+
     @param circuit: The Qiskit quantum circuit to simulate
     @param shots: Number of shots (repeated executions) for the simulation
     @return The result object containing measurement counts
     @throws ImportError if no simulator is available
     """
     if AerSimulator is None:
-        raise ImportError("No simulator available. Please install qiskit-aer with: pip install qiskit-aer")
-    
+        raise ImportError(
+            "No simulator available. Please install qiskit-aer with: pip install qiskit-aer"
+        )
+
     # First optimize the circuit
     transpiled_circuit = transpile(circuit, AerSimulator, optimization_level=1)
-    
+
     try:
         # Try using execute function if available
         job = execute(transpiled_circuit, AerSimulator, shots=shots)
     except (NameError, AttributeError):
         # Fall back to direct run method
         job = AerSimulator.run(transpiled_circuit, shots=shots)
-        
+
     result = job.result()
     return result
+
 
 def visualize_circuit(circuit: QuantumCircuit, filename=None):
     """
     @brief Visualize the quantum circuit and optionally save to file.
-    
+
     @param circuit: The Qiskit quantum circuit to visualize
     @param filename: Optional filename to save the visualization (None to not save)
     @return The matplotlib figure containing the circuit diagram
     """
-    circuit_fig = circuit.draw(output='mpl')
+    circuit_fig = circuit.draw(output="mpl")
     if filename:
         circuit_fig.savefig(filename)
     return circuit_fig
 
+
 def visualize_results(counts, filename=None):
     """
     @brief Visualize the simulation results as a histogram and optionally save to file.
-    
+
     @param counts: The measurement counts from the simulation result
     @param filename: Optional filename to save the visualization (None to not save)
     @return The matplotlib figure containing the histogram
@@ -385,59 +400,81 @@ def visualize_results(counts, filename=None):
         plot_hist.savefig(filename)
     return plot_hist
 
+
 def main():
     """
     @brief Main entry point for the Qiskit translator command-line interface.
-    
+
     Parses command-line arguments, reads the IR file, translates it to
     Qiskit circuits, runs simulations, and visualizes results.
     """
-    parser = argparse.ArgumentParser(description="Run Qiskit simulations from Quantum IR")
+    parser = argparse.ArgumentParser(
+        description="Run Qiskit simulations from Quantum IR"
+    )
     parser.add_argument("ir_file", type=str, help="Path to file containing Quantum IR")
-    parser.add_argument("--shots", type=int, default=1024, help="Number of shots for simulation")
-    parser.add_argument("--function", type=str, default=None, help="Function name to run (defaults to all)")
-    parser.add_argument("--save-circuit", type=str, default=None, help="Save circuit diagram to file")
-    parser.add_argument("--save-results", type=str, default=None, help="Save results histogram to file")
+    parser.add_argument(
+        "--shots", type=int, default=1024, help="Number of shots for simulation"
+    )
+    parser.add_argument(
+        "--function",
+        type=str,
+        default=None,
+        help="Function name to run (defaults to all)",
+    )
+    parser.add_argument(
+        "--save-circuit", type=str, default=None, help="Save circuit diagram to file"
+    )
+    parser.add_argument(
+        "--save-results", type=str, default=None, help="Save results histogram to file"
+    )
     parser.add_argument("--verbose", action="store_true", help="Show verbose output")
-    
+
     args = parser.parse_args()
-    
+
     # Read IR from file
-    with open(args.ir_file, 'r') as f:
+    with open(args.ir_file, "r") as f:
         ir_text = f.read()
-    
+
     # Translate IR to Qiskit circuits
     translator = QiskitTranslator(verbose=args.verbose)
     circuits = translator.translate_ir(ir_text)
-    
+
     if not circuits:
         print("No quantum functions found in IR!")
         return
-    
+
     # Run specific function or all functions
     if args.function:
         if args.function in circuits:
             circuit = circuits[args.function]
             print(f"\nRunning circuit for function '{args.function}':")
             print(circuit)
-            
+
             # Save circuit diagram if requested
             if args.save_circuit:
-                filename = f"{args.save_circuit}_{args.function}.png" if args.save_circuit.endswith('.png') else f"{args.save_circuit}_{args.function}.png"
+                filename = (
+                    f"{args.save_circuit}_{args.function}.png"
+                    if args.save_circuit.endswith(".png")
+                    else f"{args.save_circuit}_{args.function}.png"
+                )
                 visualize_circuit(circuit, filename)
                 print(f"Circuit diagram saved to {filename}")
-            
+
             # Run simulation
             result = run_simulation(circuit, args.shots)
             counts = result.get_counts(circuit)
-            
+
             print("\nSimulation Results:")
             for outcome, count in counts.items():
                 print(f"  {outcome}: {count} ({count/args.shots:.2%})")
-            
+
             # Save results if requested
             if args.save_results:
-                filename = f"{args.save_results}_{args.function}.png" if args.save_results.endswith('.png') else f"{args.save_results}_{args.function}.png"
+                filename = (
+                    f"{args.save_results}_{args.function}.png"
+                    if args.save_results.endswith(".png")
+                    else f"{args.save_results}_{args.function}.png"
+                )
                 visualize_results(counts, filename)
                 print(f"Results histogram saved to {filename}")
         else:
@@ -448,26 +485,35 @@ def main():
         for func_name, circuit in circuits.items():
             print(f"\nRunning circuit for function '{func_name}':")
             print(circuit)
-            
+
             # Save circuit diagram if requested
             if args.save_circuit:
-                filename = f"{args.save_circuit}_{func_name}.png" if args.save_circuit.endswith('.png') else f"{args.save_circuit}_{func_name}.png"
+                filename = (
+                    f"{args.save_circuit}_{func_name}.png"
+                    if args.save_circuit.endswith(".png")
+                    else f"{args.save_circuit}_{func_name}.png"
+                )
                 visualize_circuit(circuit, filename)
                 print(f"Circuit diagram saved to {filename}")
-            
+
             # Run simulation
             result = run_simulation(circuit, args.shots)
             counts = result.get_counts(circuit)
-            
+
             print("\nSimulation Results:")
             for outcome, count in counts.items():
                 print(f"  {outcome}: {count} ({count/args.shots:.2%})")
-            
+
             # Save results if requested
             if args.save_results:
-                filename = f"{args.save_results}_{func_name}.png" if args.save_results.endswith('.png') else f"{args.save_results}_{func_name}.png"
+                filename = (
+                    f"{args.save_results}_{func_name}.png"
+                    if args.save_results.endswith(".png")
+                    else f"{args.save_results}_{func_name}.png"
+                )
                 visualize_results(counts, filename)
                 print(f"Results histogram saved to {filename}")
+
 
 if __name__ == "__main__":
     main()

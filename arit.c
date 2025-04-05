@@ -1,7 +1,7 @@
 int operations(int a, int b)
 {
     int c, d;
-    a = a + 1;
+    a = a + 1 + 1;
     b = b + 1;
     c = a + b;
     d = a - b;

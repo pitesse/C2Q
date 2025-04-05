@@ -38,23 +38,23 @@ from .c_ast import (
 class CParser(GenericParser[CTokenKind]):
     """
     @brief Parser for C language source code.
-    
+
     This parser implements a recursive descent algorithm to parse a subset of the
     C programming language. It builds an Abstract Syntax Tree (AST) that represents
     the structure and semantics of the C program, which can be further processed
     for quantum transformation.
-    
+
     The parser supports function definitions, variable declarations, expressions,
     function calls, and control flow constructs like conditionals and loops.
-    
+
     @see CLexer
     @see c_ast.py
     """
-    
+
     def __init__(self, file: Path, program: str):
         """
         @brief Initialize the C parser with source file and program text.
-        
+
         @param file: Path object representing the source file path
         @param program: String containing the C program text to parse
         """
@@ -63,7 +63,7 @@ class CParser(GenericParser[CTokenKind]):
     def getToken(self):
         """
         @brief Returns current token in parser.
-        
+
         @return The current token being processed
         """
         return self._current_token
@@ -71,14 +71,14 @@ class CParser(GenericParser[CTokenKind]):
     def getTokenPrecedence(self) -> int:
         """
         @brief Returns precedence if the current token is a binary operation.
-        
+
         Determines the precedence level of the current token if it's a binary
         operator. Higher values indicate higher precedence.
-        
+
         @return Precedence value or -1 if the token is not a binary operator
         """
         PRECEDENCE = {
-            "=": 10,   # Assignment has lower precedence
+            "=": 10,  # Assignment has lower precedence
             "-": 20,
             "+": 20,
             "*": 40,
@@ -86,13 +86,13 @@ class CParser(GenericParser[CTokenKind]):
             "%": 40,
         }
         op = self._current_token.text
-    
+
         return PRECEDENCE.get(op, -1)
 
     def peek(self, pattern: str | CTokenKind) -> CToken | None:
         """
         @brief Check if the current token matches a pattern without consuming it.
-        
+
         @param pattern: String or token kind to match against
         @return The matching token or None if no match
         """
@@ -108,7 +108,7 @@ class CParser(GenericParser[CTokenKind]):
     def check(self, pattern: str | CTokenKind) -> bool:
         """
         @brief Verifies that the current token fits the pattern.
-        
+
         @param pattern: String or token kind to match against
         @return True if the current token matches the pattern, False otherwise
         """
@@ -117,7 +117,7 @@ class CParser(GenericParser[CTokenKind]):
     def pop(self) -> CToken:
         """
         @brief Consume and return the current token.
-        
+
         @return The consumed token
         """
         return self._consume_token()
@@ -125,7 +125,7 @@ class CParser(GenericParser[CTokenKind]):
     def pop_pattern(self, pattern: str) -> CToken:
         """
         @brief Verify that the current token matches a pattern and consume it.
-        
+
         @param pattern: String pattern to match against
         @return The consumed token
         @throws ParseError if the current token doesn't match the pattern
@@ -138,7 +138,7 @@ class CParser(GenericParser[CTokenKind]):
     def pop_token(self, tokenType: CTokenKind) -> CToken:
         """
         @brief Verify that the current token is of expected type and consume it.
-        
+
         @param tokenType: Expected token kind
         @return The consumed token
         @throws ParseError if the current token is not of the expected type
@@ -148,44 +148,44 @@ class CParser(GenericParser[CTokenKind]):
     def parseModule(self):
         """
         @brief Parse a full C module (a collection of function definitions).
-        
+
         module ::= definition*
-        
+
         @return ModuleAST object containing the parsed functions
         """
         functions: list[FunctionAST] = []
-        
+
         while not self.check(CTokenKind.EOF):
             functions.append(self.parseDefinition())
-        
+
         # If we didn't reach EOF, there was an error during parsing
         self.pop_token(CTokenKind.EOF)
-        
+
         return ModuleAST(tuple(functions))
 
     def parseReturn(self):
         """
         @brief Parse a return statement.
-        
+
         return_statement ::= 'return' [expression] ';'
-        
+
         @return ReturnExprAST representing the return statement
         """
         returnToken = self.pop_pattern("return")
         expr = None
-        
+
         # Return takes an optional expression
         if not self.check(";"):
             expr = self.parseExpression()
-        
+
         return ReturnExprAST(loc(returnToken), expr)
 
     def parseNumberExpr(self):
         """
         @brief Parse a literal number.
-        
+
         numberexpr ::= number
-        
+
         @return NumberExprAST representing the parsed number
         """
         numberToken = self.pop_token(CTokenKind.NUMBER)
@@ -194,10 +194,10 @@ class CParser(GenericParser[CTokenKind]):
     def parseTensorLiteralExpr(self) -> LiteralExprAST | NumberExprAST:
         """
         @brief Parse a literal array expression.
-        
+
         tensorLiteral ::= [ literalList ] | number
         literalList ::= tensorLiteral | tensorLiteral, literalList
-        
+
         @return LiteralExprAST or NumberExprAST representing the parsed tensor/array
         @throws ParseError if the tensor literal is malformed
         """
@@ -256,9 +256,9 @@ class CParser(GenericParser[CTokenKind]):
     def parseParenExpr(self) -> ExprAST:
         """
         @brief Parse a parenthesized expression.
-        
+
         parenexpr ::= '(' expression ')'
-        
+
         @return ExprAST representing the parsed expression
         """
         self.pop_pattern("(")
@@ -269,10 +269,10 @@ class CParser(GenericParser[CTokenKind]):
     def parseIdentifierExpr(self):
         """
         @brief Parse an identifier expression (variable or function call).
-        
+
         identifierexpr ::= identifier
                         ::= identifier '(' expression ')'
-        
+
         @return VariableExprAST, CallExprAST, or PrintExprAST for the parsed expression
         """
         name = self.pop_token(CTokenKind.IDENTIFIER)
@@ -302,12 +302,12 @@ class CParser(GenericParser[CTokenKind]):
     def parsePrimary(self) -> ExprAST | None:
         """
         @brief Parse a primary expression.
-        
+
         primary ::= identifierexpr
                 ::= numberexpr
                 ::= parenexpr
                 ::= tensorliteral
-        
+
         @return ExprAST representing the parsed expression or None if end of block
         """
         current = self._current_token
@@ -329,12 +329,12 @@ class CParser(GenericParser[CTokenKind]):
     def parsePrimaryNotNone(self) -> ExprAST:
         """
         @brief Parse a primary expression, requiring a valid expression.
-        
+
         primary ::= identifierexpr
                 ::= numberexpr
                 ::= parenexpr
                 ::= tensorliteral
-        
+
         @return ExprAST representing the parsed expression
         @throws ParseError if no valid expression is found
         """
@@ -353,10 +353,10 @@ class CParser(GenericParser[CTokenKind]):
     def parseBinOpRHS(self, exprPrec: int, lhs: ExprAST) -> ExprAST:
         """
         @brief Parse the right-hand side of a binary expression.
-        
+
         This method handles operator precedence and builds the appropriate
         expression tree based on operator precedence.
-        
+
         @param exprPrec: Current precedence level
         @param lhs: Left-hand side expression
         @return Complete binary expression with correct precedence handling
@@ -364,12 +364,12 @@ class CParser(GenericParser[CTokenKind]):
         # If this is a binop, find its precedence.
         while True:
             tokPrec = self.getTokenPrecedence()
-    
+
             # If this is a binop that binds at least as tightly as the current binop,
             # consume it, otherwise we are done.
             if tokPrec < exprPrec:
                 return lhs
-    
+
             # Okay, we know this is a binop - could be +, -, *, /, % or =
             if self.check(CTokenKind.ASSIGN):
                 binOp = self.pop_token(CTokenKind.ASSIGN).text
@@ -380,28 +380,28 @@ class CParser(GenericParser[CTokenKind]):
                     binOp = self.pop().text
                 else:
                     return lhs  # Not an operator we recognize
-    
+
             # Parse the primary expression after the binary operator.
             rhs = self.parsePrimary()
-    
+
             if rhs is None:
                 self.raise_error("Expected expression to complete binary operator")
-    
+
             # If BinOp binds less tightly with rhs than the operator after rhs, let
             # the pending operator take rhs as its lhs.
             nextPrec = self.getTokenPrecedence()
             if tokPrec < nextPrec:
                 rhs = self.parseBinOpRHS(tokPrec + 1, rhs)
-    
+
             # Merge lhs/rhs
             lhs = BinaryExprAST(rhs.loc, binOp, lhs, rhs)
 
     def parseExpression(self) -> ExprAST:
         """
         @brief Parse a complete expression.
-        
+
         expression ::= primary binop rhs
-        
+
         @return ExprAST representing the full expression
         """
         lhs = self.parsePrimaryNotNone()
@@ -410,10 +410,10 @@ class CParser(GenericParser[CTokenKind]):
     def parseType(self):
         """
         @brief Parse a variable type with shape information.
-        
+
         type ::= < shape_list >
         shape_list ::= num | num , shape_list
-        
+
         @return VarType object with shape information
         """
         self.pop_pattern("<")
@@ -430,104 +430,118 @@ class CParser(GenericParser[CTokenKind]):
     def parseDeclaration(self):
         """
         @brief Parse a C variable declaration.
-        
+
         declaration ::= type identifier ['=' expr] ';'
-        
+
         @return VarDeclExprAST representing the variable declaration
         @throws ParseError if the declaration syntax is invalid
         """
         # Get variable type
-        if not self.check(CTokenKind.INT) and not self.check(CTokenKind.FLOAT) and \
-           not self.check(CTokenKind.DOUBLE) and not self.check(CTokenKind.CHAR):
+        if (
+            not self.check(CTokenKind.INT)
+            and not self.check(CTokenKind.FLOAT)
+            and not self.check(CTokenKind.DOUBLE)
+            and not self.check(CTokenKind.CHAR)
+        ):
             self.raise_error("Expected variable type")
-        
+
         type_token = self.pop()
         var_type = type_token.text
-        
+
         # Get variable name
         if not self.check(CTokenKind.IDENTIFIER):
             self.raise_error("Expected variable name")
-        
+
         name_token = self.pop_token(CTokenKind.IDENTIFIER)
         var_name = name_token.text
-        
+
         # Check for initialization
         expr = None
         if self.check("="):
             self.pop_pattern("=")
             expr = self.parseExpression()
-        
+
         return VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
 
     def parseDeclarationList(self):
         """
         @brief Parse a list of C variable declarations of the same type.
-        
+
         declaration_list ::= type identifier ['=' expr] [, identifier ['=' expr]]* ';'
-        
+
         @return List of VarDeclExprAST objects representing the variable declarations
         @throws ParseError if the declaration syntax is invalid
         """
         # Get variable type
-        if not self.check(CTokenKind.INT) and not self.check(CTokenKind.FLOAT) and \
-        not self.check(CTokenKind.DOUBLE) and not self.check(CTokenKind.CHAR):
+        if (
+            not self.check(CTokenKind.INT)
+            and not self.check(CTokenKind.FLOAT)
+            and not self.check(CTokenKind.DOUBLE)
+            and not self.check(CTokenKind.CHAR)
+        ):
             self.raise_error("Expected variable type")
-        
+
         type_token = self.pop()
         var_type = type_token.text
-        
+
         # List to collect all declarations
         declarations = []
-        
+
         # Process variables until we hit a semicolon
         while True:
             # Get variable name
             if not self.check(CTokenKind.IDENTIFIER):
                 self.raise_error("Expected variable name")
-            
+
             name_token = self.pop_token(CTokenKind.IDENTIFIER)
             var_name = name_token.text
-            
+
             # Check for initialization
             expr = None
             if self.check("="):
                 self.pop_pattern("=")
                 expr = self.parseExpression()
-            
+
             # Add declaration to the list
-            declarations.append(VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr))
-            
+            declarations.append(
+                VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
+            )
+
             # If no comma follows, we're done with this declaration list
             if not self.check(","):
                 break
-                
+
             # Consume the comma and continue to the next variable
             self.pop_pattern(",")
-        
+
         # Expect a semicolon after all declarations
         self.pop_pattern(";")
-        
+
         return declarations
 
     def parseBlock(self) -> tuple[ExprAST, ...]:
         """
         @brief Parse a C block: a list of statements wrapped in curly braces.
-        
+
         block ::= '{' statement_list '}'
         statement_list ::= statement | statement statement_list
         statement ::= declaration_list | expression_statement | return_statement
-        
+
         @return Tuple of ExprAST objects representing the statements in the block
         @throws ParseError if the block syntax is invalid
         """
         self.pop_pattern("{")
         exprList: list[ExprAST] = []
-        
+
         while not self.check("}"):
             # Check for type declaration
-            if self.check(CTokenKind.INT) or self.check(CTokenKind.FLOAT) or \
-               self.check(CTokenKind.DOUBLE) or self.check(CTokenKind.CHAR) or \
-               self.check(CTokenKind.VOID):
+            if (
+                self.check(CTokenKind.INT)
+                or self.check(CTokenKind.FLOAT)
+                or self.check(CTokenKind.DOUBLE)
+                or self.check(CTokenKind.CHAR)
+                or self.check(CTokenKind.VOID)
+            ):
                 # This is a variable declaration list
                 declarations = self.parseDeclarationList()
                 exprList.extend(declarations)
@@ -540,76 +554,84 @@ class CParser(GenericParser[CTokenKind]):
                 expr = self.parseExpression()
                 exprList.append(expr)
                 self.pop_pattern(";")
-        
+
         self.pop_pattern("}")
         return tuple(exprList)
 
     def parsePrototype(self):
         """
         @brief Parse a C function prototype.
-        
+
         prototype ::= return_type id '(' param_list ')'
         param_list ::= param | param, param_list
         param ::= type id
-        
+
         @return PrototypeAST representing the function prototype
         @throws ParseError if the prototype syntax is invalid
         """
         # Parse return type
-        if not self.check(CTokenKind.INT) and not self.check(CTokenKind.FLOAT) and \
-           not self.check(CTokenKind.DOUBLE) and not self.check(CTokenKind.VOID) and \
-           not self.check(CTokenKind.CHAR):
+        if (
+            not self.check(CTokenKind.INT)
+            and not self.check(CTokenKind.FLOAT)
+            and not self.check(CTokenKind.DOUBLE)
+            and not self.check(CTokenKind.VOID)
+            and not self.check(CTokenKind.CHAR)
+        ):
             self.raise_error("Expected return type")
-            
+
         returnTypeToken = self.pop()
         return_type = returnTypeToken.text
-        
+
         # Parse function name
         if not self.check(CTokenKind.IDENTIFIER):
             self.raise_error("Expected function name")
-        
+
         name_token = self.pop_token(CTokenKind.IDENTIFIER)
         fnName = name_token.text
-        
+
         # Parse parameter list
         self.pop_pattern("(")
         args: list[VariableExprAST] = []
-        
+
         if not self.check(")"):
             while True:
                 # Parameter type
-                if not self.check(CTokenKind.INT) and not self.check(CTokenKind.FLOAT) and \
-                   not self.check(CTokenKind.DOUBLE) and not self.check(CTokenKind.VOID) and \
-                   not self.check(CTokenKind.CHAR):
+                if (
+                    not self.check(CTokenKind.INT)
+                    and not self.check(CTokenKind.FLOAT)
+                    and not self.check(CTokenKind.DOUBLE)
+                    and not self.check(CTokenKind.VOID)
+                    and not self.check(CTokenKind.CHAR)
+                ):
                     self.raise_error("Expected parameter type")
-                
+
                 param_type_token = self.pop()
                 param_type = param_type_token.text
-                
+
                 # Parameter name
                 if not self.check(CTokenKind.IDENTIFIER):
                     self.raise_error("Expected parameter name")
-                
+
                 arg_token = self.pop_token(CTokenKind.IDENTIFIER)
                 arg_name = arg_token.text
-                
+
                 # Create variable expression with type information
                 args.append(VariableExprAST(loc(arg_token), arg_name, param_type))
-                
+
                 # Check for more parameters
                 if not self.check(","):
                     break
                 self.pop_pattern(",")
-        
+
         self.pop_pattern(")")
         return PrototypeAST(loc(returnTypeToken), fnName, args, return_type)
 
     def parseDefinition(self):
         """
         @brief Parse a C function definition.
-        
+
         definition ::= prototype '{' statement_list '}'
-        
+
         @return FunctionAST representing the complete function definition
         @throws ParseError if the function definition syntax is invalid
         """
