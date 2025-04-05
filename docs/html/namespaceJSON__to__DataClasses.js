@@ -1,0 +1,28 @@
+var namespaceJSON__to__DataClasses =
+[
+    [ "Assignment", "classJSON__to__DataClasses_1_1Assignment.html", "classJSON__to__DataClasses_1_1Assignment" ],
+    [ "ASTNode", "classJSON__to__DataClasses_1_1ASTNode.html", "classJSON__to__DataClasses_1_1ASTNode" ],
+    [ "BinaryOp", "classJSON__to__DataClasses_1_1BinaryOp.html", "classJSON__to__DataClasses_1_1BinaryOp" ],
+    [ "Block", "classJSON__to__DataClasses_1_1Block.html", "classJSON__to__DataClasses_1_1Block" ],
+    [ "CompilationUnit", "classJSON__to__DataClasses_1_1CompilationUnit.html", "classJSON__to__DataClasses_1_1CompilationUnit" ],
+    [ "ContinuousAssign", "classJSON__to__DataClasses_1_1ContinuousAssign.html", "classJSON__to__DataClasses_1_1ContinuousAssign" ],
+    [ "Conversion", "classJSON__to__DataClasses_1_1Conversion.html", "classJSON__to__DataClasses_1_1Conversion" ],
+    [ "ExpressionStatement", "classJSON__to__DataClasses_1_1ExpressionStatement.html", "classJSON__to__DataClasses_1_1ExpressionStatement" ],
+    [ "Instance", "classJSON__to__DataClasses_1_1Instance.html", "classJSON__to__DataClasses_1_1Instance" ],
+    [ "InstanceBody", "classJSON__to__DataClasses_1_1InstanceBody.html", "classJSON__to__DataClasses_1_1InstanceBody" ],
+    [ "IntegerLiteral", "classJSON__to__DataClasses_1_1IntegerLiteral.html", "classJSON__to__DataClasses_1_1IntegerLiteral" ],
+    [ "NamedValue", "classJSON__to__DataClasses_1_1NamedValue.html", "classJSON__to__DataClasses_1_1NamedValue" ],
+    [ "Net", "classJSON__to__DataClasses_1_1Net.html", "classJSON__to__DataClasses_1_1Net" ],
+    [ "NetType", "classJSON__to__DataClasses_1_1NetType.html", "classJSON__to__DataClasses_1_1NetType" ],
+    [ "Port", "classJSON__to__DataClasses_1_1Port.html", "classJSON__to__DataClasses_1_1Port" ],
+    [ "PrimitiveInstance", "classJSON__to__DataClasses_1_1PrimitiveInstance.html", "classJSON__to__DataClasses_1_1PrimitiveInstance" ],
+    [ "ProceduralBlock", "classJSON__to__DataClasses_1_1ProceduralBlock.html", "classJSON__to__DataClasses_1_1ProceduralBlock" ],
+    [ "Root", "classJSON__to__DataClasses_1_1Root.html", "classJSON__to__DataClasses_1_1Root" ],
+    [ "UnaryOp", "classJSON__to__DataClasses_1_1UnaryOp.html", "classJSON__to__DataClasses_1_1UnaryOp" ],
+    [ "Variable", "classJSON__to__DataClasses_1_1Variable.html", "classJSON__to__DataClasses_1_1Variable" ],
+    [ "format_ast", "namespaceJSON__to__DataClasses.html#a8e762e53eb76c442160fdbfb2a4da434", null ],
+    [ "format_root", "namespaceJSON__to__DataClasses.html#ac3e6b61d1db22961ead9ff3884cd027b", null ],
+    [ "from_dict", "namespaceJSON__to__DataClasses.html#a440e0f128dc50c7de5efbf8dd53a5ea2", null ],
+    [ "json_to_dataclass", "namespaceJSON__to__DataClasses.html#a04a68719e48eac31493f3fe58d01fc8f", null ],
+    [ "read_json_file", "namespaceJSON__to__DataClasses.html#a9d90d5d7679d98a792499ba4d0a8fad7", null ]
+];
