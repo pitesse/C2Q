@@ -98,8 +98,6 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
                 printer = Printer(print_generic_format=print_generic)
                 printer.print(module_op)
 
-            #     ir_gen = IRGen()
-            #     module_op = ir_gen.ir_gen_module(ast)
             # case ".mlir":
             #     parser = IRParser(ctx, f.read(), name=f"{path}")
             #     module_op = parser.parse_module()

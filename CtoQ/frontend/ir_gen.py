@@ -48,6 +48,7 @@ class IRGenError(Exception):
     pass
 
 
+# TODO generated IR has nested functions and main is inside operations somehow
 class QuantumIRGen:
     """
     @brief IR Generator that converts C AST to Quantum IR.
@@ -140,6 +141,7 @@ class QuantumIRGen:
         @return The resulting quantum value (usually a qubit reference)
         @throws IRGenError if the expression type is unsupported
         """
+        # TODO
         if isinstance(expr, BinaryExprAST):
             return self.ir_gen_binary_expr(expr)
         elif isinstance(expr, VariableExprAST):
