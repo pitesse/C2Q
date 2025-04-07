@@ -16,6 +16,9 @@ First, ensure you have Python 3.10+ installed on your system.
 
 This tool requires the following Python packages:
 - xdsl (MLIR-based compiler infrastructure)
+- libclang
+- qiskit
+- matpoltlib
 
 ```bash
 # Clone the repository
