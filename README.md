@@ -49,19 +49,19 @@ Convert a C file to quantum representation:
 source .venv/bin/activate
 
 # Run using the module syntax
-python -m CtoQ <file_name>.c
+python -m C2Q <file_name>.c
 ```
 
 ### Examples
 
 Basic usage:
 ```bash
-python -m CtoQ examples/simple.c
+python -m C2Q examples/simple.c
 ```
 
 Generate AST without conversion:
 ```bash
-python -m CtoQ examples/simple.c --emit ast
+python -m C2Q examples/simple.c --emit ast
 ```
 
 ## Documentation
@@ -78,7 +78,7 @@ xdg-open docs/html/index.html
 
 ## Project Structure
 
-- CtoQ - Main package directory
+- C2Q - Main package directory
   - `frontend/` - C lexing, parsing and initial IR generation
     - `lexer.py` - Custom C lexer implementation
     - `parser.py` - C parser using the lexer to generate AST
@@ -93,7 +93,7 @@ The compiler uses a custom implementation of a C lexer and parser rather than re
 
 ## Troubleshooting
 
-- **Import Errors**: Ensure you're running the tool as a module with `python -m CtoQ` rather than directly executing a script.
+- **Import Errors**: Ensure you're running the tool as a module with `python -m C2Q` rather than directly executing a script.
 - **Missing Dependencies**: Make sure your virtual environment is activated before running the tool.
 - **Documentation Issues**: If documentation doesn't generate correctly, ensure Doxygen is properly installed.
 

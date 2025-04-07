@@ -45,7 +45,7 @@ def generate_quantum_ir(ast, print_generic: bool):
     ir_gen = QuantumIRGen()
     module_op = ir_gen.ir_gen_module(ast)
     
-    # Create a StringIO buffer to capture output
+    # create a StringIO buffer to capture output
     ir_buffer = StringIO()
     printer = Printer(stream=ir_buffer, print_generic_format=print_generic)
     printer.print(module_op)
