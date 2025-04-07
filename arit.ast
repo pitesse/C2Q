@@ -8,7 +8,9 @@ Module:
       Operation: =
         Variable: a
         Operation: +
-          Variable: a
+          Operation: +
+            Variable: a
+            Right operand: 1
           Right operand: 1
       Operation: =
         Variable: b

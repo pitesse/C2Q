@@ -21,7 +21,7 @@ from xdsl.parser import Parser
 from xdsl.context import Context
 from xdsl.dialects.builtin import Builtin
 
-from CtoQ.dialects.quantum_dialect import Quantum
+from C2Q.dialects.quantum_dialect import Quantum
 
 ######### functions #########
 

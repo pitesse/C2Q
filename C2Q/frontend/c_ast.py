@@ -43,14 +43,14 @@ class ExprASTKind(Enum):
     This enum defines the different kinds of expression nodes that can exist
     in the AST, which is useful for type checking and visitor pattern implementations.
     """
-    Expr_VarDecl = 1  #!< Variable declaration expression
-    Expr_Return = 2   #!< Return statement expression
-    Expr_Num = 3      #!< Numeric literal expression
-    Expr_Literal = 4  #!< Array/tensor literal expression
-    Expr_Var = 5      #!< Variable reference expression
-    Expr_BinOp = 6    #!< Binary operation expression
-    Expr_Call = 7     #!< Function call expression
-    Expr_Print = 8    #!< Print statement expression
+    Expr_VarDecl = 1  #!< variable declaration expression
+    Expr_Return = 2   #!< return statement expression
+    Expr_Num = 3      #!< numeric literal expression
+    Expr_Literal = 4  #!< array/tensor literal expression
+    Expr_Var = 5      #!< variable reference expression
+    Expr_BinOp = 6    #!< binary operation expression
+    Expr_Call = 7     #!< function call expression
+    Expr_Print = 8    #!< print statement expression
 
 
 @dataclass()
@@ -136,7 +136,6 @@ class ExprAST:
         @param loc: Source code location information for this expression
         """
         self.loc = loc
-        print(self.dump())
 
     @property
     def kind(self) -> ExprASTKind:
@@ -182,9 +181,9 @@ class VarDeclExprAST(ExprAST):
     @param expr: Optional initialization expression
     """
     name: str
-    type_name: str  # C type (int, float, etc.)
-    varType: VarType = None  # For tensor dimensions if needed
-    expr: ExprAST = None  # Make initialization optional
+    type_name: str  # c type (int, float, etc.)
+    varType: VarType = None  # for tensor dimensions if needed
+    expr: ExprAST = None  # initialization is optional
 
     @property
     def kind(self):
@@ -206,7 +205,6 @@ class VarDeclExprAST(ExprAST):
         if self.varType and self.varType.shape:
             dims_str = "<" + ", ".join(f"{int(dim)}" for dim in self.varType.shape) + ">"
         
-        # Remove location info
         dumper.append("Variable declaration: ", f"{self.type_name} {self.name}{dims_str}")
         if self.expr:
             child = dumper.child()
@@ -274,7 +272,7 @@ class NumberExprAST(ExprAST):
         @param prefix: String to prepend to the output
         @param dumper: Dumper instance to append formatted output to
         """
-        # Format number more nicely without scientific notation for small integers
+        # format number more nicely without scientific notation for small integers
         if self.val.is_integer() and abs(self.val) < 1000000:
             dumper.append(prefix, f"{int(self.val)}")
         else:
@@ -359,7 +357,7 @@ class VariableExprAST(ExprAST):
     @param type_name: Optional type information for the variable
     """
     name: str
-    type_name: str = None  # Add type information for C variables
+    type_name: str = None  # add type information for C variables
 
     @property
     def kind(self):
@@ -378,7 +376,6 @@ class VariableExprAST(ExprAST):
         @param dumper: Dumper instance to append formatted output to
         """
         type_info = f":{self.type_name}" if self.type_name else ""
-        # Remove location info
         dumper.append("Variable: ", f"{self.name}{type_info}")
 
 
@@ -414,7 +411,6 @@ class BinaryExprAST(ExprAST):
         @param prefix: String to prepend to the output
         @param dumper: Dumper instance to append formatted output to
         """
-        # Replace with more readable format without location
         dumper.append(f"Operation: {self.op}", "")
         lhs_child = dumper.child()
         self.lhs.inner_dump("Left operand: ", lhs_child)
@@ -452,7 +448,6 @@ class CallExprAST(ExprAST):
         @param prefix: String to prepend to the output
         @param dumper: Dumper instance to append formatted output to
         """
-        # Remove location info
         dumper.append(prefix, f"Function call: '{self.callee}'")
         
         if self.args:
@@ -531,7 +526,6 @@ class PrototypeAST:
         @param prefix: String to prepend to the output
         @param dumper: Dumper instance to append formatted output to
         """
-        # Remove location info and use more descriptive name
         dumper.append("", f"Function signature: '{self.name}' -> {self.return_type}")
         params = ", ".join(f"{arg.type_name} {arg.name}" for arg in self.args)
         dumper.append("Parameters: ", f"[{params}]")
@@ -570,7 +564,6 @@ class FunctionAST:
         @param prefix: String to prepend to the output
         @param dumper: Dumper instance to append formatted output to
         """
-        # Use more descriptive format without location info
         dumper.append("Function Definition:", "")
         proto_child = dumper.child()
         self.proto.inner_dump("", proto_child)

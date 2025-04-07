@@ -29,7 +29,7 @@ class CTokenKind(Enum):
     keywords, and other language constructs.
     """
 
-    # Punctuation
+    # punctuation
     SEMICOLON = auto()
     PARENTHESE_OPEN = auto()
     PARENTHESE_CLOSE = auto()
@@ -37,7 +37,7 @@ class CTokenKind(Enum):
     BRACKET_CLOSE = auto()
     COMMA = auto()
 
-    # Operators
+    # operators
     PLUS = auto()
     MINUS = auto()
     MULTIPLY = auto()
@@ -45,17 +45,17 @@ class CTokenKind(Enum):
     MODULO = auto()
     ASSIGN = auto()
 
-    # C types
+    # c types
     INT = auto()
     FLOAT = auto()
     DOUBLE = auto()
     CHAR = auto()
     VOID = auto()
 
-    # Keywords
+    # keywords
     RETURN = auto()
 
-    # Other
+    # other token types
     IDENTIFIER = auto()
     NUMBER = auto()
     EOF = auto()
@@ -187,26 +187,26 @@ class CLexer(Lexer[CTokenKind]):
         @return The next token from the input
         @throws ParseError if an unexpected character is encountered
         """
-        # First, skip whitespaces and comments
+        # first, skip whitespaces and comments
         self._consume_whitespace()
 
         start_pos = self.pos
         current_char = self._get_chars()
 
-        # Handle end of file
+        # handle end of file
         if current_char is None:
             return self._form_token(CTokenKind.EOF, start_pos)
 
-        # bare identifier or keyword
+        # process identifier or keyword
         if current_char.isalpha() or current_char == "_":
             return self._lex_bare_identifier(start_pos)
 
-        # single-char punctuation
+        # handle single-char punctuation
         single_char_token_kind = SINGLE_CHAR_TOKENS.get(current_char)
         if single_char_token_kind is not None:
             return self._form_token(single_char_token_kind, start_pos)
 
-        # number
+        # process numeric literal
         if current_char.isnumeric():
             return self._lex_number(start_pos)
 
@@ -232,10 +232,10 @@ class CLexer(Lexer[CTokenKind]):
         """
         self._consume_regex(self.bare_identifier_suffix_regex)
 
-        # Get the entire identifier
+        # get the entire identifier
         identifier = self.input.slice(start_pos, self.pos)
 
-        # Check if it's a keyword
+        # check if it's a keyword
         if identifier in C_KEYWORDS:
             return self._form_token(C_KEYWORDS[identifier], start_pos)
 
@@ -260,9 +260,8 @@ class CLexer(Lexer[CTokenKind]):
         """
         first_digit = self.input.at(self.pos - 1)
 
-        # Hexadecimal case, we only parse it if we see the first '0x' characters,
-        # and then a first digit.
-        # Otherwise, a string like '0xi32' would not be parsed correctly.
+        # handle hexadecimal numbers (starting with 0x)
+        # a string like '0xi32' would be parsed incorrectly without this check
         if (
             first_digit == "0"
             and self._peek_chars() == "x"
@@ -273,10 +272,10 @@ class CLexer(Lexer[CTokenKind]):
             self._consume_regex(self._hexdigits_star_regex)
             return self._form_token(CTokenKind.NUMBER, start_pos)
 
-        # Decimal case
+        # handle decimal numbers
         self._consume_regex(self._digits_star_regex)
 
-        # Check if we are lexing a floating point
+        # check for floating point with decimal part
         match = self._consume_regex(self._fractional_suffix_regex)
         if match is not None:
             return self._form_token(CTokenKind.NUMBER, start_pos)
