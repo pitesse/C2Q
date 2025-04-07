@@ -21,7 +21,6 @@ from .location import Location
 
 INDENT = 2
 
-
 @dataclass
 class VarType:
     """
