@@ -1,7 +1,7 @@
 var namespaceCtoQ =
 [
     [ "__main__", "namespaceCtoQ_1_1____main____.html", [
-      [ "main", "namespaceCtoQ_1_1____main____.html#a6754ee3a52b681ec2f4b71b2da52d6ae", null ],
+      [ "main", "namespaceCtoQ_1_1____main____.html#a5604544692ef09f511ef9da2111690eb", null ],
       [ "action", "namespaceCtoQ_1_1____main____.html#a0b38cbcb6723db5d739f0951f85badfa", null ],
       [ "args", "namespaceCtoQ_1_1____main____.html#a953cf0bd6b4ec9e6a4669d1c1f0b2a94", null ],
       [ "choices", "namespaceCtoQ_1_1____main____.html#afcbb14a4dc5f204c9a4111441871f356", null ],
@@ -16,9 +16,9 @@ var namespaceCtoQ =
     [ "compiler", "namespaceCtoQ_1_1compiler.html", [
       [ "compile", "namespaceCtoQ_1_1compiler.html#a75c8c43ab14fa711463568490296dc88", null ],
       [ "context", "namespaceCtoQ_1_1compiler.html#ae3551dbe71d1f1bb4b0ab7804edb94a3", null ],
-      [ "emulate_riscv", "namespaceCtoQ_1_1compiler.html#ab934cd268cc6522c3f5ba2b949300fb9", null ],
+      [ "emulate_riscv", "namespaceCtoQ_1_1compiler.html#a447b9392bc4900b75c22e2e2ba014152", null ],
       [ "parse_toy", "namespaceCtoQ_1_1compiler.html#ad55177c5671443aa1a916dbced036e7d", null ],
-      [ "transform", "namespaceCtoQ_1_1compiler.html#ab3a8a09cdfc0eb16031382542a18b76f", null ]
+      [ "transform", "namespaceCtoQ_1_1compiler.html#a49c14606aba416f2b5f5c59706468bce", null ]
     ] ],
     [ "dialects", "namespaceCtoQ_1_1dialects.html", "namespaceCtoQ_1_1dialects" ],
     [ "frontend", "namespaceCtoQ_1_1frontend.html", "namespaceCtoQ_1_1frontend" ],

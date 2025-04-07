@@ -1,9 +1,19 @@
 var searchData=
 [
-  ['shape_5fis_5fcomplete_0',['shape_is_complete',['../classbuiltin_1_1DenseIntOrFPElementsAttr.html#a941c17c1e6cec0f4fcbe84dd1a719ca6',1,'builtin::DenseIntOrFPElementsAttr']]],
-  ['simplify_1',['simplify',['../classcommon__subexpr__elimination_1_1CSEDriver.html#abfab39e96977d07290f0e679661a772e',1,'common_subexpr_elimination.CSEDriver.simplify()'],['../classhermitian__gates__transformation_1_1HGEDriver.html#a41e283573f83b66f175865eda4fd757a',1,'hermitian_gates_transformation.HGEDriver.simplify()']]],
-  ['size_2',['size',['../classbuiltin_1_1FixedBitwidthType.html#a0e33b6556726d3b9d99d3e6286068f1e',1,'builtin::FixedBitwidthType']]],
-  ['strides_5ffor_5fshape_3',['strides_for_shape',['../classbuiltin_1_1ShapedType.html#acfa3b877f29ea0f6caf27168ea92204c',1,'builtin::ShapedType']]],
-  ['string_5fvalue_4',['string_value',['../classbuiltin_1_1SymbolRefAttr.html#a036941af87813be7ea0981d229d3d58e',1,'builtin::SymbolRefAttr']]],
-  ['sub_5foperand_5',['sub_operand',['../classcommon__subexpr__elimination_1_1OperationInfo.html#a9c8cd7828efb9e38c938e0ff35827ec1',1,'common_subexpr_elimination::OperationInfo']]]
+  ['save_1930',['save',['../classcindex_1_1TranslationUnit.html#a2063cbd1673ea567de95a4f4e32cb8b8',1,'cindex::TranslationUnit']]],
+  ['semantic_5fparent_1931',['semantic_parent',['../classcindex_1_1Cursor.html#ae46d60221321efa1dbcf113a5cec354b',1,'cindex::Cursor']]],
+  ['set_5fcompatibility_5fcheck_1932',['set_compatibility_check',['../classcindex_1_1Config.html#a370fcaf12d44120890fea05984e1bad6',1,'cindex::Config']]],
+  ['set_5flibrary_5ffile_1933',['set_library_file',['../classcindex_1_1Config.html#a57cf6ff4c619fa488c35291d88c6b347',1,'cindex::Config']]],
+  ['set_5flibrary_5fpath_1934',['set_library_path',['../classcindex_1_1Config.html#a8a2bc5347cc35b100f5b74063cc0c3e4',1,'cindex::Config']]],
+  ['severity_1935',['severity',['../classcindex_1_1Diagnostic.html#ab35fa71307eb1634794760c36363e865',1,'cindex::Diagnostic']]],
+  ['shape_5fis_5fcomplete_1936',['shape_is_complete',['../classbuiltin_1_1DenseIntOrFPElementsAttr.html#a941c17c1e6cec0f4fcbe84dd1a719ca6',1,'builtin::DenseIntOrFPElementsAttr']]],
+  ['simplify_1937',['simplify',['../classcommon__subexpr__elimination_1_1CSEDriver.html#a9f1571a4dfcf907c2d68adce4bddbc25',1,'common_subexpr_elimination.CSEDriver.simplify()'],['../classhermitian__gates__transformation_1_1HGEDriver.html#afca4124d513bbe8972589b2f1fd4f52b',1,'hermitian_gates_transformation.HGEDriver.simplify()']]],
+  ['size_1938',['size',['../classbuiltin_1_1FixedBitwidthType.html#a0e33b6556726d3b9d99d3e6286068f1e',1,'builtin::FixedBitwidthType']]],
+  ['spelling_1939',['spelling',['../classcindex_1_1TypeKind.html#a294dc6ec799f62f6d8c606abb246ac2c',1,'cindex.TypeKind.spelling()'],['../classcindex_1_1Token.html#a61758dc2360a74620b5c288c22f692c0',1,'cindex.Token.spelling()'],['../classcindex_1_1TranslationUnit.html#a1c46814be329679aa884ba834340ff24',1,'cindex.TranslationUnit.spelling()'],['../classcindex_1_1CompletionChunk.html#a97912ba28da99b5f211f0543dd8b8564',1,'cindex.CompletionChunk.spelling()'],['../classcindex_1_1Type.html#a8532e5156e772a59297bbc1ed9091c97',1,'cindex.Type.spelling()'],['../classcindex_1_1Cursor.html#a41b2f39a9958f256c05940b9f4c2325b',1,'cindex.Cursor.spelling()'],['../classcindex_1_1Diagnostic.html#abe042584bb4596df78c749ab2721ea41',1,'cindex.Diagnostic.spelling()']]],
+  ['start_1940',['start',['../classcindex_1_1SourceRange.html#a5d98f651df237030cc1f2446e692d1c8',1,'cindex::SourceRange']]],
+  ['storage_5fclass_1941',['storage_class',['../classcindex_1_1Cursor.html#add807f33bc849b05f37b9a333a929576',1,'cindex::Cursor']]],
+  ['strides_5ffor_5fshape_1942',['strides_for_shape',['../classbuiltin_1_1ShapedType.html#acfa3b877f29ea0f6caf27168ea92204c',1,'builtin::ShapedType']]],
+  ['string_1943',['string',['../classcindex_1_1CompletionChunk.html#aee347a924c91a45f860d96ea769585bf',1,'cindex.CompletionChunk.string()'],['../classcindex_1_1CodeCompletionResult.html#a892c6de2d915b06239f29dd6c4e259b4',1,'cindex.CodeCompletionResult.string()']]],
+  ['string_5fvalue_1944',['string_value',['../classbuiltin_1_1SymbolRefAttr.html#a162f5c644a713a7adc1b3d46cbab2ca4',1,'builtin::SymbolRefAttr']]],
+  ['sub_5foperand_1945',['sub_operand',['../classcommon__subexpr__elimination_1_1OperationInfo.html#a9c8cd7828efb9e38c938e0ff35827ec1',1,'common_subexpr_elimination::OperationInfo']]]
 ];

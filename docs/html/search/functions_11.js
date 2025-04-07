@@ -1,8 +1,19 @@
 var searchData=
 [
-  ['read_5fjson_5ffile_0',['read_json_file',['../namespaceJSON__to__DataClasses.html#a9d90d5d7679d98a792499ba4d0a8fad7',1,'JSON_to_DataClasses']]],
-  ['replace_1',['replace',['../classccnot__decomposition_1_1CCnot__decomposition.html#a5360a51d92e9328bf7613eb25bb3e4fe',1,'ccnot_decomposition::CCnot_decomposition']]],
-  ['result_5ftypes_2',['result_types',['../classcommon__subexpr__elimination_1_1OperationInfo.html#af36531fe6abaf1df8b7e0bd8407d466f',1,'common_subexpr_elimination.OperationInfo.result_types()'],['../classhermitian__gates__transformation_1_1OperationInfo.html#a4bc80d201d84cf6e3128ea24f19e0df1',1,'hermitian_gates_transformation.OperationInfo.result_types()']]],
-  ['rewrite_3',['rewrite',['../classqubit__renumber_1_1QubitRenumber.html#a064cdaa9a1a2f511ac4ef97ef930f43f',1,'qubit_renumber::QubitRenumber']]],
-  ['run_5fsimulation_4',['run_simulation',['../namespaceCtoQ_1_1backend_1_1qiskit__translator.html#aa7eed382c767f62d95c066dbd8aa59eb',1,'CtoQ::backend::qiskit_translator']]]
+  ['ranges_1914',['ranges',['../classcindex_1_1Diagnostic.html#a8ed7dc73cd1d470c2fd1048cbc7f5b95',1,'cindex::Diagnostic']]],
+  ['raw_5fcomment_1915',['raw_comment',['../classcindex_1_1Cursor.html#a61a85b8959a2b49ae0a43c0e88fff522',1,'cindex::Cursor']]],
+  ['read_1916',['read',['../classcindex_1_1Index.html#ad3567b5622e1ab8101e0f0113ad8805f',1,'cindex::Index']]],
+  ['read_5fjson_5ffile_1917',['read_json_file',['../namespaceJSON__to__DataClasses.html#a9d90d5d7679d98a792499ba4d0a8fad7',1,'JSON_to_DataClasses']]],
+  ['referenced_1918',['referenced',['../classcindex_1_1Cursor.html#a6d69184bd2daaa4888f30d84d939dca0',1,'cindex::Cursor']]],
+  ['register_1919',['register',['../classcindex_1_1TokenKind.html#a775bb113d91305fea8446a7b6fb688b4',1,'cindex::TokenKind']]],
+  ['register_5fenumerations_1920',['register_enumerations',['../namespacecindex.html#ab1c9691583a3a9beeef02c2e57e04713',1,'cindex']]],
+  ['register_5ffunction_1921',['register_function',['../namespacecindex.html#ad57447b0085bfc07e84c00b72f6f9e3c',1,'cindex']]],
+  ['register_5ffunctions_1922',['register_functions',['../namespacecindex.html#a7fe1fa1a88da2984f251e1ddc3bfa1a2',1,'cindex']]],
+  ['reparse_1923',['reparse',['../classcindex_1_1TranslationUnit.html#a1764944ee842b62e43a21b631bbc9068',1,'cindex::TranslationUnit']]],
+  ['replace_1924',['replace',['../classccnot__decomposition_1_1CCnot__decomposition.html#ae83d3b8c82e56a0051feb328d55fbed9',1,'ccnot_decomposition::CCnot_decomposition']]],
+  ['result_5ftype_1925',['result_type',['../classcindex_1_1Cursor.html#a44a42f1f99bf919f42ca25000d8e3008',1,'cindex::Cursor']]],
+  ['result_5ftypes_1926',['result_types',['../classcommon__subexpr__elimination_1_1OperationInfo.html#ab9c289743dba21578a4219b427b096e6',1,'common_subexpr_elimination.OperationInfo.result_types()'],['../classhermitian__gates__transformation_1_1OperationInfo.html#ab40e6176c301adf4da337d6b5ab3872a',1,'hermitian_gates_transformation.OperationInfo.result_types()']]],
+  ['results_1927',['results',['../classcindex_1_1CodeCompletionResults.html#afea89b4ecab8647231a8100545667fa8',1,'cindex::CodeCompletionResults']]],
+  ['rewrite_1928',['rewrite',['../classqubit__renumber_1_1QubitRenumber.html#a064cdaa9a1a2f511ac4ef97ef930f43f',1,'qubit_renumber::QubitRenumber']]],
+  ['run_5fsimulation_1929',['run_simulation',['../namespaceCtoQ_1_1backend_1_1qiskit__translator.html#a7b998be78a940a8cbd6193df41ee50b6',1,'CtoQ::backend::qiskit_translator']]]
 ];

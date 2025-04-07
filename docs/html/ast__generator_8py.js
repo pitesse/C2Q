@@ -1,14 +1,14 @@
 var ast__generator_8py =
 [
-    [ "CtoQ.frontend.ast_generator.BinaryOperation", "classCtoQ_1_1frontend_1_1ast__generator_1_1BinaryOperation.html", null ],
-    [ "CtoQ.frontend.ast_generator.ReturnStmt", "classCtoQ_1_1frontend_1_1ast__generator_1_1ReturnStmt.html", "classCtoQ_1_1frontend_1_1ast__generator_1_1ReturnStmt" ],
-    [ "CtoQ.frontend.ast_generator.FunctionDecl", "classCtoQ_1_1frontend_1_1ast__generator_1_1FunctionDecl.html", "classCtoQ_1_1frontend_1_1ast__generator_1_1FunctionDecl" ],
-    [ "CtoQ.frontend.ast_generator.TranslationUnit", "classCtoQ_1_1frontend_1_1ast__generator_1_1TranslationUnit.html", "classCtoQ_1_1frontend_1_1ast__generator_1_1TranslationUnit" ],
-    [ "CtoQ.frontend.ast_generator.parse_ast", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#abb1cf35dd56d1352da69599e41b6109f", null ],
-    [ "CtoQ.frontend.ast_generator.parse_binary_operation", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#a67a506c54320d8f5e2e2157c7e06db53", null ],
-    [ "CtoQ.frontend.ast_generator.parse_expression", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#ad492be378bf14e9be23afbf8739edb27", null ],
-    [ "CtoQ.frontend.ast_generator.parse_function_body", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#afa9d6db9e3ce2e7cd251ff2d75c98d24", null ],
-    [ "CtoQ.frontend.ast_generator.pretty_print_translation_unit", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#a2c9c41976cf5f892e669da3dce09b44e", null ],
-    [ "CtoQ.frontend.ast_generator.filename", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#a2afc31de96cedd3cb7149434fd00c3a7", null ],
-    [ "CtoQ.frontend.ast_generator.translation_unit", "namespaceCtoQ_1_1frontend_1_1ast__generator.html#a4f1a013e0ebd4f2f6d7c6c1cb9571eef", null ]
+    [ "BinaryOperation", "classast__generator_1_1BinaryOperation.html", null ],
+    [ "ReturnStmt", "classast__generator_1_1ReturnStmt.html", null ],
+    [ "FunctionDecl", "classast__generator_1_1FunctionDecl.html", "classast__generator_1_1FunctionDecl" ],
+    [ "TranslationUnit", "classast__generator_1_1TranslationUnit.html", "classast__generator_1_1TranslationUnit" ],
+    [ "parse_ast", "ast__generator_8py.html#a81e96aaa0749a6eaf64d8ef360c55417", null ],
+    [ "parse_binary_operation", "ast__generator_8py.html#a711d32ab7f1e8fdd40422bd542ab6b4d", null ],
+    [ "parse_expression", "ast__generator_8py.html#a8ac881e9c2ad9fc1fe42487c097842bf", null ],
+    [ "parse_function_body", "ast__generator_8py.html#a8ff3152e4ed7a17faa99440339e9932c", null ],
+    [ "pretty_print_translation_unit", "ast__generator_8py.html#afecf6af4201dabe520c97f5051555ab6", null ],
+    [ "filename", "ast__generator_8py.html#ab58163df7b6777b801828ac9a273426b", null ],
+    [ "translation_unit", "ast__generator_8py.html#aadc4eba914bb8e7fdf1673d413506b34", null ]
 ];

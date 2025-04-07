@@ -1,5 +1,6 @@
 var classbuiltin_1_1BFloat16Type =
 [
     [ "bitwidth", "classbuiltin_1_1BFloat16Type.html#a6af7eba8201f0e80cad485cceaf8a30a", null ],
-    [ "format", "classbuiltin_1_1BFloat16Type.html#a8963414da9006c5744321b5e54ec6ff1", null ]
+    [ "format", "classbuiltin_1_1BFloat16Type.html#a8963414da9006c5744321b5e54ec6ff1", null ],
+    [ "name", "classbuiltin_1_1BFloat16Type.html#ae7bd16c0bb8c6ac4ef840db42429544e", null ]
 ];

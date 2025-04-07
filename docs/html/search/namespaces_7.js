@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['remove_5funused_5fop_0',['remove_unused_op',['../namespaceremove__unused__op.html',1,'']]]
+  ['qasm_1545',['qasm',['../namespaceqasm.html',1,'']]],
+  ['qubit_5frenumber_1546',['qubit_renumber',['../namespacequbit__renumber.html',1,'']]]
 ];

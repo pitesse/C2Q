@@ -14,7 +14,6 @@ var classCtoQ_1_1frontend_1_1lexer_1_1CLexer =
     [ "_hexdigits_star_regex", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#afcbe7b051458edd93ab2c3cda5a668ee", null ],
     [ "_whitespace_regex", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#ab0e89cae4e04d79dbcb29dc394b8619d", null ],
     [ "bare_identifier_suffix_regex", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#a980596ef715efbc6b825a22b705669c9", null ],
-    [ "IDENTIFIER_SUFFIX", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#a62b141cf2623edee96dd1f6899d6cff0", null ],
-    [ "input", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#a4d318c3579320e056225b41f6882fdbf", null ],
+    [ "IDENTIFIER_SUFFIX", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#ac69aa32dbe7aefe4aba692ccfb0c0d0b", null ],
     [ "pos", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html#a096db874d7bb8666f111551b63977453", null ]
 ];

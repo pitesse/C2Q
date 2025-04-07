@@ -1,5 +1,5 @@
 var classmlir__dialect_1_1OverflowFlag =
 [
-    [ "NO_SIGNED_WRAP", "classmlir__dialect_1_1OverflowFlag.html#afb4cdde51e4a071752e27b28971ee318", null ],
-    [ "NO_UNSIGNED_WRAP", "classmlir__dialect_1_1OverflowFlag.html#acabae02eec2789ba8eb0aa4e831898b9", null ]
+    [ "NO_SIGNED_WRAP", "classmlir__dialect_1_1OverflowFlag.html#aaab7ca08134b8eb0e0f14612929f3d9e", null ],
+    [ "NO_UNSIGNED_WRAP", "classmlir__dialect_1_1OverflowFlag.html#afb1cc4641b33218df323414cfb39b324", null ]
 ];

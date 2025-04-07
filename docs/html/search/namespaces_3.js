@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['in_5fplacing_0',['in_placing',['../namespacein__placing.html',1,'']]],
-  ['ir_5fgen_1',['ir_gen',['../namespaceir__gen.html',1,'']]]
+  ['hermitian_5fgates_5ftransformation_1539',['hermitian_gates_transformation',['../namespacehermitian__gates__transformation.html',1,'']]]
 ];

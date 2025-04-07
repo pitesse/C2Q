@@ -1,6 +1,6 @@
 var classir__gen_1_1IRGen =
 [
-    [ "__init__", "classir__gen_1_1IRGen.html#a4b068f846147e934c02fbe95faa73c53", null ],
+    [ "__init__", "classir__gen_1_1IRGen.html#a30984bdd6b1edca7900a4ec492697299", null ],
     [ "collect_data", "classir__gen_1_1IRGen.html#a50c60dca4d64a1e70f6afc5cea3a6a0b", null ],
     [ "declare", "classir__gen_1_1IRGen.html#a453a13809d6df9fa64cf80d9f8b6c4f1", null ],
     [ "error", "classir__gen_1_1IRGen.html#ac728510a600f57f704584d38a7cf9cc3", null ],
@@ -13,13 +13,14 @@ var classir__gen_1_1IRGen =
     [ "ir_gen_literal_expr", "classir__gen_1_1IRGen.html#a274dc84be67aa63a0cb069238bdd893f", null ],
     [ "ir_gen_module", "classir__gen_1_1IRGen.html#aebf6570ea5bf2f73bac7054f6a04b3d6", null ],
     [ "ir_gen_number_expr", "classir__gen_1_1IRGen.html#a1b5fb700e244c47d46d1fe268d89a4b6", null ],
-    [ "ir_gen_print_expr", "classir__gen_1_1IRGen.html#a7fe3f338828808d90a00c775f1345ed6", null ],
+    [ "ir_gen_print_expr", "classir__gen_1_1IRGen.html#a307e02a4a40890957facf673b46ae93d", null ],
     [ "ir_gen_proto", "classir__gen_1_1IRGen.html#a289c1c250bb1aee712ca5da4d26a7b3a", null ],
-    [ "ir_gen_return_expr", "classir__gen_1_1IRGen.html#ade7be2e69ce79b1b279c847d605558f1", null ],
+    [ "ir_gen_return_expr", "classir__gen_1_1IRGen.html#aaccd05be7e4dd31157d7a1c06bdbf1ca", null ],
     [ "ir_gen_var_decl_expr", "classir__gen_1_1IRGen.html#a9e5c8cd3dd1c9a13a1b7b4a93019092f", null ],
     [ "ir_gen_variable_expr", "classir__gen_1_1IRGen.html#a9cf3627d9d8709a58f7f17fa346c5f4a", null ],
-    [ "loc", "classir__gen_1_1IRGen.html#ae0521d19693b98a33511c70aa372d5ba", null ],
+    [ "loc", "classir__gen_1_1IRGen.html#a21206f93945946db5f704120a07ae6bd", null ],
     [ "builder", "classir__gen_1_1IRGen.html#ae51ab16321987ea342ad17f82e587aa5", null ],
     [ "module", "classir__gen_1_1IRGen.html#a95dfee2d64fea85ce2f5697fd8b49355", null ],
-    [ "symbol_table", "classir__gen_1_1IRGen.html#ac17f41b3dbb1bafe92c9a688102ab897", null ]
+    [ "None", "classir__gen_1_1IRGen.html#a12c4a8c4a988396def84e629b3c466a7", null ],
+    [ "symbol_table", "classir__gen_1_1IRGen.html#a64933bf3db03026d0d2b53a52b7762bf", null ]
 ];

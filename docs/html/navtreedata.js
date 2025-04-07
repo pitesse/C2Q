@@ -45,8 +45,8 @@ var NAVTREE =
       [ "License", "index.html#autotoc_md13", null ]
     ] ],
     [ "Packages", "namespaces.html", [
-      [ "Package List", "namespaces.html", "namespaces_dup" ],
-      [ "Package Members", "namespacemembers.html", [
+      [ "Packages", "namespaces.html", "namespaces_dup" ],
+      [ "Package Functions", "namespacemembers.html", [
         [ "All", "namespacemembers.html", null ],
         [ "Functions", "namespacemembers_func.html", null ],
         [ "Variables", "namespacemembers_vars.html", null ]
@@ -68,25 +68,24 @@ var NAVTREE =
         [ "All", "globals.html", null ],
         [ "Functions", "globals_func.html", null ]
       ] ]
-    ] ]
+    ] ],
+    [ "Examples", "examples.html", "examples" ]
   ] ]
 ];
 
 var NAVTREEINDEX =
 [
 "JSON__to__DataClasses_8py.html",
-"classCtoQ_1_1dialects_1_1toy_1_1InferTransposeOpShapeTrait.html",
-"classCtoQ_1_1frontend_1_1ir__gen_1_1QuantumIRGen.html#a4b8b0b2d9fa48a7469e5baeab271daf9",
-"classJSON__to__DataClasses_1_1NamedValue.html#aeba649e1c13a5cef6195f17768d586e7",
-"classbuiltin_1_1DictionaryAttr.html#ac13e2865e49e90c6ac9dea3bef3c8010",
-"classbuiltin_1_1ModuleOp.html#aef73ea1f857df24a3e5c07d322ffc8a6",
-"classbuiltin_1_1VectorType.html#a1fc6dedce31f421c9415e2fa3c3fde0d",
-"classmlir__dialect_1_1AbstractFloatArithOp.html#ac2f60b78aa066a7554ab97dfe12ea2b8",
-"classmlir__dialect_1_1FuncOp.html#a435239c5a1b1029c89f3e3a1594bdaab",
-"classmlir__dialect_1_1LLVMFunctionType.html#a9ef1d605c21cf466e67c39f782460c1c",
-"classqubit__renumber_1_1QubitRenumber.html#a8f10e4d84cab622c23154fdc3e40d02e",
-"namespacehermitian__gates__transformation.html"
+"classCtoQ_1_1frontend_1_1c__ast_1_1CallExprAST.html#a8052f73134d9c9abd659a71ee08cc5c7",
+"classbuiltin_1_1DenseResourceAttr.html#af434c334401739e3df30b589f34828e4",
+"classcindex_1_1BaseEnumeration.html#a2f8c46d1ab0e981ed9bb8214f5fbbf27",
+"classcindex_1_1CursorKind.html#a327d53af6c4889911e003459081baf30",
+"classcindex_1_1File.html#a823a1df78df53109bcdd64152218e00c",
+"classhermitian__gates__transformation_1_1OperationInfo.html",
+"classmlir__dialect_1_1InsertValueOp.html#a7c3f2983212bd7edddadea36ac30fe3b",
+"functions_vars_u.html",
+"run__qasm_8py.html#a4a23af765a6d4a2fa6758cb0dff7337a"
 ];
 
-var SYNCONMSG = 'click to disable panel synchronization';
-var SYNCOFFMSG = 'click to enable panel synchronization';
+var SYNCONMSG = 'click to disable panel synchronisation';
+var SYNCOFFMSG = 'click to enable panel synchronisation';

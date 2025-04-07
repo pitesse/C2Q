@@ -51,6 +51,138 @@ var hierarchy =
       [ "builtin.UnrankedMemRefType", "classbuiltin_1_1UnrankedMemRefType.html", null ],
       [ "builtin.UnrankedMemRefType", "classbuiltin_1_1UnrankedMemRefType.html", null ]
     ] ],
+    [ "AnyDenseElement", null, [
+      [ "builtin.DenseIntOrFPElementsAttr", "classbuiltin_1_1DenseIntOrFPElementsAttr.html", null ]
+    ] ],
+    [ "JSON_to_DataClasses.Assignment", "classJSON__to__DataClasses_1_1Assignment.html", null ],
+    [ "JSON_to_DataClasses.ASTNode", "classJSON__to__DataClasses_1_1ASTNode.html", null ],
+    [ "cindex.CompletionString.Availability", "classcindex_1_1CompletionString_1_1Availability.html", null ],
+    [ "cindex.BaseEnumeration", "classcindex_1_1BaseEnumeration.html", [
+      [ "cindex.AccessSpecifier", "classcindex_1_1AccessSpecifier.html", null ],
+      [ "cindex.AvailabilityKind", "classcindex_1_1AvailabilityKind.html", null ],
+      [ "cindex.CursorKind", "classcindex_1_1CursorKind.html", null ],
+      [ "cindex.ExceptionSpecificationKind", "classcindex_1_1ExceptionSpecificationKind.html", null ],
+      [ "cindex.LinkageKind", "classcindex_1_1LinkageKind.html", null ],
+      [ "cindex.RefQualifierKind", "classcindex_1_1RefQualifierKind.html", null ],
+      [ "cindex.TLSKind", "classcindex_1_1TLSKind.html", null ],
+      [ "cindex.TemplateArgumentKind", "classcindex_1_1TemplateArgumentKind.html", null ],
+      [ "cindex.TypeKind", "classcindex_1_1TypeKind.html", null ]
+    ] ],
+    [ "JSON_to_DataClasses.BinaryOp", "classJSON__to__DataClasses_1_1BinaryOp.html", null ],
+    [ "ast_generator.BinaryOperation", "classast__generator_1_1BinaryOperation.html", null ],
+    [ "JSON_to_DataClasses.Block", "classJSON__to__DataClasses_1_1Block.html", null ],
+    [ "bytes", null, [
+      [ "builtin.BytesAttr", "classbuiltin_1_1BytesAttr.html", null ]
+    ] ],
+    [ "c_char_p", null, [
+      [ "cindex.c_interop_string", "classcindex_1_1c__interop__string.html", null ]
+    ] ],
+    [ "cindex.CachedProperty", "classcindex_1_1CachedProperty.html", null ],
+    [ "cindex.ClangObject", "classcindex_1_1ClangObject.html", [
+      [ "cindex.CodeCompletionResults", "classcindex_1_1CodeCompletionResults.html", null ],
+      [ "cindex.CompilationDatabase", "classcindex_1_1CompilationDatabase.html", null ],
+      [ "cindex.CompletionString", "classcindex_1_1CompletionString.html", null ],
+      [ "cindex.File", "classcindex_1_1File.html", null ],
+      [ "cindex.Index", "classcindex_1_1Index.html", null ],
+      [ "cindex.TranslationUnit", "classcindex_1_1TranslationUnit.html", null ]
+    ] ],
+    [ "JSON_to_DataClasses.CompilationUnit", "classJSON__to__DataClasses_1_1CompilationUnit.html", null ],
+    [ "cindex.CompileCommand", "classcindex_1_1CompileCommand.html", null ],
+    [ "cindex.CompileCommands", "classcindex_1_1CompileCommands.html", null ],
+    [ "cindex.CompletionChunk", "classcindex_1_1CompletionChunk.html", null ],
+    [ "cindex.Config", "classcindex_1_1Config.html", null ],
+    [ "JSON_to_DataClasses.ContinuousAssign", "classJSON__to__DataClasses_1_1ContinuousAssign.html", null ],
+    [ "JSON_to_DataClasses.Conversion", "classJSON__to__DataClasses_1_1Conversion.html", null ],
+    [ "common_subexpr_elimination.CSEDriver", "classcommon__subexpr__elimination_1_1CSEDriver.html", null ],
+    [ "cindex.Diagnostic", "classcindex_1_1Diagnostic.html", null ],
+    [ "CtoQ.frontend.c_ast.Dumper", "classCtoQ_1_1frontend_1_1c__ast_1_1Dumper.html", null ],
+    [ "Exception", null, [
+      [ "CtoQ.frontend.ir_gen.IRGenError", "classCtoQ_1_1frontend_1_1ir__gen_1_1IRGenError.html", null ],
+      [ "cindex.CompilationDatabaseError", "classcindex_1_1CompilationDatabaseError.html", null ],
+      [ "cindex.LibclangError", "classcindex_1_1LibclangError.html", null ],
+      [ "cindex.TranslationUnitLoadError", "classcindex_1_1TranslationUnitLoadError.html", null ],
+      [ "cindex.TranslationUnitSaveError", "classcindex_1_1TranslationUnitSaveError.html", null ],
+      [ "ir_gen.IRGenError", "classir__gen_1_1IRGenError.html", null ]
+    ] ],
+    [ "CtoQ.frontend.c_ast.ExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html", [
+      [ "CtoQ.frontend.c_ast.BinaryExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1BinaryExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.CallExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1CallExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.LiteralExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1LiteralExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.NumberExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1NumberExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.PrintExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1PrintExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.ReturnExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1ReturnExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.VarDeclExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1VarDeclExprAST.html", null ],
+      [ "CtoQ.frontend.c_ast.VariableExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1VariableExprAST.html", null ]
+    ] ],
+    [ "JSON_to_DataClasses.ExpressionStatement", "classJSON__to__DataClasses_1_1ExpressionStatement.html", null ],
+    [ "cindex.FileInclusion", "classcindex_1_1FileInclusion.html", null ],
+    [ "cindex.FixIt", "classcindex_1_1FixIt.html", null ],
+    [ "float", null, [
+      [ "builtin.FloatData", "classbuiltin_1_1FloatData.html", null ],
+      [ "builtin._FloatType", "classbuiltin_1_1__FloatType.html", null ]
+    ] ],
+    [ "CtoQ.frontend.c_ast.FunctionAST", "classCtoQ_1_1frontend_1_1c__ast_1_1FunctionAST.html", null ],
+    [ "ast_generator.FunctionDecl", "classast__generator_1_1FunctionDecl.html", null ],
+    [ "hermitian_gates_transformation.HGEDriver", "classhermitian__gates__transformation_1_1HGEDriver.html", null ],
+    [ "JSON_to_DataClasses.Instance", "classJSON__to__DataClasses_1_1Instance.html", null ],
+    [ "JSON_to_DataClasses.InstanceBody", "classJSON__to__DataClasses_1_1InstanceBody.html", null ],
+    [ "int", null, [
+      [ "builtin.IndexType", "classbuiltin_1_1IndexType.html", null ],
+      [ "builtin.IntAttr", "classbuiltin_1_1IntAttr.html", [
+        [ "builtin.IntAttrConstraint", "classbuiltin_1_1IntAttrConstraint.html", null ],
+        [ "builtin.IntAttrConstraint._Extractor", "classbuiltin_1_1IntAttrConstraint_1_1__Extractor.html", null ]
+      ] ],
+      [ "builtin.IntegerType", "classbuiltin_1_1IntegerType.html", null ]
+    ] ],
+    [ "JSON_to_DataClasses.IntegerLiteral", "classJSON__to__DataClasses_1_1IntegerLiteral.html", null ],
+    [ "ir_gen.IRGen", "classir__gen_1_1IRGen.html", null ],
+    [ "cindex.CompletionChunk.Kind", "classcindex_1_1CompletionChunk_1_1Kind.html", null ],
+    [ "common_subexpr_elimination.KnownOps", "classcommon__subexpr__elimination_1_1KnownOps.html", null ],
+    [ "hermitian_gates_transformation.KnownOps", "classhermitian__gates__transformation_1_1KnownOps.html", null ],
+    [ "CtoQ.frontend.location.Location", "classCtoQ_1_1frontend_1_1location_1_1Location.html", null ],
+    [ "CtoQ.frontend.c_ast.ModuleAST", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html", null ],
+    [ "JSON_to_DataClasses.NamedValue", "classJSON__to__DataClasses_1_1NamedValue.html", null ],
+    [ "JSON_to_DataClasses.Net", "classJSON__to__DataClasses_1_1Net.html", null ],
+    [ "JSON_to_DataClasses.NetType", "classJSON__to__DataClasses_1_1NetType.html", null ],
+    [ "None", null, [
+      [ "mlir_dialect.LLVMPointerType", "classmlir__dialect_1_1LLVMPointerType.html", null ]
+    ] ],
+    [ "common_subexpr_elimination.OperationInfo", "classcommon__subexpr__elimination_1_1OperationInfo.html", null ],
+    [ "hermitian_gates_transformation.OperationInfo", "classhermitian__gates__transformation_1_1OperationInfo.html", null ],
+    [ "JSON_to_DataClasses.Port", "classJSON__to__DataClasses_1_1Port.html", null ],
+    [ "JSON_to_DataClasses.PrimitiveInstance", "classJSON__to__DataClasses_1_1PrimitiveInstance.html", null ],
+    [ "JSON_to_DataClasses.ProceduralBlock", "classJSON__to__DataClasses_1_1ProceduralBlock.html", null ],
+    [ "CtoQ.frontend.c_ast.PrototypeAST", "classCtoQ_1_1frontend_1_1c__ast_1_1PrototypeAST.html", null ],
+    [ "CtoQ.backend.qiskit_translator.QiskitTranslator", "classCtoQ_1_1backend_1_1qiskit__translator_1_1QiskitTranslator.html", null ],
+    [ "CtoQ.frontend.ir_gen.QuantumIRGen", "classCtoQ_1_1frontend_1_1ir__gen_1_1QuantumIRGen.html", null ],
+    [ "ast_generator.ReturnStmt", "classast__generator_1_1ReturnStmt.html", null ],
+    [ "JSON_to_DataClasses.Root", "classJSON__to__DataClasses_1_1Root.html", null ],
+    [ "CtoQ.backend.metrics.RunMetrics", "classCtoQ_1_1backend_1_1metrics_1_1RunMetrics.html", null ],
+    [ "cindex.StorageClass", "classcindex_1_1StorageClass.html", null ],
+    [ "str", null, [
+      [ "builtin.DictionaryAttr", "classbuiltin_1_1DictionaryAttr.html", null ],
+      [ "builtin.StringAttr", "classbuiltin_1_1StringAttr.html", null ]
+    ] ],
+    [ "Structure", null, [
+      [ "cindex.CCRStructure", "classcindex_1_1CCRStructure.html", null ],
+      [ "cindex.CodeCompletionResult", "classcindex_1_1CodeCompletionResult.html", null ],
+      [ "cindex.Cursor", "classcindex_1_1Cursor.html", null ],
+      [ "cindex.SourceLocation", "classcindex_1_1SourceLocation.html", null ],
+      [ "cindex.SourceRange", "classcindex_1_1SourceRange.html", null ],
+      [ "cindex.Token", "classcindex_1_1Token.html", null ],
+      [ "cindex.Type", "classcindex_1_1Type.html", null ],
+      [ "cindex._CXString", "classcindex_1_1__CXString.html", null ],
+      [ "cindex._CXUnsavedFile", "classcindex_1_1__CXUnsavedFile.html", null ]
+    ] ],
+    [ "cindex.TokenGroup", "classcindex_1_1TokenGroup.html", null ],
+    [ "cindex.TokenKind", "classcindex_1_1TokenKind.html", null ],
+    [ "ast_generator.TranslationUnit", "classast__generator_1_1TranslationUnit.html", null ],
+    [ "tuple", null, [
+      [ "builtin.ArrayAttr", "classbuiltin_1_1ArrayAttr.html", null ]
+    ] ],
+    [ "JSON_to_DataClasses.UnaryOp", "classJSON__to__DataClasses_1_1UnaryOp.html", null ],
+    [ "JSON_to_DataClasses.Variable", "classJSON__to__DataClasses_1_1Variable.html", null ],
+    [ "CtoQ.frontend.c_ast.VarType", "classCtoQ_1_1frontend_1_1c__ast_1_1VarType.html", null ],
     [ "ABC", null, [
       [ "CtoQ.dialects.toy.ToyShapeInferenceTrait", "classCtoQ_1_1dialects_1_1toy_1_1ToyShapeInferenceTrait.html", [
         [ "CtoQ.dialects.toy.InferAddOpShapeTrait", "classCtoQ_1_1dialects_1_1toy_1_1InferAddOpShapeTrait.html", null ],
@@ -130,11 +262,6 @@ var hierarchy =
     [ "AffineSet", null, [
       [ "builtin.AffineSetAttr", "classbuiltin_1_1AffineSetAttr.html", null ]
     ] ],
-    [ "AnyDenseElement", null, [
-      [ "builtin.DenseIntOrFPElementsAttr", "classbuiltin_1_1DenseIntOrFPElementsAttr.html", null ]
-    ] ],
-    [ "JSON_to_DataClasses.Assignment", "classJSON__to__DataClasses_1_1Assignment.html", null ],
-    [ "JSON_to_DataClasses.ASTNode", "classJSON__to__DataClasses_1_1ASTNode.html", null ],
     [ "AttrConstraint", null, [
       [ "builtin.ArrayOfConstraint", "classbuiltin_1_1ArrayOfConstraint.html", null ],
       [ "builtin.EmptyArrayAttrConstraint", "classbuiltin_1_1EmptyArrayAttrConstraint.html", null ],
@@ -168,40 +295,26 @@ var hierarchy =
       [ "builtin.TensorOrMemRefOf._Extractor", "classbuiltin_1_1TensorOrMemRefOf_1_1__Extractor.html", null ],
       [ "builtin.TensorOrMemRefOf._Extractor", "classbuiltin_1_1TensorOrMemRefOf_1_1__Extractor.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.BinaryOp", "classJSON__to__DataClasses_1_1BinaryOp.html", null ],
-    [ "CtoQ.frontend.ast_generator.BinaryOperation", "classCtoQ_1_1frontend_1_1ast__generator_1_1BinaryOperation.html", null ],
     [ "BitEnumAttribute", null, [
       [ "mlir_dialect.OverflowAttrBase", "classmlir__dialect_1_1OverflowAttrBase.html", [
         [ "mlir_dialect.OverflowAttr", "classmlir__dialect_1_1OverflowAttr.html", null ]
       ] ]
     ] ],
-    [ "JSON_to_DataClasses.Block", "classJSON__to__DataClasses_1_1Block.html", null ],
-    [ "bytes", null, [
-      [ "builtin.BytesAttr", "classbuiltin_1_1BytesAttr.html", null ]
-    ] ],
     [ "CallableOpInterface", null, [
       [ "CtoQ.dialects.toy.FuncOpCallableInterface", "classCtoQ_1_1dialects_1_1toy_1_1FuncOpCallableInterface.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.CompilationUnit", "classJSON__to__DataClasses_1_1CompilationUnit.html", null ],
     [ "ContainerType", null, [
       [ "mlir_dialect.LLVMPointerType", "classmlir__dialect_1_1LLVMPointerType.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.ContinuousAssign", "classJSON__to__DataClasses_1_1ContinuousAssign.html", null ],
-    [ "JSON_to_DataClasses.Conversion", "classJSON__to__DataClasses_1_1Conversion.html", null ],
-    [ "common_subexpr_elimination.CSEDriver", "classcommon__subexpr__elimination_1_1CSEDriver.html", null ],
     [ "Data", null, [
       [ "builtin.AffineMapAttr", "classbuiltin_1_1AffineMapAttr.html", null ],
       [ "builtin.AffineSetAttr", "classbuiltin_1_1AffineSetAttr.html", null ],
       [ "builtin.BytesAttr", "classbuiltin_1_1BytesAttr.html", null ],
       [ "builtin.FloatData", "classbuiltin_1_1FloatData.html", null ],
-      [ "builtin.IntAttr", "classbuiltin_1_1IntAttr.html", [
-        [ "builtin.IntAttrConstraint", "classbuiltin_1_1IntAttrConstraint.html", null ],
-        [ "builtin.IntAttrConstraint._Extractor", "classbuiltin_1_1IntAttrConstraint_1_1__Extractor.html", null ]
-      ] ],
+      [ "builtin.IntAttr", "classbuiltin_1_1IntAttr.html", null ],
       [ "builtin.SignednessAttr", "classbuiltin_1_1SignednessAttr.html", null ],
       [ "builtin.StringAttr", "classbuiltin_1_1StringAttr.html", null ]
     ] ],
-    [ "CtoQ.frontend.c_ast.Dumper", "classCtoQ_1_1frontend_1_1c__ast_1_1Dumper.html", null ],
     [ "Enum", null, [
       [ "CtoQ.frontend.c_ast.ExprASTKind", "classCtoQ_1_1frontend_1_1c__ast_1_1ExprASTKind.html", null ],
       [ "CtoQ.frontend.lexer.CTokenKind", "classCtoQ_1_1frontend_1_1lexer_1_1CTokenKind.html", [
@@ -215,30 +328,9 @@ var hierarchy =
     [ "EnumAttribute", null, [
       [ "mlir_dialect.TailCallKindAttr", "classmlir__dialect_1_1TailCallKindAttr.html", null ]
     ] ],
-    [ "Exception", null, [
-      [ "CtoQ.frontend.ir_gen.IRGenError", "classCtoQ_1_1frontend_1_1ir__gen_1_1IRGenError.html", null ],
-      [ "ir_gen.IRGenError", "classir__gen_1_1IRGenError.html", null ]
-    ] ],
-    [ "CtoQ.frontend.c_ast.ExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1ExprAST.html", [
-      [ "CtoQ.frontend.c_ast.BinaryExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1BinaryExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.CallExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1CallExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.LiteralExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1LiteralExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.NumberExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1NumberExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.PrintExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1PrintExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.ReturnExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1ReturnExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.VarDeclExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1VarDeclExprAST.html", null ],
-      [ "CtoQ.frontend.c_ast.VariableExprAST", "classCtoQ_1_1frontend_1_1c__ast_1_1VariableExprAST.html", null ]
-    ] ],
-    [ "JSON_to_DataClasses.ExpressionStatement", "classJSON__to__DataClasses_1_1ExpressionStatement.html", null ],
     [ "FastMathAttrBase", null, [
       [ "mlir_dialect.FastMathAttr", "classmlir__dialect_1_1FastMathAttr.html", null ]
     ] ],
-    [ "float", null, [
-      [ "builtin.FloatData", "classbuiltin_1_1FloatData.html", null ],
-      [ "builtin._FloatType", "classbuiltin_1_1__FloatType.html", null ]
-    ] ],
-    [ "CtoQ.frontend.c_ast.FunctionAST", "classCtoQ_1_1frontend_1_1c__ast_1_1FunctionAST.html", null ],
-    [ "CtoQ.frontend.ast_generator.FunctionDecl", "classCtoQ_1_1frontend_1_1ast__generator_1_1FunctionDecl.html", null ],
     [ "Generic", null, [
       [ "builtin.ContainerOf", "classbuiltin_1_1ContainerOf.html", null ],
       [ "builtin.ContainerType", "classbuiltin_1_1ContainerType.html", null ],
@@ -268,18 +360,9 @@ var hierarchy =
       [ "CtoQ.dialects.toy.ReshapeOpHasCanonicalizationPatternsTrait", "classCtoQ_1_1dialects_1_1toy_1_1ReshapeOpHasCanonicalizationPatternsTrait.html", null ],
       [ "CtoQ.dialects.toy.TransposeOpHasCanonicalizationPatternsTrait", "classCtoQ_1_1dialects_1_1toy_1_1TransposeOpHasCanonicalizationPatternsTrait.html", null ]
     ] ],
-    [ "hermitian_gates_transformation.HGEDriver", "classhermitian__gates__transformation_1_1HGEDriver.html", null ],
     [ "immutabledict", null, [
       [ "builtin.DictionaryAttr", "classbuiltin_1_1DictionaryAttr.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.Instance", "classJSON__to__DataClasses_1_1Instance.html", null ],
-    [ "JSON_to_DataClasses.InstanceBody", "classJSON__to__DataClasses_1_1InstanceBody.html", null ],
-    [ "int", null, [
-      [ "builtin.IndexType", "classbuiltin_1_1IndexType.html", null ],
-      [ "builtin.IntAttr", "classbuiltin_1_1IntAttr.html", null ],
-      [ "builtin.IntegerType", "classbuiltin_1_1IntegerType.html", null ]
-    ] ],
-    [ "JSON_to_DataClasses.IntegerLiteral", "classJSON__to__DataClasses_1_1IntegerLiteral.html", null ],
     [ "IRDLOperation", null, [
       [ "CtoQ.dialects.quantum_dialect.CCNotOp", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1CCNotOp.html", null ],
       [ "CtoQ.dialects.quantum_dialect.CNotOp", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1CNotOp.html", null ],
@@ -332,32 +415,19 @@ var hierarchy =
       [ "mlir_dialect.UndefOp", "classmlir__dialect_1_1UndefOp.html", null ],
       [ "mlir_dialect.ZeroOp", "classmlir__dialect_1_1ZeroOp.html", null ]
     ] ],
-    [ "ir_gen.IRGen", "classir__gen_1_1IRGen.html", null ],
     [ "Iterable", null, [
       [ "builtin.ArrayAttr", "classbuiltin_1_1ArrayAttr.html", null ]
     ] ],
-    [ "common_subexpr_elimination.KnownOps", "classcommon__subexpr__elimination_1_1KnownOps.html", null ],
-    [ "hermitian_gates_transformation.KnownOps", "classhermitian__gates__transformation_1_1KnownOps.html", null ],
     [ "Lexer", null, [
       [ "CtoQ.frontend.lexer.CLexer", "classCtoQ_1_1frontend_1_1lexer_1_1CLexer.html", null ]
     ] ],
-    [ "CtoQ.frontend.location.Location", "classCtoQ_1_1frontend_1_1location_1_1Location.html", null ],
-    [ "CtoQ.frontend.c_ast.ModuleAST", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html", null ],
     [ "ModulePass", null, [
       [ "common_subexpr_elimination.CommonSubexpressionElimination", "classcommon__subexpr__elimination_1_1CommonSubexpressionElimination.html", null ],
       [ "hermitian_gates_transformation.HermitianGatesElimination", "classhermitian__gates__transformation_1_1HermitianGatesElimination.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.NamedValue", "classJSON__to__DataClasses_1_1NamedValue.html", null ],
-    [ "JSON_to_DataClasses.Net", "classJSON__to__DataClasses_1_1Net.html", null ],
-    [ "JSON_to_DataClasses.NetType", "classJSON__to__DataClasses_1_1NetType.html", null ],
-    [ "None", null, [
-      [ "mlir_dialect.LLVMPointerType", "classmlir__dialect_1_1LLVMPointerType.html", null ]
-    ] ],
     [ "Operation", null, [
       [ "builtin.UnregisteredOp", "classbuiltin_1_1UnregisteredOp.html", null ]
     ] ],
-    [ "common_subexpr_elimination.OperationInfo", "classcommon__subexpr__elimination_1_1OperationInfo.html", null ],
-    [ "hermitian_gates_transformation.OperationInfo", "classhermitian__gates__transformation_1_1OperationInfo.html", null ],
     [ "OpTrait", null, [
       [ "CtoQ.dialects.toy.ToyShapeInferenceTrait", "classCtoQ_1_1dialects_1_1toy_1_1ToyShapeInferenceTrait.html", null ]
     ] ],
@@ -397,23 +467,11 @@ var hierarchy =
       [ "mlir_dialect.LLVMVoidType", "classmlir__dialect_1_1LLVMVoidType.html", null ],
       [ "mlir_dialect.LinkageAttr", "classmlir__dialect_1_1LinkageAttr.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.Port", "classJSON__to__DataClasses_1_1Port.html", null ],
-    [ "JSON_to_DataClasses.PrimitiveInstance", "classJSON__to__DataClasses_1_1PrimitiveInstance.html", null ],
-    [ "JSON_to_DataClasses.ProceduralBlock", "classJSON__to__DataClasses_1_1ProceduralBlock.html", null ],
-    [ "CtoQ.frontend.c_ast.PrototypeAST", "classCtoQ_1_1frontend_1_1c__ast_1_1PrototypeAST.html", null ],
-    [ "CtoQ.backend.qiskit_translator.QiskitTranslator", "classCtoQ_1_1backend_1_1qiskit__translator_1_1QiskitTranslator.html", null ],
-    [ "CtoQ.frontend.ir_gen.QuantumIRGen", "classCtoQ_1_1frontend_1_1ir__gen_1_1QuantumIRGen.html", null ],
-    [ "CtoQ.frontend.ast_generator.ReturnStmt", "classCtoQ_1_1frontend_1_1ast__generator_1_1ReturnStmt.html", null ],
     [ "RewritePattern", null, [
       [ "ccnot_decomposition.CCnot_decomposition", "classccnot__decomposition_1_1CCnot__decomposition.html", null ],
       [ "in_placing.InPlacing", "classin__placing_1_1InPlacing.html", null ],
       [ "qubit_renumber.QubitRenumber", "classqubit__renumber_1_1QubitRenumber.html", null ],
       [ "remove_unused_op.RemoveUnusedOperations", "classremove__unused__op_1_1RemoveUnusedOperations.html", null ]
-    ] ],
-    [ "JSON_to_DataClasses.Root", "classJSON__to__DataClasses_1_1Root.html", null ],
-    [ "str", null, [
-      [ "builtin.DictionaryAttr", "classbuiltin_1_1DictionaryAttr.html", null ],
-      [ "builtin.StringAttr", "classbuiltin_1_1StringAttr.html", null ]
     ] ],
     [ "StrEnum", null, [
       [ "mlir_dialect.ICmpPredicateFlag", "classmlir__dialect_1_1ICmpPredicateFlag.html", null ],
@@ -423,10 +481,6 @@ var hierarchy =
       [ "mlir_dialect.TailCallKind", "classmlir__dialect_1_1TailCallKind.html", [
         [ "mlir_dialect.TailCallKindAttr", "classmlir__dialect_1_1TailCallKindAttr.html", null ]
       ] ]
-    ] ],
-    [ "CtoQ.frontend.ast_generator.TranslationUnit", "classCtoQ_1_1frontend_1_1ast__generator_1_1TranslationUnit.html", null ],
-    [ "tuple", null, [
-      [ "builtin.ArrayAttr", "classbuiltin_1_1ArrayAttr.html", null ]
     ] ],
     [ "TypeAttribute", null, [
       [ "builtin.CompileTimeFixedBitwidthType", "classbuiltin_1_1CompileTimeFixedBitwidthType.html", null ],
@@ -449,11 +503,8 @@ var hierarchy =
       [ "builtin.FloatAttr", "classbuiltin_1_1FloatAttr.html", null ],
       [ "builtin.IntegerAttr", "classbuiltin_1_1IntegerAttr.html", null ]
     ] ],
-    [ "JSON_to_DataClasses.UnaryOp", "classJSON__to__DataClasses_1_1UnaryOp.html", null ],
     [ "VarExtractor", null, [
       [ "builtin.IntAttrConstraint._Extractor", "classbuiltin_1_1IntAttrConstraint_1_1__Extractor.html", null ],
       [ "builtin.TensorOrMemRefOf._Extractor", "classbuiltin_1_1TensorOrMemRefOf_1_1__Extractor.html", null ]
-    ] ],
-    [ "JSON_to_DataClasses.Variable", "classJSON__to__DataClasses_1_1Variable.html", null ],
-    [ "CtoQ.frontend.c_ast.VarType", "classCtoQ_1_1frontend_1_1c__ast_1_1VarType.html", null ]
+    ] ]
 ];

@@ -1,25 +1,33 @@
 var namespaceCtoQ_1_1backend =
 [
+    [ "metrics", "namespaceCtoQ_1_1backend_1_1metrics.html", "namespaceCtoQ_1_1backend_1_1metrics" ],
     [ "qiskit_translator", "namespaceCtoQ_1_1backend_1_1qiskit__translator.html", "namespaceCtoQ_1_1backend_1_1qiskit__translator" ],
     [ "run_qasm", "namespaceCtoQ_1_1backend_1_1run__qasm.html", [
-      [ "bit_strings_iterative", "namespaceCtoQ_1_1backend_1_1run__qasm.html#af4fa242b0708f6fa267fceceb4aa3b79", null ],
-      [ "create_circuit", "namespaceCtoQ_1_1backend_1_1run__qasm.html#ad76ed3584f0893d20b1c8dda5c98609f", null ],
-      [ "generate_classical_truth_table", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a9f7df11bec726b6128e6efd09a817fd8", null ],
-      [ "generate_quantum_truth_table", "namespaceCtoQ_1_1backend_1_1run__qasm.html#ae07dac31b5a0a41fefc85c5711f341b7", null ],
-      [ "get_quantum_circuit_info", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a1f5817429257f7cababdcf211eed789b", null ],
-      [ "circuit_name", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a29144b31333cd65a6fa0a91e081af11b", null ],
-      [ "classical_truth_table", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a3bc0cc7a770d5c618478c74a7590092b", null ],
-      [ "first_op", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a770309f5edee5dbe40d713c9676788f4", null ],
-      [ "funcOp", "namespaceCtoQ_1_1backend_1_1run__qasm.html#af9956b64060e3e7f1ccf8e209d620086", null ],
-      [ "info", "namespaceCtoQ_1_1backend_1_1run__qasm.html#ae44360e52ad1301b6bf3d79df3d6d578", null ],
-      [ "input_args", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a1c1a8a94f403a0791da316310c130f6d", null ],
-      [ "istates", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a31e10726372f12914c4e1535ac528dfc", null ],
-      [ "istr", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a7db3b0ca203d14b41054896d73a5ec6b", null ],
-      [ "module", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a5301855920043aebbb53272865904917", null ],
-      [ "passed_tests", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a3e50a6bcab3007c0178f9901dccb3097", null ],
-      [ "print_output", "namespaceCtoQ_1_1backend_1_1run__qasm.html#af268c8e2d235aa3b0171d8311d1de283", null ],
-      [ "quantum_ir", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a6c8a8b61e0766a4252318e9bc742e299", null ],
-      [ "quantum_truth_table", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a008570f0bd06ca1fe643503d6569fb9d", null ],
-      [ "valid", "namespaceCtoQ_1_1backend_1_1run__qasm.html#ad451b93ae16d06846b376054c8bbcb68", null ]
+      [ "create_circuit", "namespaceCtoQ_1_1backend_1_1run__qasm.html#ad854fc25b64661897eb0377ca9555270", null ],
+      [ "get_quantum_circuit_info", "namespaceCtoQ_1_1backend_1_1run__qasm.html#a4a23af765a6d4a2fa6758cb0dff7337a", null ],
+      [ "main", "namespaceCtoQ_1_1backend_1_1run__qasm.html#aa87d1bd268f5eea53a18bc24ff55eb93", null ],
+      [ "metrics", "namespaceCtoQ_1_1backend_1_1run__qasm.html#aa66912398ea8ad303bc7bc2530c0e6db", null ],
+      [ "parse_mlir_file", "namespaceCtoQ_1_1backend_1_1run__qasm.html#abc7aecd07b8023dac963a3a5b34edf91", null ]
+    ] ],
+    [ "validate", "namespaceCtoQ_1_1backend_1_1validate.html", [
+      [ "bit_strings_iterative", "namespaceCtoQ_1_1backend_1_1validate.html#ac437100813649de918ee566d61de0b13", null ],
+      [ "create_circuit", "namespaceCtoQ_1_1backend_1_1validate.html#a66eae6e2b9e9f257f64ed22ef7110447", null ],
+      [ "generate_classical_truth_table", "namespaceCtoQ_1_1backend_1_1validate.html#a8643682084afbdcd6fb2841f2a9e2e27", null ],
+      [ "generate_quantum_truth_table", "namespaceCtoQ_1_1backend_1_1validate.html#a1c761955ebdbb940d49d12a2c1134693", null ],
+      [ "get_quantum_circuit_info", "namespaceCtoQ_1_1backend_1_1validate.html#a89f16c1cdf0379bf63f16e07a58c0649", null ],
+      [ "circuit_name", "namespaceCtoQ_1_1backend_1_1validate.html#a8a71bfdb85d3743797b9b0ccc0781238", null ],
+      [ "classical_truth_table", "namespaceCtoQ_1_1backend_1_1validate.html#a3da4900531e66fec912e9f23d21bc354", null ],
+      [ "first_op", "namespaceCtoQ_1_1backend_1_1validate.html#a7c0367bf749157530dcbe82819d64ade", null ],
+      [ "funcOp", "namespaceCtoQ_1_1backend_1_1validate.html#a06ae1e7131fabcd0faf33ab7ce1a21b7", null ],
+      [ "info", "namespaceCtoQ_1_1backend_1_1validate.html#a61d666ad5f4864718be235db831d7285", null ],
+      [ "input_args", "namespaceCtoQ_1_1backend_1_1validate.html#a3ee6e488fbaeee660af9425444bc4f4d", null ],
+      [ "istates", "namespaceCtoQ_1_1backend_1_1validate.html#a523a997f227f8e8462bc4ea6c5e3f17a", null ],
+      [ "istr", "namespaceCtoQ_1_1backend_1_1validate.html#a5aee010f722709eae1cd251fb16b2142", null ],
+      [ "module", "namespaceCtoQ_1_1backend_1_1validate.html#af09cd443bac659f153b45c4b4f3e77bf", null ],
+      [ "passed_tests", "namespaceCtoQ_1_1backend_1_1validate.html#af284c81bc9b64bec6ce3e8bdb45a5f81", null ],
+      [ "print_output", "namespaceCtoQ_1_1backend_1_1validate.html#a1b1d6fdbd068a9dae859bbbec9d8c25d", null ],
+      [ "quantum_ir", "namespaceCtoQ_1_1backend_1_1validate.html#a8455ac832280fa0d70b0c7b23fae1797", null ],
+      [ "quantum_truth_table", "namespaceCtoQ_1_1backend_1_1validate.html#a65ca15355f651574830c9bbc8c658e10", null ],
+      [ "valid", "namespaceCtoQ_1_1backend_1_1validate.html#a02b3c70ab79ac1915b123edd9bbd6ead", null ]
     ] ]
 ];

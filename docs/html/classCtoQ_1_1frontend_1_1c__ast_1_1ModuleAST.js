@@ -1,6 +1,5 @@
 var classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST =
 [
-    [ "dump", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html#aee187bf84582d32d6a5c40e832201883", null ],
-    [ "inner_dump", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html#ab3ef1a2b8931a1a265f3c0befc5189e1", null ],
-    [ "funcs", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html#a0a4fb56a96c872d71fce98fb7fe4c3bd", null ]
+    [ "dump", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html#af52aee6a1bf09d77183a186ca4fef456", null ],
+    [ "inner_dump", "classCtoQ_1_1frontend_1_1c__ast_1_1ModuleAST.html#a240b12dea23ceab98f37d9e740053a77", null ]
 ];

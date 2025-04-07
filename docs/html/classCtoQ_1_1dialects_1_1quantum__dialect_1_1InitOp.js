@@ -1,8 +1,8 @@
 var classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp =
 [
-    [ "__init__", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a7e814fa3078a0aa9353890648d5f4404", null ],
+    [ "__init__", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a7ef134a95b2599b2150cab373da4c7b3", null ],
     [ "from_value", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a3fbdf4154214cf6d4366d77b90e0dceb", null ],
-    [ "name", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a67e2c55473050589653c10f5bbf4fb4a", null ],
-    [ "res", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#ad2f904a85b7c87a7122d57ad0e4fc9fe", null ],
-    [ "value", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a5231fdf4eab9b19f2117b161e97e7e32", null ]
+    [ "IntegerType", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#abe5863ae68411ccd7949b28377b679f9", null ],
+    [ "name", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a0af3b4471239105c3f574c7cf2f5eeeb", null ],
+    [ "OpResult", "classCtoQ_1_1dialects_1_1quantum__dialect_1_1InitOp.html#a4fe50e795d65ad56ecb42b3c8da196c5", null ]
 ];

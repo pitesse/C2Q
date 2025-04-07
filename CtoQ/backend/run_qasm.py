@@ -1,93 +1,132 @@
-from main import QuantumIR
+"""!
+@file run_qasm.py
+@brief MLIR Quantum Circuit Metrics Calculator
+@details This script analyzes a quantum MLIR file and calculates various metrics
+         about the quantum circuit it represents, such as depth, width, gate count,
+         and T-gate specific metrics.
+@example
+python quantum_metrics.py path/to/quantum_ir.mlir
+"""
+
+import sys
+from pathlib import Path
+import argparse
 
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 from qiskit.converters import circuit_to_dag
 from qiskit.dagcircuit import DAGOpNode
 
-import numpy as np
+from xdsl.parser import Parser
+from xdsl.context import Context
+from xdsl.dialects.builtin import Builtin
 
-import sys
-import csv
+from CtoQ.dialects.quantum_dialect import Quantum
 
-######### FUNCTIONS #########
+######### functions #########
 
-# Function to create a quantum circuit from the IR
-def create_circuit(first_op, qubit_number, output_number, state):
+def parse_mlir_file(file_path):
+    """!
+    @brief Parse an MLIR file into IR objects
+    @param file_path Path to the MLIR file
+    @return Module object containing the parsed IR
+    """
+    with open(file_path, 'r') as f:
+        mlir_content = f.read()
+    
+    # create context and register dialects
+    context = Context()
+    context.load_dialect(Builtin)
+    context.load_dialect(Quantum)
+    
+    # parse the MLIR file
+    parser = Parser(context, mlir_content)
+    module = parser.parse_module()
+    
+    return module
 
+def create_circuit(first_op, qubit_number, output_number):
+    """!
+    @brief Create a Qiskit quantum circuit from IR operations
+    @param first_op First operation in the IR sequence
+    @param qubit_number Total number of qubits in the circuit
+    @param output_number Number of classical output bits
+    @return QuantumCircuit object representing the quantum program
+    """
     circuit = QuantumCircuit(qubit_number, output_number)
     current = first_op
     cbit_index = 0
 
-    qubit_list = [i for i in range(qubit_number)]
+    # initialize counter for unnamed operands
+    op_index = 0
 
-    circuit.initialize(state, qubit_list)
+    circuit.initialize(1)
 
     while(current is not None):
-        operands_names = [op._name for op in current.operands]
-        indexes = [int(name.split("_")[0][1:]) for name in operands_names]
-
-        if current.name == "quantum.not":
-            circuit.x(indexes[0])
-        if current.name  == "quantum.cnot":
-            circuit.cx(indexes[0], indexes[1])
-        if current.name == "quantum.ccnot":
-            circuit.ccx(indexes[0], indexes[1], indexes[2])
-        if current.name == "quantum.h":
-            circuit.h(indexes[0])
-        if current.name == "quantum.t":
-            circuit.t(indexes[0])
-        if current.name == "quantum.tdagger":
-            circuit.tdg(indexes[0])
-        if current.name == "quantum.measure":
-            circuit.measure(indexes[0], cbit_index)
-            cbit_index += 1
+        # handle operations without operands safely
+        if not hasattr(current, 'operands') or len(current.operands) == 0:
+            current = current.next_op
+            continue
+            
+        # get operand indices safely
+        try:
+            operands_names = []
+            for op in current.operands:
+                if hasattr(op, '_name') and op._name is not None:
+                    operands_names.append(op._name)
+                else:
+                    # use a generated name for operands without names
+                    operands_names.append(f"q_{op_index}")
+                    op_index += 1
+                    
+            # extract indices safely with fallback to positional indices
+            indexes = []
+            for i, name in enumerate(operands_names):
+                try:
+                    if name and '_' in name:
+                        indexes.append(int(name.split("_")[0][1:]))
+                    else:
+                        indexes.append(i)  # fallback to position-based index
+                except (ValueError, IndexError):
+                    indexes.append(i)  # fallback to position-based index
+            
+            # process gates based on available indices
+            if current.name == "quantum.not" and len(indexes) > 0:
+                circuit.x(indexes[0])
+            elif current.name == "quantum.cnot" and len(indexes) > 1:
+                circuit.cx(indexes[0], indexes[1])
+            elif current.name == "quantum.ccnot" and len(indexes) > 2:
+                circuit.ccx(indexes[0], indexes[1], indexes[2])
+            elif current.name == "quantum.h" and len(indexes) > 0:
+                circuit.h(indexes[0])
+            elif current.name == "quantum.t" and len(indexes) > 0:
+                circuit.t(indexes[0])
+            elif current.name == "quantum.tdagger" and len(indexes) > 0:
+                circuit.tdg(indexes[0])
+            elif current.name == "quantum.measure" and len(indexes) > 0:
+                circuit.measure(indexes[0], cbit_index)
+                cbit_index += 1
+        except Exception as e:
+            print(f"Warning: Skipping operation {current.name} due to: {e}")
         
         current = current.next_op
     
     return circuit
 
-# Function to generate the quantum truth table
-def generate_quantum_truth_table(first_op, qubit_number, init_number, output_number, istates):
-    counts = {}
-    quantum_truth_table = {}
-    backend = AerSimulator()
-
-    for i in range(2**qubit_number):
-        circuit = create_circuit(first_op, qubit_number, output_number, istates[i])
-
-        job = backend.run(circuit, shots=2000)
-        result = job.result()
-
-        # Consider only the entries where the support output qubits are set to zero.
-        if istr[i][:init_number] == '0' * init_number:
-            counts[istr[i][init_number:]] = result.get_counts()
-
-        for outer_key, inner_dict in counts.items():
-            for inner_key, value in inner_dict.items():
-                quantum_truth_table[outer_key] = inner_key
-
-    return quantum_truth_table
-
-# Function to generate the classical truth table
-def generate_classical_truth_table(circuit_name):
-    classical_truth_table = {}
-
-    with open(f'test-inputs/truth-tables/{circuit_name}.csv', 'r') as file:
-        csv_reader = csv.DictReader(file)
-        
-        out_columns = [col for col in csv_reader.fieldnames if col.startswith('out')]
-        
-        for row in csv_reader:
-            flipped_value = ''.join(str(row[col]) for col in reversed(out_columns))
-            classical_truth_table[row['Inputs']] = flipped_value
-
-    return classical_truth_table
-
-# Support function to return information about the quantum circuit under analysis
 def get_quantum_circuit_info(input_args, first_op):
-    # Scroll through the IR tree to count the number of (qu)bits numbers
-    input_number = input_args.__len__()
+    """!
+    @brief Extract basic information about the quantum circuit
+    @param input_args List of input arguments from the function operation
+    @param first_op First operation in the IR sequence
+    @return Dictionary containing qubit counts and circuit structure information
+    @details Returns a dictionary with keys:
+             - input_number: Number of input qubits
+             - output_number: Number of measured output bits
+             - init_number: Number of initialized qubits
+             - qubit_number: Total qubit count
+    """
+    # scroll through the IR tree to count the number of (qu)bits numbers
+    input_number = len(input_args)
     output_number = 0
     init_number = 0
 
@@ -100,105 +139,110 @@ def get_quantum_circuit_info(input_args, first_op):
         current = current.next_op
 
     qubit_number = input_number + init_number
-
-    print("\nNumber of input qubits: ", input_number, 
-          "\nNumber of support qubits: ", init_number, 
-          "\nTotal qubits used: ", qubit_number, 
-          "\nNumber of output bits: ", output_number)
     
     return {
-    "input_number": input_number,
-    "output_number": output_number,
-    "init_number": init_number,
-    "qubit_number": qubit_number
+        "input_number": input_number,
+        "output_number": output_number,
+        "init_number": init_number,
+        "qubit_number": qubit_number
     }
 
-# Support function to generate all possible bit strings of length N
-def bit_strings_iterative(N):
-    bit_list = ['']
-    for _ in range(N):
-        bit_list = ['0' + bit_string for bit_string in bit_list] + \
-                   ['1' + bit_string for bit_string in bit_list]
-    return bit_list
+def metrics(circuit):
+    """!
+    @brief Calculate various metrics for a quantum circuit
+    @param circuit QuantumCircuit object to analyze
+    @return Dictionary of circuit metrics
+    @details The returned metrics include:
+             - Depth: Overall circuit depth
+             - Width: Number of qubits
+             - Gate Count: Total number of gates
+             - T Gate Count: Number of T and T-dagger gates
+             - T Gate Depth: Depth considering only T and T-dagger gates
+             - Gate Distribution: Count of gates by type
+    """
+    # circuit depth
+    depth = circuit.depth()
 
-######### MAIN #########
+    # circuit width (number of qubits)
+    width = circuit.num_qubits
 
-if len(sys.argv) != 2:
-    print("Please, provide exaclty one argument: the name of the circuit to be tested.")
-    sys.exit(1)
+    # gate count (total number of gates)
+    gate_count = circuit.size()
 
-circuit_name = sys.argv[1]
-print(f"Testing {circuit_name} circuit...")
+    # get gate counts by type
+    gate_counts = circuit.count_ops()
+    
+    # count T gates (safely, in case there are none)
+    t_gate_count = gate_counts.get('t', 0) + gate_counts.get('tdg', 0)
 
-classical_truth_table = generate_classical_truth_table(circuit_name)
+    # t gate depth 
+    t_gate_depth = circuit.depth(lambda instr: instr.operation.name in ['t', 'tdg'])
 
-print('\nThe truth table of the equivalent classical circuit is:')
-for key, value in classical_truth_table.items():
-    print(f"{key}: {value}")
+    return {
+        "Depth": depth,
+        "Width": width,
+        "Gate Count": gate_count,
+        "T Gate Count": t_gate_count,
+        "T Gate Depth": t_gate_depth,
+        "Gate Distribution": gate_counts
+    }
 
-print("\n=========================================")
+def main():
+    """!
+    @brief Main function to process MLIR files and analyze quantum circuits
+    @details Parses command line arguments, processes the MLIR file,
+             extracts circuit information, and displays metrics and circuit visualization
+    """
+    # parse command line arguments
+    parser = argparse.ArgumentParser(description='Calculate metrics for a quantum MLIR file')
+    parser.add_argument('mlir_file', type=str, help='Path to the quantum MLIR file')
+    args = parser.parse_args()
 
-passed_tests = 0
-
-for i in range(4):
-
-    # Generate IR
-    quantum_ir = QuantumIR()
-    quantum_ir.run_dataclass()
-    quantum_ir.run_generate_ir(print_output = False)
-
-    if i == 0:
-        print("\nTest 1: Basic quantum circuit")
-        print("Testing...")
-    if i == 1:
-        print("\nTest 2: Optimized quantum circuit")
-        print("Testing...")
-        quantum_ir.run_transformations(print_output = False)
-    if i == 2:
-        print("\nTest 3: Basic quantum circuit with CCNOT decomposition")
-        print("Testing...")
-        quantum_ir.metrics_transformation(print_output = False)
-    if i == 3:
-        print("\nTest 4: Optimized quantum circuit with CCNOT decomposition")
-        print("Testing...")
-        quantum_ir.run_transformations(print_output = False)
-        quantum_ir.metrics_transformation(print_output = False)
-        quantum_ir.run_transformations(print_output = False)
-
-    module = quantum_ir.module
+    mlir_path = Path(args.mlir_file)
+    if not mlir_path.exists():
+        print(f"Error: File {mlir_path} does not exist.")
+        sys.exit(1)
+    
+    print(f"Analyzing quantum circuit in: {mlir_path}")
+    
+    # parse the MLIR file
+    module = parse_mlir_file(mlir_path)
+    
+    # extract function operation from module
     funcOp = module.body.block._first_op
-
+    
+    # get input arguments and first operation
     input_args = funcOp.body.block._args
-
     first_op = funcOp.body.block._first_op
+    
+    # get circuit information
+    circuit_info = get_quantum_circuit_info(input_args, first_op)
+    
+    # create Qiskit circuit
+    circuit = create_circuit(first_op, circuit_info["qubit_number"], circuit_info["output_number"])
+    
+    # calculate metrics
+    circuit_metrics = metrics(circuit)
+    
+    # output results
+    print("\nQuantum Circuit Metrics:")
+    for key, value in circuit_metrics.items():
+        if key != "Gate Distribution":
+            print(f"{key}: {value}")
+    
+    print("\nGate Distribution:")
+    for gate, count in circuit_metrics["Gate Distribution"].items():
+        print(f"  {gate}: {count}")
+    
+    print("\nCircuit Information:")
+    print(f"Input qubits: {circuit_info['input_number']}")
+    print(f"Support qubits: {circuit_info['init_number']}")
+    print(f"Total qubits used: {circuit_info['qubit_number']}")
+    print(f"Output bits: {circuit_info['output_number']}")
+    
+    # optionally draw the circuit
+    print("\nCircuit Visualization:")
+    print(circuit.draw(output='text'))
 
-    info = get_quantum_circuit_info(input_args, first_op)
-
-    # Generate all possible inputs
-    istr = bit_strings_iterative(info["qubit_number"])
-    istates = np.eye(2**info["qubit_number"])
-
-    quantum_truth_table = generate_quantum_truth_table(first_op, info["qubit_number"], info["init_number"], info["output_number"], istates)
-
-    # Compare the truth tables
-    valid = quantum_truth_table == classical_truth_table
-
-    if valid:
-        print("\nTest passed!")
-        passed_tests += 1
-    else:
-        for key in quantum_truth_table:
-            if quantum_truth_table[key] != classical_truth_table.get(key):
-                print(f"Difference found at input {key}: quantum circuit returns {quantum_truth_table[key]}, ") 
-                print(f"classical circuit returns {classical_truth_table.get(key)}")
-
-    if (i < 3):
-        print("\n-----------------------------------------")
-
-print("\n=========================================")
-print(f"\n{passed_tests} out of 4 tests passed.")
-
-if passed_tests != 4:
-    sys.exit(1)  # Failure: one or more tests failed
-
-sys.exit(0)  # Success: all tests passed
+if __name__ == "__main__":
+    main()

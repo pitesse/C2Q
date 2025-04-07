@@ -9,21 +9,6 @@ It handles command-line arguments and orchestrates the compilation process.
 
 import argparse
 from pathlib import Path
-
-from xdsl.dialects.riscv import riscv_code
-from xdsl.interpreters.affine import AffineFunctions
-from xdsl.interpreters.arith import ArithFunctions
-from xdsl.interpreters.builtin import BuiltinFunctions
-from xdsl.interpreters.func import FuncFunctions
-from xdsl.interpreters.memref import MemRefFunctions
-from xdsl.interpreters.printf import PrintfFunctions
-from xdsl.interpreters.riscv_cf import RiscvCfFunctions
-from xdsl.interpreters.riscv_debug import RiscvDebugFunctions
-from xdsl.interpreters.riscv_func import RiscvFuncFunctions
-from xdsl.interpreters.riscv_libc import RiscvLibcFunctions
-from xdsl.interpreters.riscv_scf import RiscvScfFunctions
-from xdsl.interpreters.scf import ScfFunctions
-from xdsl.parser import Parser as IRParser
 from xdsl.printer import Printer
 
 # from .compiler import context
@@ -33,31 +18,20 @@ from xdsl.printer import Printer
 from .frontend.ir_gen import QuantumIRGen
 from .frontend.parser import CParser as CParser
 
+from .backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
+
 # from .interpreter import Interpreter, ToyFunctions
 
-# Set up command-line argument parser
+
+# set up command-line argument parser
 parser = argparse.ArgumentParser(description="Process Toy file")
 parser.add_argument("source", type=Path, help="toy source file")
 parser.add_argument(
     "--emit",
     dest="emit",
-    choices=[
-        "ast",
-        "toy",
-        "toy-opt",
-        "toy-inline",
-        "toy-infer-shapes",
-        "affine",
-        "scf",
-        "riscv",
-        "riscv-opt",
-        "riscv-regalloc",
-        "riscv-regalloc-opt",
-        "riscv-lowered",
-        "riscv-asm",
-    ],
-    default="riscv-asm",
-    help="Compilation target (default: riscv-asm)",
+    choices=["ast", "ir"],
+    default="ir",
+    help="Output format (default: ir)",
 )
 parser.add_argument("--ir", dest="ir", action="store_true")
 parser.add_argument("--print-op-generic", dest="print_generic", action="store_true")
@@ -80,30 +54,84 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
     path = args.source
 
     with open(path) as f:
-        match path.suffix:
-            case ".c":
-                # Parse the C code
-                parser = CParser(path, f.read())
-                ast = parser.parseModule()
-                
-                if emit == "ast":
-                    print(ast.dump())
+            match path.suffix:
+                case ".c":
+                    # parse the C code
+                    parser = CParser(path, f.read())
+                    ast = parser.parseModule()
+                    
+                    if emit == "ast":
+                        print(ast.dump())
+                        return
+    
+                    # generate Quantum IR
+                    ir_gen = QuantumIRGen()
+                    module_op = ir_gen.ir_gen_module(ast)
+                    
+                    # print the generated IR
+                    printer = Printer(print_generic_format=print_generic)
+                    printer.print(module_op)
+    
+                    # find the quantum.func operation in the module
+                    funcOp = None
+                    for op in module_op.body.block.ops:
+                        if op.name == "quantum.func":
+                            funcOp = op
+                            break
+                    
+                    if funcOp is None:
+                        print("Error: No quantum.func operation found in the module")
+                        return
+                    
+                    # get input arguments and first operation
+                    input_args = funcOp.regions[0].blocks[0]._args
+                    first_op = funcOp.regions[0].blocks[0]._first_op
+
+                    # print the input arguments
+                    print("\nInput Arguments:")
+                    for arg in input_args:
+                        print(arg)
+                    print("\nFirst Operation:")
+                    print(first_op)
+                    
+                    # import and use functions from run_qasm.py directly
+                    from .backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
+    
+                    # get circuit information
+                    circuit_info = get_quantum_circuit_info(input_args, first_op)
+                    
+                    # create Qiskit circuit
+                    try:
+                        circuit = create_circuit(first_op, circuit_info["qubit_number"], circuit_info["output_number"])
+                        
+                        # calculate metrics
+                        circuit_metrics = metrics(circuit)
+                        
+                        # output results
+                        print("\nQuantum Circuit Metrics:")
+                        for key, value in circuit_metrics.items():
+                            if key != "Gate Distribution":
+                                print(f"{key}: {value}")
+                        
+                        print("\nCircuit Information:")
+                        print(f"Input qubits: {circuit_info['input_number']}")
+                        print(f"Support qubits: {circuit_info['init_number']}")
+                        print(f"Total qubits used: {circuit_info['qubit_number']}")
+                        print(f"Output bits: {circuit_info['output_number']}")
+                        
+                        # draw the circuit
+                        print("\nCircuit Visualization:")
+                        print(circuit.draw(output='text'))
+                    except Exception as e:
+                        print(f"Error creating or analyzing circuit: {e}")
+                        print("This may be due to the structure of the quantum operations in the IR.")
+
+                # case ".mlir":
+                #     parser = IRParser(ctx, f.read(), name=f"{path}")
+                #     module_op = parser.parse_module()
+                case _:
+                    print(f"Unknown file format {path}")
                     return
-
-                # Generate Quantum IR
-                ir_gen = QuantumIRGen()
-                module_op = ir_gen.ir_gen_module(ast)
-                
-                # Print the generated IR
-                printer = Printer(print_generic_format=print_generic)
-                printer.print(module_op)
-
-            # case ".mlir":
-            #     parser = IRParser(ctx, f.read(), name=f"{path}")
-            #     module_op = parser.parse_module()
-            case _:
-                print(f"Unknown file format {path}")
-                return
 
     # asm = emit == "riscv-asm"
 
