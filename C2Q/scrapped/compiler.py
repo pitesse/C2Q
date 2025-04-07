@@ -33,7 +33,7 @@ from xdsl.transforms.reconcile_unrealized_casts import ReconcileUnrealizedCastsP
 from xdsl.transforms.riscv_register_allocation import RISCVRegisterAllocation
 from xdsl.transforms.riscv_scf_loop_range_folding import RiscvScfLoopRangeFoldingPass
 
-from ..dialects import toy
+from . import toy
 from ..frontend.ir_gen import IRGen
 from ..frontend.parser import ToyParser
 # from .rewrites.inline_toy import InlineToyPass

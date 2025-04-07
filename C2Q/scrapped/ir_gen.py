@@ -8,7 +8,7 @@ from xdsl.dialects.builtin import ModuleOp, TensorType, UnrankedTensorType, f64
 from xdsl.ir import Block, Region, SSAValue
 from xdsl.utils.scoped_dict import ScopedDict
 
-from ..dialects.toy import (
+from .toy import (
     AddOp,
     ConstantOp,
     FuncOp,
