@@ -129,10 +129,11 @@ class QuantumIRGen:
         self.builder = Builder(InsertPoint.at_end(block))
         
         # process function parameters
-        for arg in main_func.proto.args:
+        for arg in func_op.regions[0].blocks[0]._args:
             self.add_comment(f"// Initialize main parameter: {arg.name}")
+            #TODO review this
             qubit = self.builder.insert(InitOp.from_value(IntegerType(1)))
-            self.symbol_table[arg.name] = qubit.res
+            self.symbol_table[arg._name] = qubit.res
             
         # process main function body with inlining
         result = None
@@ -178,6 +179,7 @@ class QuantumIRGen:
         @return The resulting quantum value from the inlined function
         """
         func_name = expr.callee
+        #TODO function never called actually
         self.add_comment(f"// Begin inlined function: {func_name}")
         
         if func_name not in self.function_map:
@@ -394,6 +396,7 @@ class QuantumIRGen:
         @return The quantum value associated with the variable
         @throws IRGenError if the variable is undefined
         """
+        #TODO check how to define a quantum variable (InitOp)
         if expr.name in self.symbol_table:
             return self.symbol_table[expr.name]
         else:
@@ -408,6 +411,7 @@ class QuantumIRGen:
         """
         self.add_comment(f"// Initialize number literal: {expr.val}")
         
+        #TODO make this declaration actually useful (32 qubits for 32-bit int?)
         # for simplicity, we'll use single-bit representation for demo purposes
         # a real implementation would use multiple qubits for integers
         qubit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
@@ -427,6 +431,7 @@ class QuantumIRGen:
         """
         self.add_comment(f"// Declare variable: {expr.name}")
         
+        #TODO link this with function to generate variable and assign a value to it
         # initialize a new qubit for this variable
         qubit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
@@ -455,6 +460,7 @@ class QuantumIRGen:
         @param expr: The ReturnExprAST node representing a return statement
         @return The quantum value to be returned
         """
+        #TODO use mesureOP to get the return value?
         if expr.expr is not None:
             self.add_comment(f"// Process return value expression")
             return_value = self.ir_gen_expr(expr.expr)
@@ -479,6 +485,7 @@ class QuantumIRGen:
         @param expr: The CallExprAST node representing a function call
         @return The resulting quantum value
         """
+        #TODO make this unroll the function call and generate the IR for it
         # for simplicity, we'll just evaluate the arguments
         # a full implementation would need to handle function calls properly
         args = [self.ir_gen_expr(arg) for arg in expr.args]
