@@ -1,34 +1,26 @@
 builtin.module {
-  %0 = "quantum.init"() {type = i1, value = false, comment = "// Begin main function"} : () -> i1
+  "quantum.comment"() {comment_text = "Begin main function"} : () -> ()
   "quantum.func"() ({
-    %1 = "quantum.init"() {type = i1, value = false, comment = "// Declare variable: a"} : () -> i1
-    %2 = "quantum.init"() {type = i32, value = false} : () -> i1
-    %3 = "quantum.init"() {type = i1, value = false, comment = "// Initialize a with value"} : () -> i1
-    %4 = "quantum.init"() {type = i1, value = false, comment = "// Direct number initialization: 5.0"} : () -> i1
-    %5 = "quantum.not"(%2) : (i1) -> i1
-    %6 = "quantum.init"() {type = i1, value = false, comment = "// Declare variable: b"} : () -> i1
-    %7 = "quantum.init"() {type = i32, value = false} : () -> i1
-    %8 = "quantum.init"() {type = i1, value = false, comment = "// Initialize b with value"} : () -> i1
-    %9 = "quantum.init"() {type = i1, value = false, comment = "// Direct number initialization: 10.0"} : () -> i1
-    %10 = "quantum.not"(%7) : (i1) -> i1
-    %11 = "quantum.init"() {type = i1, value = false, comment = "// Binary operation: a + b"} : () -> i1
-    %12 = "quantum.init"() {type = i1, value = false, comment = "// Perform quantum addition"} : () -> i1
-    %13 = "quantum.h"(%5) : (i1) -> i1
-    %14 = "quantum.cnot"(%13, %10) : (i1, i1) -> i1
-    %15 = "quantum.init"() {type = i1, value = false} : () -> i1
-    %16 = "quantum.ccnot"(%13, %14, %15) : (i1, i1, i1) -> i1
-    %17 = "quantum.init"() {type = i1, value = false, comment = "// Binary operation: b = expression"} : () -> i1
-    %18 = "quantum.init"() {type = i1, value = false, comment = "// Assignment to variable: b"} : () -> i1
-    %19 = "quantum.init"() {type = i1, value = false, comment = "// Binary operation: b - a"} : () -> i1
-    %20 = "quantum.init"() {type = i1, value = false, comment = "// Perform quantum subtraction"} : () -> i1
-    %21 = "quantum.not"(%5) : (i1) -> i1
-    %22 = "quantum.h"(%10) : (i1) -> i1
-    %23 = "quantum.cnot"(%22, %21) : (i1, i1) -> i1
-    %24 = "quantum.init"() {type = i1, value = false} : () -> i1
-    %25 = "quantum.ccnot"(%22, %23, %24) : (i1, i1, i1) -> i1
-    %26 = "quantum.init"() {type = i1, value = false, comment = "// Process return value expression"} : () -> i1
-    %27 = "quantum.init"() {type = i1, value = false, comment = "// Initialize number literal: 0.0"} : () -> i1
-    %28 = "quantum.init"() {type = i32, value = false} : () -> i1
-    %29 = "quantum.init"() {type = i1, value = false, comment = "// End main function"} : () -> i1
+    "quantum.comment"() {comment_text = "Declare variable: a"} : () -> ()
+    "quantum.comment"() {comment_text = "Initialize a with expression"} : () -> ()
+    "quantum.comment"() {comment_text = "Direct number initialization: 5.0"} : () -> ()
+    "quantum.comment"() {comment_text = "Creating qubit with name: q0_0"} : () -> ()
+    %q0_0 = "quantum.init"() {type = i32, value = false} : () -> i1
+    %0 = "quantum.not"(%q0_0) : (i1) -> i1
+    "quantum.comment"() {comment_text = "Declare variable: b"} : () -> ()
+    "quantum.comment"() {comment_text = "Initialize b with expression"} : () -> ()
+    "quantum.comment"() {comment_text = "Direct number initialization: 10.0"} : () -> ()
+    "quantum.comment"() {comment_text = "Creating qubit with name: q32_0"} : () -> ()
+    %q32_0 = "quantum.init"() {type = i32, value = false} : () -> i1
+    %1 = "quantum.not"(%q32_0) : (i1) -> i1
+    "quantum.comment"() {comment_text = "Declare variable: c"} : () -> ()
+    "quantum.comment"() {comment_text = "Default initialization of c to |0\u27e9"} : () -> ()
+    "quantum.comment"() {comment_text = "Creating qubit with name: q64_0"} : () -> ()
+    %q64_0 = "quantum.init"() {type = i32, value = false} : () -> i1
+    "quantum.comment"() {comment_text = "Process return value expression"} : () -> ()
+    "quantum.comment"() {comment_text = "Initialize number literal: 0.0"} : () -> ()
+    "quantum.comment"() {comment_text = "Creating qubit with name: q96_0"} : () -> ()
+    %q96_0 = "quantum.init"() {type = i32, value = false} : () -> i1
+    "quantum.comment"() {comment_text = "End main function"} : () -> ()
   }) {func_name = "main"} : () -> ()
 }

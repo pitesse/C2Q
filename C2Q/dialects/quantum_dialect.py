@@ -375,6 +375,36 @@ class HadamardOp(IRDLOperation):
         @return A new HadamardOp instance
         """
         return HadamardOp(target)
+    
+@irdl_op_definition
+class CommentOp(IRDLOperation):
+    """
+    @brief Operation to add a comment to the IR.
+    
+    This operation exists purely for documentation and debugging purposes.
+    It doesn't perform any quantum computation but helps make the IR more readable.
+    """
+
+    name = "quantum.comment"
+    comment_text: StringAttr = attr_def(StringAttr)
+
+    def __init__(self, text: str):
+        """
+        @brief Create a comment operation.
+        
+        @param text: The comment text
+        """
+        super().__init__(attributes={"comment_text": StringAttr(text)})
+    
+    @staticmethod
+    def from_string(text: str) -> 'CommentOp':
+        """
+        @brief Factory method to create a CommentOp from a string.
+        
+        @param text: The comment text
+        @return A new CommentOp instance
+        """
+        return CommentOp(text)
 
 
 # Register the quantum dialect with all defined operations
@@ -389,7 +419,8 @@ Quantum = Dialect(
         FuncOp,
         TGateOp,
         TDaggerGateOp,
-        HadamardOp
+        HadamardOp,
+        CommentOp
     ],
     [],
 )

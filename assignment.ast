@@ -7,14 +7,7 @@ Module:
         Initial value: 5
       Variable declaration: int b
         Initial value: 10
-      Operation: +
-        Variable: a
-        Variable: b
-      Operation: =
-        Variable: b
-        Operation: -
-          Variable: b
-          Variable: a
+      Variable declaration: int c
       Return statement
         Return value: 0
     End of function body

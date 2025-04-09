@@ -38,6 +38,7 @@ from ..dialects.quantum_dialect import (
     TGateOp,
     TDaggerGateOp,
     FuncOp,
+    CommentOp
 )
 
 
@@ -85,8 +86,8 @@ class QuantumIRGen:
     added to the mapping. When the processing of a function is terminated, the
     scope is destroyed and the mappings created in this scope are dropped."""
 
-    n_qubit: int = 0 # n_qubits that used when generating the first IR
-    n_args: int = 0 # n_args taken as input
+    n_qubit: int = 0  # n_qubits that used when generating the first IR
+    n_args: int = 0  # n_args taken as input
 
     def __init__(self):
         """
@@ -104,7 +105,7 @@ class QuantumIRGen:
         self.builder = Builder(InsertPoint.at_end(self.module.body.blocks[0]))
         self.function_map = {}
 
-# ==== module ====
+    # ==== module ====
 
     def ir_gen_module(self, module_ast: ModuleAST) -> ModuleOp:
         """
@@ -116,7 +117,7 @@ class QuantumIRGen:
         @return The generated ModuleOp containing quantum IR
         """
         # create function map for lookup during inlining
-        
+
         for func_ast in module_ast.funcs:
             self.function_map[func_ast.proto.name] = func_ast
 
@@ -129,7 +130,7 @@ class QuantumIRGen:
 
         return self.module
 
-# === functions ====
+    # === functions ====
 
     def ir_gen_main_function(self, main_func: FunctionAST) -> FuncOp:
         """
@@ -215,6 +216,8 @@ class QuantumIRGen:
             func_ast = self.function_map[expr.callee]
             self.ir_gen_func_call(func_ast, expr.args)
 
+    # ==== ast parsing handler ====
+
     def ir_gen_expr(self, expr: ExprAST):
         """
         @brief Generate IR for a C expression.
@@ -227,8 +230,6 @@ class QuantumIRGen:
         """
         if isinstance(expr, BinaryExprAST):
             return self.ir_gen_binary_expr(expr)
-        elif isinstance(expr, VariableExprAST):
-            return self.ir_gen_variable_expr(expr)
         elif isinstance(expr, NumberExprAST):
             return self.ir_gen_number_expr(expr)
         elif isinstance(expr, VarDeclExprAST):
@@ -239,8 +240,6 @@ class QuantumIRGen:
             return self.ir_gen_call_expr(expr)
         else:
             raise IRGenError(f"Unsupported expression type: {type(expr)}")
-
-
 
     # TODO
     def ir_gen_binary_expr(self, expr: BinaryExprAST):
@@ -298,7 +297,7 @@ class QuantumIRGen:
             self.add_comment(f"// Unsupported binary operation: {expr.op}")
             return lhs
 
-# ==== operations ====
+    # ==== operations ====
 
     def ir_gen_quantum_addition(self, a, b) -> SSAValue:
         """
@@ -329,7 +328,7 @@ class QuantumIRGen:
 
         return final
 
-    def ir_gen_quantum_subtraction(self, a, b) -> SSAValue: 
+    def ir_gen_quantum_subtraction(self, a, b) -> SSAValue:
         """
         @brief Generate quantum circuit for subtraction.
 
@@ -346,7 +345,7 @@ class QuantumIRGen:
         # then add a and not_b
         return self.ir_gen_quantum_addition(a, not_b)
 
-# ==== declarations and assigment ====
+    # ==== declarations and assigment ====
 
     def declare(self, var: str, value: SSAValue) -> bool:
         """Declare a variable in the current scope, return success if the variable
@@ -369,98 +368,159 @@ class QuantumIRGen:
             return True
         return False
 
-    def ir_gen_variable_expr(self, expr: VariableExprAST) -> SSAValue:
+    def ir_gen_init(self, expr: NumberExprAST) -> SSAValue:
         """
-        @brief Generate IR for a variable reference.
-
-        Looks up the variable in the symbol table and returns its quantum value.
-
-        @param expr: The VariableExprAST node representing a variable reference
-        @return The quantum value associated with the variable
-        @throws IRGenError if the variable is undefined
+        Initialize a new qubit with proper tracking of qubit number and status.
+        
+        Follows the naming convention qX_Y where:
+        - X is the qubit number (position)
+        - Y is the status number tracking write operations on that qubit
+        
+        @param expr: The expression to initialize (typically a NumberExprAST)
+        @return: The resulting SSA value with proper tracking information
         """
-        # TODO check how to define a quantum variable (InitOp)
-        if expr.name in self.symbol_table:
-            return self.symbol_table[expr.name]
-        else:
-            raise IRGenError(f"Undefined variable: {expr.name}")
+
+        bit_width = 32 # Default bit width for integers #TODO add floats in the future
+
+        # Get the next available qubit number
+        qubit_num = self.n_qubit
+        # Initialize status to 0 for a new qubit
+        status_num = 0
+        
+        # Create the qubit with proper naming convention
+        qubit_name = f"q{qubit_num}_{status_num}"
+        self.add_comment(f"// Creating qubit with name: {qubit_name}")
+        
+        # Create the qubit using InitOp
+        qubit = self.builder.insert(InitOp.from_value(IntegerType(bit_width)))
+        
+        # Set the SSA value name to follow our convention
+        qubit.res._name = qubit_name
+        
+        # Increment the global qubit counter
+        self.n_qubit += bit_width
+        
+        return qubit.res
+    
+    def update_qubit_status(self, qubit: SSAValue) -> SSAValue:
+        """
+        Update the status number of a qubit after a write operation.
+        
+        @param qubit: The qubit SSA value to update
+        @return: The same qubit with updated status number
+        """
+        if qubit and qubit._name:
+            parts = qubit._name.split('_')
+            if len(parts) == 2:
+                qubit_num = parts[0].lstrip('q')
+                status_num = int(parts[1]) + 1
+                qubit._name = f"q{qubit_num}_{status_num}"
+        return qubit
 
     def ir_gen_number_expr(self, expr: NumberExprAST) -> SSAValue:
         """
         @brief Generate IR for a number literal with improved bit representation.
-
+    
         @param expr: The NumberExprAST node representing a number literal
         @return The quantum value representing the number
         """
         self.add_comment(f"// Initialize number literal: {expr.val}")
-
-        # TODO make this declaration actually useful (32 qubits for 32-bit int?)
-        qubit = self.builder.insert(InitOp.from_value(IntegerType(32))).res
-
-        # if the number is non-zero, apply NOT gate to flip it to |1⟩
+    
+        qubit = self.ir_gen_init(expr)
+    
+        # If the number is non-zero, apply NOT gate to flip it to |1⟩
         if expr.val != 0:
-            qubit = self.builder.insert(NotOp.from_value(qubit)).res
-
+            result = self.builder.insert(NotOp.from_value(qubit)).res
+            result = self.update_qubit_status(result)
+            qubit = result
+    
         return qubit
 
     def ir_gen_var_decl_expr(self, expr: VarDeclExprAST) -> SSAValue:
         """
-        @brief Generate IR for a variable declaration with specialized initialization.
+        @brief Generate IR for a variable declaration with proper qubit tracking.
+    
+        Creates a new qubit register with the qX_Y naming convention where:
+        - X represents the qubit number (position)
+        - Y represents the status number tracking write operations
         
-        Directly handles number literals and variable references for more efficient
-        quantum circuit generation.
-        
+        Maintains SSA (Static Single Assignment) form by tracking qubit state changes.
+    
         @param expr: The VarDeclExprAST node representing a variable declaration
         @return The quantum value associated with the new variable
         """
         self.add_comment(f"// Declare variable: {expr.name}")
         
-        # Set consistent bit width
-        bit_width = 32  # Using 32 bits for all variables to match number literals
-        
-        # Initialize a new qubit register for this variable
-        qubit = self.builder.insert(InitOp.from_value(IntegerType(bit_width))).res
-        
-        # Handle initialization if provided
+        # Variable will be initialized with an expression or default to zero
         if expr.expr is not None:
-            self.add_comment(f"// Initialize {expr.name} with value")
+            self.add_comment(f"// Initialize {expr.name} with expression")
             
-            # Specialized handling based on expression type
+            # Handle direct number initialization
             if isinstance(expr.expr, NumberExprAST):
-                # Direct number initialization
                 value = expr.expr.val
                 self.add_comment(f"// Direct number initialization: {value}")
                 
-                # Apply NOT gates only to qubits that should be 1
+                # Use ir_gen_init to create a properly tracked qubit
+                qubit = self.ir_gen_init(expr.expr)
+                
+                # Apply NOT gate for non-zero values and update status
                 if value != 0:
-                    # For simple implementation, just set the first qubit for non-zero values
-                    # For a full implementation, you'd encode the binary representation
-                    qubit = self.builder.insert(NotOp.from_value(qubit)).res
+                    result = self.builder.insert(NotOp.from_value(qubit)).res
+                    result = self.update_qubit_status(result)
+                    qubit = result
             
+            # Handle variable-to-variable copy
             elif isinstance(expr.expr, VariableExprAST):
-                # Direct variable-to-variable copy
                 var_name = expr.expr.name
                 self.add_comment(f"// Copying from variable: {var_name}")
                 
                 if var_name in self.symbol_table:
                     source = self.symbol_table[var_name]
-                    # Use CNOT to copy state (simple implementation for single qubit)
-                    qubit = self.builder.insert(CNotOp(source, qubit)).res
+                    # Initialize target qubit
+                    qubit = self.ir_gen_init(None)
+                    # Use CNOT to copy state
+                    result = self.builder.insert(CNotOp(source, qubit)).res
+                    # Update the status to track the operation
+                    result = self.update_qubit_status(result)
+                    qubit = result
                 else:
                     raise IRGenError(f"Referenced undefined variable: {var_name}")
             
+            # Handle binary expressions
+            elif isinstance(expr.expr, BinaryExprAST):
+                self.add_comment(f"// Initializing with binary expression")
+                # Evaluate the binary expression first
+                expr_result = self.ir_gen_expr(expr.expr)
+                
+                if expr_result is None:
+                    raise IRGenError("Binary expression evaluation failed")
+                    
+                # No need to create a new qubit - use the result directly
+                qubit = expr_result
+            
+            # Handle other expression types
             else:
-                # Fallback to general expression handling
-                init_value = self.ir_gen_expr(expr.expr)
-                # Copy state using CNOT
-                qubit = self.builder.insert(CNotOp(init_value, qubit)).res
+                self.add_comment(f"// General expression initialization")
+                # Let ir_gen_expr handle the expression
+                try:
+                    qubit = self.ir_gen_expr(expr.expr)
+                    if qubit is None:
+                        raise IRGenError("Expression evaluation returned None")
+                except Exception as e:
+                    raise IRGenError(f"Failed to initialize {expr.name}: {str(e)}")
         
+        # Default initialization (to |0⟩)
         else:
-            # Variable initialized to 0 (qubits already initialized to |0⟩)
-            self.add_comment(f"// Variable {expr.name} initialized to 0")
+            self.add_comment(f"// Default initialization of {expr.name} to |0⟩")
+            qubit = self.ir_gen_init(None)
         
-        # Register in symbol table with new scope
-        self.symbol_table = ScopedDict(parent=self.symbol_table)
+        # Register in symbol table
+        # Create a new scope if needed, preserving parent scope accessibility
+        if expr.name in self.symbol_table._local_scope:
+            # Variable already exists in current scope, create a new nested scope
+            self.symbol_table = ScopedDict(parent=self.symbol_table)
+        
+        # Add the variable to the symbol table
         self.symbol_table[expr.name] = qubit
         
         return qubit
@@ -489,14 +549,11 @@ class QuantumIRGen:
             self.add_comment("// Void return (default to 0)")
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
-
     def add_comment(self, comment_text):
         """
-        @brief Add a comment to the IR for debugging and clarity
-
+        @brief Add a comment to the IR for debugging and clarity without creating dummy qubits.
+        
         @param comment_text: The comment text to add
         """
-        # we'll use a custom attribute in the InitOp with a special marker
-        # since MLIR/xDSL doesn't have direct comment support, this is a workaround
-        dummy_op = self.builder.insert(InitOp.from_value(IntegerType(1)))
-        dummy_op.attributes["comment"] = StringAttr(comment_text)
+        # Just create a dedicated comment operation instead of a dummy qubit
+        self.builder.insert(CommentOp(comment_text.lstrip("// ")))
