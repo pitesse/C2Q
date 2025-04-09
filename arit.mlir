@@ -20,11 +20,9 @@ builtin.module {
     %17 = "quantum.init"() {type = i1, value = false, comment = "// Initialize result with value"} : () -> i1
     %18 = "quantum.cnot"(%7, %14) : (i1, i1) -> i1
     %19 = "quantum.cnot"(%18, %16) : (i1, i1) -> i1
-    %20 = "quantum.init"() {type = i1, value = false, comment = "// Return from main"} : () -> i1
+    %20 = "quantum.init"() {type = i1, value = false, comment = "// Process return value expression"} : () -> i1
     %21 = "quantum.init"() {type = i1, value = false, comment = "// Initialize number literal: 0.0"} : () -> i1
     %22 = "quantum.init"() {type = i1, value = false} : () -> i1
-    %23 = "quantum.init"() {type = i1, value = false, comment = "// Measure final return value"} : () -> i1
-    %24 = "quantum.measure"(%22) : (i1) -> i1
-    %25 = "quantum.init"() {type = i1, value = false, comment = "// End main function"} : () -> i1
+    %23 = "quantum.init"() {type = i1, value = false, comment = "// End main function"} : () -> i1
   }) {func_name = "main"} : () -> ()
 }

@@ -14,7 +14,7 @@ and maps them to appropriate quantum operations.
 from __future__ import annotations
 
 from xdsl.context import Context
-from xdsl.ir import Block, Region
+from xdsl.ir import Block, Region, SSAValue
 from xdsl.dialects.builtin import (
     ModuleOp,
     IntegerType,
@@ -70,6 +70,24 @@ class QuantumIRGen:
     @see Quantum
     """
 
+    module: ModuleOp
+    """A "module" matches a System Verilog source file: containing a list of assignements, functions 
+    and processes."""
+
+    builder: Builder
+    """The builder is a helper class to create IR inside a function. The builder
+    is stateful, in particular it keeps an "insertion point": this is where
+    the next operations will be introduced."""
+
+    symbol_table: ScopedDict[str, SSAValue] | None = None
+    """The symbol table maps a variable name to a value in the current scope.
+    Entering a function creates a new scope, and the function arguments are
+    added to the mapping. When the processing of a function is terminated, the
+    scope is destroyed and the mappings created in this scope are dropped."""
+
+    n_qubit: int = 0 # n_qubits that used when generating the first IR
+    n_args: int = 0 # n_args taken as input
+
     def __init__(self):
         """
         @brief Initialize the Quantum IR Generator.
@@ -84,7 +102,9 @@ class QuantumIRGen:
         # create a module
         self.module = ModuleOp([])
         self.builder = Builder(InsertPoint.at_end(self.module.body.blocks[0]))
-        self.symbol_table = ScopedDict()
+        self.function_map = {}
+
+# ==== module ====
 
     def ir_gen_module(self, module_ast: ModuleAST) -> ModuleOp:
         """
@@ -96,7 +116,7 @@ class QuantumIRGen:
         @return The generated ModuleOp containing quantum IR
         """
         # create function map for lookup during inlining
-        self.function_map = {}
+        
         for func_ast in module_ast.funcs:
             self.function_map[func_ast.proto.name] = func_ast
 
@@ -105,14 +125,13 @@ class QuantumIRGen:
         if main_func:
             self.ir_gen_main_function(main_func)
         else:
-            # fallback to old behavior if no main is found
-            for func_ast in module_ast.funcs:
-                self.ir_gen_function(func_ast)
+            raise IRGenError("No main function found in the module")
 
         return self.module
 
-    # TODO review logic of this
-    def ir_gen_main_function(self, main_func: FunctionAST):
+# === functions ====
+
+    def ir_gen_main_function(self, main_func: FunctionAST) -> FuncOp:
         """
         @brief Generate IR for the main function, finding and unrolling function calls.
 
@@ -124,7 +143,7 @@ class QuantumIRGen:
         self.add_comment("// Begin main function")
 
         # create a new scope for the main function
-        self.symbol_table = ScopedDict()
+        self.symbol_table = ScopedDict[str, SSAValue]()
 
         # create a function region
         region = Region()
@@ -146,154 +165,55 @@ class QuantumIRGen:
         # process main function body
         result = None
         for expr in main_func.body:
-            if isinstance(expr, ReturnExprAST):
-                self.add_comment("// Return from main")
-                if expr.expr:
-                    result = self.ir_gen_expr(expr.expr)
-                    # measure the return value
-                    self.add_comment("// Measure final return value")
-                    measured = self.builder.insert(MeasureOp.from_value(result)).res
-                break
-            elif isinstance(expr, CallExprAST):
-                # Found a function call, retrieve it from function map and unroll it
-                func_name = expr.callee
-                self.add_comment(f"// Found function call: {func_name}")
-
-                if func_name in self.function_map:
-                    # Retrieve the function from the AST
-                    called_func = self.function_map[func_name]
-
-                    # Evaluate arguments
-                    arg_values = [self.ir_gen_expr(arg) for arg in expr.args]
-
-                    # Use ir_func_call to unroll the function
-                    temp = self.ir_func_call(called_func, arg_values)
-                else:
-                    # Fallback to regular expression handling if function not found
-                    self.add_comment(
-                        f"// Function {func_name} not found in AST, using regular call"
-                    )
-                    temp = self.ir_gen_expr(expr)
-
-                # track the last expression result as potential return value
-                if temp is not None:
-                    result = temp
-            else:
-                # Regular expression, use standard ir_gen_expr
-                temp = self.ir_gen_expr(expr)
-                # track the last expression result as potential return value
-                if temp is not None:
-                    result = temp
-
-        # if we didn't already measure a return value, do it now
-        if result is not None and not isinstance(expr, ReturnExprAST):
-            self.add_comment("// Measure final result value")
-            measured = self.builder.insert(MeasureOp.from_value(result)).res
+            self.ir_gen_expr(expr)
 
         self.add_comment("// End main function")
 
-    def ir_gen_expr_with_inlining(self, expr: ExprAST):
+    def ir_gen_func_call(self, func_ast: FunctionAST, args: list[ExprAST]):
         """
-        @brief Generate IR for an expression with function call inlining.
+        @brief Generate IR for a function call by inlining the function body.
 
-        @param expr: The ExprAST node representing a C expression
-        @return The resulting quantum value
+        This method retrieves the function's AST and generates IR for its body,
+        substituting the arguments with the provided values.
+
+        @param func_ast: The FunctionAST node representing the function to be called
+        @param args: The list of arguments passed to the function
         """
-        if isinstance(expr, CallExprAST):
-            return self.ir_gen_call_expr_inlined(expr)
-        else:
-            return self.ir_gen_expr(expr)
+        # TODO handle function return value
+        self.add_comment(f"// Function call: {func_ast.proto.name}")
 
-    def ir_gen_call_expr_inlined(self, expr: CallExprAST):
-        """
-        @brief Generate IR for a function call by inlining the function body with enhanced tracking.
+        # create a new scope for the function call
+        self.symbol_table = ScopedDict(parent=self.symbol_table)
 
-        @param expr: The CallExprAST node representing a function call
-        @return The resulting quantum value from the inlined function
-        """
-        func_name = expr.callee
-        # TODO function never called actually
-        self.add_comment(f"// Begin inlined function: {func_name}")
-
-        if func_name not in self.function_map:
-            self.add_comment(f"// Function {func_name} not found, using external call")
-            return self.ir_gen_call_expr(expr)
-
-        called_func = self.function_map[func_name]
-
-        # evaluate all arguments in the caller's context
-        arg_values = []
-        for i, arg in enumerate(expr.args):
-            self.add_comment(f"// Evaluate argument {i} for {func_name}")
-            arg_values.append(self.ir_gen_expr(arg))
-
-        # create a new scope for the inlined function
-        old_symbol_table = self.symbol_table
-        self.symbol_table = ScopedDict(parent=old_symbol_table)
-
-        # map formal parameters to argument values
-        for i, (param, arg_val) in enumerate(zip(called_func.proto.args, arg_values)):
-            self.add_comment(f"// Map parameter {param.name} to argument value")
-            self.symbol_table[param.name] = arg_val
-
-        # execute the function body
-        result = None
-        for body_expr in called_func.body:
-            if isinstance(body_expr, ReturnExprAST):
-                # for return statements, evaluate the expression and break
-                self.add_comment(f"// Return statement in {func_name}")
-                if body_expr.expr:
-                    result = self.ir_gen_expr(body_expr.expr)
-                break
-            else:
-                # for other statements, just execute them
-                self.ir_gen_expr(body_expr)
-
-        # restore the caller's symbol table
-        self.symbol_table = old_symbol_table
-
-        # if no return value was found, create a default one
-        if result is None:
-            self.add_comment(
-                f"// No return value found in {func_name}, creating default"
-            )
-            result = self.builder.insert(InitOp.from_value(IntegerType(1))).res
-
-        self.add_comment(f"// End inlined function: {func_name}")
-        return result
-
-    def ir_gen_function(self, function_ast: FunctionAST):
-        """
-        @brief Generate a quantum function from a C function AST.
-
-        Creates a new function in the IR with its own region and block,
-        processes the function parameters, and generates IR for the function body.
-
-        @param function_ast: The FunctionAST node representing the C function
-        """
-        # create a new scope for this function
-        self.symbol_table = ScopedDict()
-
-        # create a function region
-        region = Region()
-        block = Block()
-        region.add_block(block)
-
-        # create quantum function
-        func_name = function_ast.proto.name
-        func_op = self.builder.insert(FuncOp(func_name, region))
-
-        # set insertion point to function body
-        self.builder = Builder(InsertPoint.at_end(block))
-
-        # process function parameters - initialize qubits for each argument
-        for arg in function_ast.proto.args:
-            qubit = self.builder.insert(InitOp.from_value(IntegerType(1)))
-            self.symbol_table[arg.name] = qubit.res
+        # process function parameters and arguments
+        for param, arg in zip(func_ast.proto.args, args):
+            qubit = self.ir_gen_expr(arg)
+            self.symbol_table[param.name] = qubit
 
         # process function body
-        for expr in function_ast.body:
+        for expr in func_ast.body:
             self.ir_gen_expr(expr)
+
+    def ir_gen_call_expr(self, expr: CallExprAST):
+        """
+        @brief Generate IR for a function call.
+
+        Evaluates the function arguments and combines them using quantum operations.
+        This is a simplified implementation that doesn't handle actual function calls.
+
+        @param expr: The CallExprAST node representing a function call
+        @return The resulting quantum value
+        """
+        called_func = next((f for f in self.function_map if f == expr.callee), None)
+
+        if called_func is None:
+            raise IRGenError(f"Function {expr.callee} not found")
+        else:
+            self.add_comment(f"// Function call: {expr.callee}")
+
+            # unroll the function call
+            func_ast = self.function_map[expr.callee]
+            self.ir_gen_func_call(func_ast, expr.args)
 
     def ir_gen_expr(self, expr: ExprAST):
         """
@@ -320,6 +240,9 @@ class QuantumIRGen:
         else:
             raise IRGenError(f"Unsupported expression type: {type(expr)}")
 
+
+
+    # TODO
     def ir_gen_binary_expr(self, expr: BinaryExprAST):
         """
         @brief Generate quantum operations for binary expressions with improved tracking.
@@ -375,7 +298,9 @@ class QuantumIRGen:
             self.add_comment(f"// Unsupported binary operation: {expr.op}")
             return lhs
 
-    def ir_gen_quantum_addition(self, a, b):
+# ==== operations ====
+
+    def ir_gen_quantum_addition(self, a, b) -> SSAValue:
         """
         @brief Generate quantum circuit for addition.
 
@@ -404,7 +329,7 @@ class QuantumIRGen:
 
         return final
 
-    def ir_gen_quantum_subtraction(self, a, b):
+    def ir_gen_quantum_subtraction(self, a, b) -> SSAValue: 
         """
         @brief Generate quantum circuit for subtraction.
 
@@ -421,7 +346,30 @@ class QuantumIRGen:
         # then add a and not_b
         return self.ir_gen_quantum_addition(a, not_b)
 
-    def ir_gen_variable_expr(self, expr: VariableExprAST):
+# ==== declarations and assigment ====
+
+    def declare(self, var: str, value: SSAValue) -> bool:
+        """Declare a variable in the current scope, return success if the variable
+        wasn't declared yet."""
+        if self.symbol_table is None:
+            raise IRGenError("Symbol table is empty.")
+
+        if var in self.symbol_table:
+            return False
+        self.symbol_table[var] = value
+        return True
+
+    def delete(self, var: str) -> bool:
+        """Delete an entry from the symbol_table."""
+        if self.symbol_table is None:
+            raise IRGenError("Symbol table is empty.")
+
+        if var in self.symbol_table._local_scope:
+            del self.symbol_table._local_scope[var]
+            return True
+        return False
+
+    def ir_gen_variable_expr(self, expr: VariableExprAST) -> SSAValue:
         """
         @brief Generate IR for a variable reference.
 
@@ -437,7 +385,7 @@ class QuantumIRGen:
         else:
             raise IRGenError(f"Undefined variable: {expr.name}")
 
-    def ir_gen_number_expr(self, expr: NumberExprAST):
+    def ir_gen_number_expr(self, expr: NumberExprAST) -> SSAValue:
         """
         @brief Generate IR for a number literal with improved bit representation.
 
@@ -447,9 +395,7 @@ class QuantumIRGen:
         self.add_comment(f"// Initialize number literal: {expr.val}")
 
         # TODO make this declaration actually useful (32 qubits for 32-bit int?)
-        # for simplicity, we'll use single-bit representation for demo purposes
-        # a real implementation would use multiple qubits for integers
-        qubit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
+        qubit = self.builder.insert(InitOp.from_value(IntegerType(32))).res
 
         # if the number is non-zero, apply NOT gate to flip it to |1⟩
         if expr.val != 0:
@@ -457,38 +403,69 @@ class QuantumIRGen:
 
         return qubit
 
-    def ir_gen_var_decl_expr(self, expr: VarDeclExprAST):
+    def ir_gen_var_decl_expr(self, expr: VarDeclExprAST) -> SSAValue:
         """
-        @brief Generate IR for a variable declaration with improved initialization.
-
+        @brief Generate IR for a variable declaration with specialized initialization.
+        
+        Directly handles number literals and variable references for more efficient
+        quantum circuit generation.
+        
         @param expr: The VarDeclExprAST node representing a variable declaration
         @return The quantum value associated with the new variable
         """
         self.add_comment(f"// Declare variable: {expr.name}")
-
-        # TODO link this with function to generate variable and assign a value to it
-        # initialize a new qubit for this variable
-        qubit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
-
-        # handle initialization if provided
+        
+        # Set consistent bit width
+        bit_width = 32  # Using 32 bits for all variables to match number literals
+        
+        # Initialize a new qubit register for this variable
+        qubit = self.builder.insert(InitOp.from_value(IntegerType(bit_width))).res
+        
+        # Handle initialization if provided
         if expr.expr is not None:
             self.add_comment(f"// Initialize {expr.name} with value")
-            init_value = self.ir_gen_expr(expr.expr)
-
-            # use CNOT to copy the value from init_value to qubit
-            # this assumes init_value is properly set (0 or 1)
-            result = self.builder.insert(CNotOp(init_value, qubit)).res
-
-            # register in symbol table with new scope
-            self.symbol_table = ScopedDict(parent=self.symbol_table)
-            self.symbol_table[expr.name] = result
-            return result
+            
+            # Specialized handling based on expression type
+            if isinstance(expr.expr, NumberExprAST):
+                # Direct number initialization
+                value = expr.expr.val
+                self.add_comment(f"// Direct number initialization: {value}")
+                
+                # Apply NOT gates only to qubits that should be 1
+                if value != 0:
+                    # For simple implementation, just set the first qubit for non-zero values
+                    # For a full implementation, you'd encode the binary representation
+                    qubit = self.builder.insert(NotOp.from_value(qubit)).res
+            
+            elif isinstance(expr.expr, VariableExprAST):
+                # Direct variable-to-variable copy
+                var_name = expr.expr.name
+                self.add_comment(f"// Copying from variable: {var_name}")
+                
+                if var_name in self.symbol_table:
+                    source = self.symbol_table[var_name]
+                    # Use CNOT to copy state (simple implementation for single qubit)
+                    qubit = self.builder.insert(CNotOp(source, qubit)).res
+                else:
+                    raise IRGenError(f"Referenced undefined variable: {var_name}")
+            
+            else:
+                # Fallback to general expression handling
+                init_value = self.ir_gen_expr(expr.expr)
+                # Copy state using CNOT
+                qubit = self.builder.insert(CNotOp(init_value, qubit)).res
+        
         else:
-            # just store the uninitialized qubit
-            self.symbol_table[expr.name] = qubit
-            return qubit
+            # Variable initialized to 0 (qubits already initialized to |0⟩)
+            self.add_comment(f"// Variable {expr.name} initialized to 0")
+        
+        # Register in symbol table with new scope
+        self.symbol_table = ScopedDict(parent=self.symbol_table)
+        self.symbol_table[expr.name] = qubit
+        
+        return qubit
 
-    def ir_gen_return_expr(self, expr: ReturnExprAST):
+    def ir_gen_return_expr(self, expr: ReturnExprAST) -> SSAValue:
         """
         @brief Generate IR for a return statement with improved return value handling.
 
@@ -512,31 +489,6 @@ class QuantumIRGen:
             self.add_comment("// Void return (default to 0)")
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
-    def ir_gen_call_expr(self, expr: CallExprAST):
-        """
-        @brief Generate IR for a function call.
-
-        Evaluates the function arguments and combines them using quantum operations.
-        This is a simplified implementation that doesn't handle actual function calls.
-
-        @param expr: The CallExprAST node representing a function call
-        @return The resulting quantum value
-        """
-        # TODO make this unroll the function call and generate the IR for it
-        # for simplicity, we'll just evaluate the arguments
-        # a full implementation would need to handle function calls properly
-        args = [self.ir_gen_expr(arg) for arg in expr.args]
-
-        # for demo purposes, just use the operation results
-        if args:
-            # apply some quantum operations to combine the arguments
-            result = args[0]
-            for arg in args[1:]:
-                result = self.builder.insert(CNotOp(result, arg)).res
-            return result
-        else:
-            # return a new qubit if no arguments
-            return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
     def add_comment(self, comment_text):
         """
