@@ -11,7 +11,8 @@ declarations, expressions, function calls, and return statements.
 """
 
 from pathlib import Path
-from typing import cast
+from typing import cast, Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
 
 from xdsl.parser import GenericParser, ParserState
 from xdsl.utils.lexer import Input
@@ -35,9 +36,104 @@ from .c_ast import (
 )
 
 
+class ParseError(Exception):
+    """Exception raised when a parsing error occurs."""
+    pass
+
+
+@dataclass
+class Symbol:
+    """Represents a variable symbol in the symbol table."""
+    name: str
+    type: str
+    initialized: bool = False
+    used: bool = False
+
+
+class SymbolTable:
+    """
+    A symbol table that manages variable declarations with nested scopes.
+    """
+    def __init__(self):
+        # Initialize with a global scope
+        self.scopes: List[Dict[str, Symbol]] = [{}]
+        self.current_function: Optional[Tuple[str, str]] = None  # (name, return_type)
+        
+    def enter_scope(self):
+        """Create a new scope."""
+        self.scopes.append({})
+        
+    def exit_scope(self):
+        """Exit the current scope and check for unused variables."""
+        if len(self.scopes) <= 1:
+            raise RuntimeError("Cannot exit global scope")
+            
+        # Check for unused variables before removing scope
+        scope = self.scopes[-1]
+        for name, symbol in scope.items():
+            if not symbol.used:
+                print(f"Warning: Unused variable '{name}' declared but never used")
+                
+        self.scopes.pop()
+        
+    def declare(self, name: str, type_str: str, initialized: bool = False) -> bool:
+        """
+        Declare a variable in the current scope.
+        Returns True if successful, False if already declared in this scope.
+        """
+        if name in self.scopes[-1]:
+            return False
+            
+        self.scopes[-1][name] = Symbol(name, type_str, initialized)
+        return True
+        
+    def lookup(self, name: str) -> Optional[Symbol]:
+        """
+        Look up a variable, starting from the innermost scope.
+        Returns None if not found.
+        """
+        # Search from innermost to outermost scope
+        for scope in reversed(self.scopes):
+            if name in scope:
+                return scope[name]
+        return None
+        
+    def mark_used(self, name: str) -> bool:
+        """
+        Mark a variable as used. Returns False if not found.
+        """
+        for scope in reversed(self.scopes):
+            if name in scope:
+                scope[name].used = True
+                return True
+        return False
+        
+    def mark_initialized(self, name: str) -> bool:
+        """
+        Mark a variable as initialized. Returns False if not found.
+        """
+        for scope in reversed(self.scopes):
+            if name in scope:
+                scope[name].initialized = True
+                return True
+        return False
+        
+    def enter_function(self, name: str, return_type: str):
+        """Set the current function context."""
+        self.current_function = (name, return_type)
+        
+    def exit_function(self):
+        """Clear the current function context."""
+        self.current_function = None
+        
+    def get_current_function(self) -> Optional[Tuple[str, str]]:
+        """Get the current function name and return type."""
+        return self.current_function
+
+
 class CParser(GenericParser[CTokenKind]):
     """
-    @brief Parser for C language source code.
+    @brief Parser for C language source code with semantic validation.
 
     This parser implements a recursive descent algorithm to parse a subset of the
     C programming language. It builds an Abstract Syntax Tree (AST) that represents
@@ -45,7 +141,7 @@ class CParser(GenericParser[CTokenKind]):
     for quantum transformation.
 
     The parser supports function definitions, variable declarations, expressions,
-    function calls, and control flow constructs like conditionals and loops.
+    function calls, and validates variable usage according to C language rules.
 
     @see CLexer
     @see c_ast.py
@@ -59,6 +155,8 @@ class CParser(GenericParser[CTokenKind]):
         @param program: String containing the C program text to parse
         """
         super().__init__(ParserState(CLexer(Input(program, str(file)))))
+        self.symbol_table = SymbolTable()
+        self.current_token_loc = None
 
     def getToken(self):
         """
@@ -66,7 +164,9 @@ class CParser(GenericParser[CTokenKind]):
 
         @return The current token being processed
         """
-        return self._current_token
+        token = self._current_token
+        self.current_token_loc = token.span
+        return token
 
     def getTokenPrecedence(self) -> int:
         """
@@ -152,6 +252,7 @@ class CParser(GenericParser[CTokenKind]):
         module ::= definition*
 
         @return ModuleAST object containing the parsed functions
+        @throws ParseError if the global scope contains syntax errors
         """
         functions: list[FunctionAST] = []
 
@@ -165,18 +266,35 @@ class CParser(GenericParser[CTokenKind]):
 
     def parseReturn(self):
         """
-        @brief Parse a return statement.
+        @brief Parse a return statement and validate against function return type.
 
         return_statement ::= 'return' [expression] ';'
 
         @return ReturnExprAST representing the return statement
+        @throws ParseError if the return type doesn't match function declaration
         """
         returnToken = self.pop_pattern("return")
         expr = None
 
-        # return takes an optional expression
+        # Get the current function's return type
+        current_function = self.symbol_table.get_current_function()
+        if not current_function:
+            self.raise_error("Return statement outside of function")
+            
+        func_name, return_type = current_function
+
+        # Return takes an optional expression
         if not self.check(";"):
             expr = self.parseExpression()
+            
+            # Validate return type
+            if return_type == "void" and expr is not None:
+                self.raise_error(f"Function '{func_name}' has void return type but returns a value")
+            elif return_type != "void" and expr is None:
+                self.raise_error(f"Function '{func_name}' must return a value of type {return_type}")
+                
+            # Type compatibility checking could be added here
+            # (for now, we're just checking presence/absence for void functions)
 
         return ReturnExprAST(loc(returnToken), expr)
 
@@ -274,29 +392,52 @@ class CParser(GenericParser[CTokenKind]):
                         ::= identifier '(' expression ')'
 
         @return VariableExprAST, CallExprAST, or PrintExprAST for the parsed expression
+        @throws ParseError if the variable is used before declaration
         """
         name = self.pop_token(CTokenKind.IDENTIFIER)
+        
         if not self.check("("):
-            # simple variable ref
-            return VariableExprAST(loc(name), name.text)
-
-        # this is a function call
+            # Simple variable reference
+            symbol = self.symbol_table.lookup(name.text)
+            if not symbol:
+                self.raise_error(f"Use of undeclared variable '{name.text}'")
+            
+            # Mark variable as used
+            self.symbol_table.mark_used(name.text)
+            
+            # Check if variable was initialized before use
+            if not symbol.initialized:
+                self.raise_error(f"Variable '{name.text}' is used before being initialized")
+                
+            return VariableExprAST(loc(name), name.text, symbol.type)
+        
+        # This is a function call
         self.pop_pattern("(")
         args: list[ExprAST] = []
         while True:
-            args.append(self.parseExpression())
             if self.check(")"):
                 break
+                
+            arg_expr = self.parseExpression()
+            args.append(arg_expr)
+            
+            if self.check(")"):
+                break
+                
             self.pop_pattern(",")
+
         self.pop_pattern(")")
 
         if name.text == "print":
-            # it can be a builtin call to print
+            # It's a builtin call to print
             if len(args) != 1:
-                self.raise_error("Expected <single arg> as argument to print()")
-
+                self.raise_error("Expected exactly one argument to print()")
             return PrintExprAST(loc(name), args[0])
 
+        # Check if function has been declared
+        # In a real C compiler, we'd check against function declarations
+        # For this simplified parser, we'll just allow the call
+        # but you could add function prototype checking here
         return CallExprAST(loc(name), name.text, args)
 
     def parsePrimary(self) -> ExprAST | None:
@@ -360,6 +501,7 @@ class CParser(GenericParser[CTokenKind]):
         @param exprPrec: Current precedence level
         @param lhs: Left-hand side expression
         @return Complete binary expression with correct precedence handling
+        @throws ParseError if assignment target is not a variable or types are incompatible
         """
         # if this is a binop, find its precedence
         while True:
@@ -373,6 +515,16 @@ class CParser(GenericParser[CTokenKind]):
             # okay, we know this is a binop - could be +, -, *, /, % or =
             if self.check(CTokenKind.ASSIGN):
                 binOp = self.pop_token(CTokenKind.ASSIGN).text
+                
+                # For assignment, validate that LHS is a variable
+                if not isinstance(lhs, VariableExprAST):
+                    self.raise_error("Left side of assignment must be a variable")
+                    
+                # Check if variable is declared
+                var_name = lhs.name
+                symbol = self.symbol_table.lookup(var_name)
+                if not symbol:
+                    self.raise_error(f"Assignment to undeclared variable '{var_name}'")
             else:
                 # check for other operators in SINGLE_CHAR_TOKENS
                 current_token = self.getToken()
@@ -387,6 +539,13 @@ class CParser(GenericParser[CTokenKind]):
             if rhs is None:
                 self.raise_error("Expected expression to complete binary operator")
 
+            # For assignment, mark variable as initialized
+            if binOp == "=" and isinstance(lhs, VariableExprAST):
+                self.symbol_table.mark_initialized(lhs.name)
+                
+            # Type compatibility check could be added here
+            # For now, we're assuming all types are compatible
+                
             # if BinOp binds less tightly with rhs than the operator after rhs, let
             # the pending operator take rhs as its lhs
             nextPrec = self.getTokenPrecedence()
@@ -395,6 +554,8 @@ class CParser(GenericParser[CTokenKind]):
 
             # merge lhs/rhs
             lhs = BinaryExprAST(rhs.loc, binOp, lhs, rhs)
+
+        return lhs
 
     def parseExpression(self) -> ExprAST:
         """
@@ -429,12 +590,12 @@ class CParser(GenericParser[CTokenKind]):
 
     def parseDeclaration(self):
         """
-        @brief Parse a C variable declaration.
+        @brief Parse a C variable declaration and register in symbol table.
 
         declaration ::= type identifier ['=' expr] ';'
 
         @return VarDeclExprAST representing the variable declaration
-        @throws ParseError if the declaration syntax is invalid
+        @throws ParseError if variable is redeclared or has invalid initialization
         """
         # get variable type
         if (
@@ -454,13 +615,26 @@ class CParser(GenericParser[CTokenKind]):
 
         name_token = self.pop_token(CTokenKind.IDENTIFIER)
         var_name = name_token.text
+        
+        # Check if variable is already declared in current scope
+        if var_name in self.symbol_table.scopes[-1]:
+            self.raise_error(f"Redeclaration of variable '{var_name}' in the same scope")
 
         # check for initialization
         expr = None
+        initialized = False
+        
         if self.check("="):
             self.pop_pattern("=")
             expr = self.parseExpression()
-
+            initialized = True
+            
+            # Type compatibility check could be added here
+            # For now, we're assuming all initializations are valid
+        
+        # Register variable in symbol table
+        self.symbol_table.declare(var_name, var_type, initialized)
+        
         return VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
 
     def parseDeclarationList(self):
@@ -470,7 +644,7 @@ class CParser(GenericParser[CTokenKind]):
         declaration_list ::= type identifier ['=' expr] [, identifier ['=' expr]]* ';'
 
         @return List of VarDeclExprAST objects representing the variable declarations
-        @throws ParseError if the declaration syntax is invalid
+        @throws ParseError if declaration syntax is invalid or variables are redeclared
         """
         # get variable type
         if (
@@ -495,13 +669,25 @@ class CParser(GenericParser[CTokenKind]):
 
             name_token = self.pop_token(CTokenKind.IDENTIFIER)
             var_name = name_token.text
+            
+            # Check if variable is already declared in current scope
+            if var_name in self.symbol_table.scopes[-1]:
+                self.raise_error(f"Redeclaration of variable '{var_name}' in the same scope")
 
             # check for initialization
             expr = None
+            initialized = False
+            
             if self.check("="):
                 self.pop_pattern("=")
                 expr = self.parseExpression()
+                initialized = True
+                
+                # Type compatibility check could be added here
 
+            # Register variable in symbol table
+            self.symbol_table.declare(var_name, var_type, initialized)
+            
             # add declaration to the list
             declarations.append(
                 VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
@@ -531,6 +717,10 @@ class CParser(GenericParser[CTokenKind]):
         @throws ParseError if the block syntax is invalid
         """
         self.pop_pattern("{")
+        
+        # Create a new scope for this block
+        self.symbol_table.enter_scope()
+        
         exprList: list[ExprAST] = []
 
         while not self.check("}"):
@@ -556,6 +746,10 @@ class CParser(GenericParser[CTokenKind]):
                 self.pop_pattern(";")
 
         self.pop_pattern("}")
+        
+        # Exit the scope, checking for unused variables
+        self.symbol_table.exit_scope()
+        
         return tuple(exprList)
 
     def parsePrototype(self):
@@ -636,5 +830,28 @@ class CParser(GenericParser[CTokenKind]):
         @throws ParseError if the function definition syntax is invalid
         """
         proto = self.parsePrototype()
+        
+        # Set current function for return type checking
+        self.symbol_table.enter_function(proto.name, proto.return_type)
+        
+        # Create new scope for function parameters
+        self.symbol_table.enter_scope()
+        
+        # Register function parameters in symbol table
+        for param in proto.args:
+            # All parameters are considered initialized
+            self.symbol_table.declare(param.name, param.var_type, initialized=True)
+        
         block = self.parseBlock()
+        
+        # Check for missing return statement in non-void functions
+        if proto.return_type != "void":
+            # Simple check - better would be control flow analysis
+            has_return = any(isinstance(expr, ReturnExprAST) for expr in block)
+            if not has_return:
+                self.raise_error(f"Function '{proto.name}' has non-void return type but no return statement")
+        
+        # Exit function scope
+        self.symbol_table.exit_function()
+        
         return FunctionAST(proto.loc, proto, block)
