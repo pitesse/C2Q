@@ -405,6 +405,85 @@ class CommentOp(IRDLOperation):
         @return A new CommentOp instance
         """
         return CommentOp(text)
+    
+@irdl_op_definition
+class ExtractBitOp(IRDLOperation):
+    """
+    @brief Operation to extract a single qubit from a multi-qubit register.
+    
+    This operation extracts one qubit from a vector of qubits at a specified index.
+    """
+    name = "quantum.extract_bit"
+    vector: Operand = operand_def(VectorType)
+    index: IntegerAttr = attr_def(IntegerAttr)
+    res: OpResult = result_def()
+
+    def __init__(self, vector: SSAValue, index: int):
+        """
+        @brief Extract a single qubit from a vector.
+        
+        @param vector: The vector of qubits
+        @param index: The index to extract
+        """
+        super().__init__(
+            result_types=[IntegerType(1)], 
+            operands=[vector],
+            attributes={"index": IntegerAttr(index, IntegerType(32))}
+        )
+
+    @staticmethod
+    def from_value(vector: SSAValue, index: int) -> 'ExtractBitOp':
+        """
+        @brief Factory method to create an ExtractBitOp.
+        
+        @param vector: The vector to extract from
+        @param index: The bit index to extract
+        @return A new ExtractBitOp instance
+        """
+        return ExtractBitOp(vector, index)
+
+@irdl_op_definition
+class InsertBitOp(IRDLOperation):
+    """
+    @brief Operation to insert a single qubit into a multi-qubit register.
+    
+    This operation inserts one qubit into a vector of qubits at a specified index.
+    """
+    name = "quantum.insert_bit"
+    vector: Operand = operand_def(VectorType)
+    value: Operand = operand_def(IntegerType(1))
+    index: IntegerAttr = attr_def(IntegerAttr)
+    res: OpResult = result_def()
+
+    def __init__(self, vector: SSAValue, value: SSAValue, index: int):
+        """
+        @brief Insert a single qubit into a vector.
+        
+        @param vector: The vector of qubits to update
+        @param value: The qubit value to insert
+        @param index: The bit position to insert at
+        """
+        if isinstance(vector.type, VectorType):
+            size = vector.type.get_shape()[0]
+            super().__init__(
+                result_types=[VectorType(IntegerType(1), [size])], 
+                operands=[vector, value],
+                attributes={"index": IntegerAttr(index, IntegerType(32))}
+            )
+        else:
+            raise TypeError("Expected VectorType for vector parameter")
+
+    @staticmethod
+    def from_values(vector: SSAValue, value: SSAValue, index: int) -> 'InsertBitOp':
+        """
+        @brief Factory method to create an InsertBitOp.
+        
+        @param vector: The vector to insert into
+        @param value: The qubit value to insert
+        @param index: The bit position
+        @return A new InsertBitOp instance
+        """
+        return InsertBitOp(vector, value, index)
 
 
 # Register the quantum dialect with all defined operations
@@ -420,7 +499,9 @@ Quantum = Dialect(
         TGateOp,
         TDaggerGateOp,
         HadamardOp,
-        CommentOp
+        CommentOp,
+        ExtractBitOp,
+        InsertBitOp
     ],
     [],
 )

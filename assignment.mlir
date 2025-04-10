@@ -1,26 +1,26 @@
 builtin.module {
-  "quantum.comment"() {comment_text = "Begin main function"} : () -> ()
+  "quantum.comment"() {comment_text = "begin main function"} : () -> ()
   "quantum.func"() ({
-    "quantum.comment"() {comment_text = "Declare variable: a"} : () -> ()
-    "quantum.comment"() {comment_text = "Initialize a with expression"} : () -> ()
-    "quantum.comment"() {comment_text = "Direct number initialization: 5.0"} : () -> ()
-    "quantum.comment"() {comment_text = "Creating qubit with name: q0_0"} : () -> ()
-    %q0_0 = "quantum.init"() {type = i32, value = false} : () -> i1
-    %0 = "quantum.not"(%q0_0) : (i1) -> i1
-    "quantum.comment"() {comment_text = "Declare variable: b"} : () -> ()
-    "quantum.comment"() {comment_text = "Initialize b with expression"} : () -> ()
-    "quantum.comment"() {comment_text = "Direct number initialization: 10.0"} : () -> ()
-    "quantum.comment"() {comment_text = "Creating qubit with name: q32_0"} : () -> ()
-    %q32_0 = "quantum.init"() {type = i32, value = false} : () -> i1
-    %1 = "quantum.not"(%q32_0) : (i1) -> i1
-    "quantum.comment"() {comment_text = "Declare variable: c"} : () -> ()
-    "quantum.comment"() {comment_text = "Default initialization of c to |0\u27e9"} : () -> ()
-    "quantum.comment"() {comment_text = "Creating qubit with name: q64_0"} : () -> ()
-    %q64_0 = "quantum.init"() {type = i32, value = false} : () -> i1
-    "quantum.comment"() {comment_text = "Process return value expression"} : () -> ()
-    "quantum.comment"() {comment_text = "Initialize number literal: 0.0"} : () -> ()
-    "quantum.comment"() {comment_text = "Creating qubit with name: q96_0"} : () -> ()
-    %q96_0 = "quantum.init"() {type = i32, value = false} : () -> i1
-    "quantum.comment"() {comment_text = "End main function"} : () -> ()
+    "quantum.comment"() {comment_text = "declare variable: a"} : () -> ()
+    "quantum.comment"() {comment_text = "initialize a with expression"} : () -> ()
+    "quantum.comment"() {comment_text = "direct number initialization: 5.0"} : () -> ()
+    "quantum.comment"() {comment_text = "creating register q0_0 with 32 qubits"} : () -> ()
+    %q0_0 = "quantum.init"() {type = vector<32xi1>, value = 0 : i32} : () -> vector<32xi1>
+    %0 = "quantum.not"(%q0_0) : (vector<32xi1>) -> vector<32xi1>
+    "quantum.comment"() {comment_text = "declare variable: b"} : () -> ()
+    "quantum.comment"() {comment_text = "initialize b with expression"} : () -> ()
+    "quantum.comment"() {comment_text = "direct number initialization: 10.0"} : () -> ()
+    "quantum.comment"() {comment_text = "creating register q1_0 with 32 qubits"} : () -> ()
+    %q1_0 = "quantum.init"() {type = vector<32xi1>, value = 0 : i32} : () -> vector<32xi1>
+    %1 = "quantum.not"(%q1_0) : (vector<32xi1>) -> vector<32xi1>
+    "quantum.comment"() {comment_text = "declare variable: c"} : () -> ()
+    "quantum.comment"() {comment_text = "default initialization of c to |0\u27e9"} : () -> ()
+    "quantum.comment"() {comment_text = "creating register q2_0 with 32 qubits"} : () -> ()
+    %q2_0 = "quantum.init"() {type = vector<32xi1>, value = 0 : i32} : () -> vector<32xi1>
+    "quantum.comment"() {comment_text = "process return value expression"} : () -> ()
+    "quantum.comment"() {comment_text = "initialize number literal: 0.0"} : () -> ()
+    "quantum.comment"() {comment_text = "creating register q3_0 with 32 qubits"} : () -> ()
+    %q3_0 = "quantum.init"() {type = vector<32xi1>, value = 0 : i32} : () -> vector<32xi1>
+    "quantum.comment"() {comment_text = "end main function"} : () -> ()
   }) {func_name = "main"} : () -> ()
 }

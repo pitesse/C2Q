@@ -50,7 +50,6 @@ def create_circuit(first_op, qubit_number, output_number):
     @brief Create a Qiskit quantum circuit from IR operations
     @param first_op First operation in the IR sequence
     @param qubit_number Total number of qubits in the circuit
-    @param output_number Number of classical output bits
     @return QuantumCircuit object representing the quantum program
     """
     circuit = QuantumCircuit(qubit_number, output_number)
@@ -60,7 +59,12 @@ def create_circuit(first_op, qubit_number, output_number):
     # initialize counter for unnamed operands
     op_index = 0
 
-    circuit.initialize(1)
+    # Track the last operation applied to each vector/bit
+    # Maps register name to a dictionary of {index: qubit_index}
+    vector_tracking = {}
+
+    if qubit_number > 0:
+        circuit.initialize(1, 0)  # Initialize the first qubit to |1⟩ state
 
     while(current is not None):
         # handle operations without operands safely
@@ -70,16 +74,64 @@ def create_circuit(first_op, qubit_number, output_number):
             
         # get operand indices safely
         try:
+            # Process vector extraction operations
+            # Add this to the ExtractBitOp handling section
+            if current.name == "quantum.extract_bit" and len(current.operands) > 0:
+                # Get vector name and index
+                vector_op = current.operands[0]
+                index_attr = current.attributes.get("index")
+                
+                if vector_op._name and index_attr:
+                    vector_name = vector_op._name
+                    bit_index = int(index_attr.value.data)
+                    
+                    # Track this extraction in result name
+                    if hasattr(current, 'results') and len(current.results) > 0:
+                        result = current.results[0]
+                        if result._name:
+                            # Format is typically "vector_name[index]"
+                            result._name = f"{vector_name}[{bit_index}]"
+                            
+                            # Important: Track which physical qubit corresponds to this vector bit
+                            # Assign a new physical qubit index (based on op_index)
+                            physical_qubit = op_index
+                            if vector_name not in vector_tracking:
+                                vector_tracking[vector_name] = {}
+                            vector_tracking[vector_name][bit_index] = physical_qubit
+                            op_index += 1
+                    
+                # Continue to next operation - extraction itself doesn't add circuit gates
+                current = current.next_op
+                continue
+                
+            # Process vector insertion operations
+            elif current.name == "quantum.insert_bit" and len(current.operands) > 1:
+                # The InsertBitOp just tracks the relationship but doesn't add gates
+                # The actual gates will be applied by other operations
+                current = current.next_op
+                continue
+            
             operands_names = []
             for op in current.operands:
                 if hasattr(op, '_name') and op._name is not None:
-                    operands_names.append(op._name)
+                    # Check if this is a bit extracted from a vector
+                    if '[' in op._name and ']' in op._name:
+                        # Parse the vector name and bit index
+                        vector_name, bit_index = op._name.split('[')[0], int(op._name.split('[')[1].split(']')[0])
+                        if vector_name in vector_tracking and bit_index in vector_tracking[vector_name]:
+                            # Use the tracked qubit index
+                            operands_names.append(f"q_{vector_tracking[vector_name][bit_index]}")
+                        else:
+                            # Fall back to the vector name if not tracked
+                            operands_names.append(op._name)
+                    else:
+                        operands_names.append(op._name)
                 else:
                     # use a generated name for operands without names
                     operands_names.append(f"q_{op_index}")
                     op_index += 1
                     
-            # extract indices safely with fallback to positional indices
+            # Extract indices safely with fallback to positional indices
             indexes = []
             for i, name in enumerate(operands_names):
                 try:
@@ -90,7 +142,7 @@ def create_circuit(first_op, qubit_number, output_number):
                 except (ValueError, IndexError):
                     indexes.append(i)  # fallback to position-based index
             
-            # process gates based on available indices
+            # Process standard quantum gates
             if current.name == "quantum.not" and len(indexes) > 0:
                 circuit.x(indexes[0])
             elif current.name == "quantum.cnot" and len(indexes) > 1:
