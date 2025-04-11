@@ -63,6 +63,10 @@ def create_circuit(first_op, qubit_number, output_number):
     # Maps register name to a dictionary of {index: qubit_index}
     vector_tracking = {}
 
+    #Track base registers to reuse physical qubits across versions
+    base_register_tracking = {}  # Maps base register name to starting qubit index
+
+
     if qubit_number > 0:
         circuit.initialize(1, 0)  # Initialize the first qubit to |1⟩ state
 
@@ -76,6 +80,8 @@ def create_circuit(first_op, qubit_number, output_number):
         try:
             # Process vector extraction operations
             # Add this to the ExtractBitOp handling section
+            # In the create_circuit function, in the ExtractBitOp handling section
+            
             if current.name == "quantum.extract_bit" and len(current.operands) > 0:
                 # Get vector name and index
                 vector_op = current.operands[0]
@@ -92,13 +98,34 @@ def create_circuit(first_op, qubit_number, output_number):
                             # Format is typically "vector_name[index]"
                             result._name = f"{vector_name}[{bit_index}]"
                             
-                            # Important: Track which physical qubit corresponds to this vector bit
-                            # Assign a new physical qubit index (based on op_index)
-                            physical_qubit = op_index
+                            # Check if we need to allocate the entire vector
                             if vector_name not in vector_tracking:
-                                vector_tracking[vector_name] = {}
-                            vector_tracking[vector_name][bit_index] = physical_qubit
-                            op_index += 1
+                                # Get base register name (e.g., "q1" from "q1_0" or "q1_1")
+                                base_name = vector_name.split('_')[0]
+                                
+                                if hasattr(vector_op, 'type') and hasattr(vector_op.type, 'get_shape'):
+                                    bit_width = vector_op.type.get_shape()[0]  # Get the vector size (32 for ints)
+                                    
+                                    # Initialize the tracking dictionary for this vector
+                                    vector_tracking[vector_name] = {}
+                                    
+                                    if base_name not in base_register_tracking:
+                                        # First time seeing this base register, allocate new physical qubits
+                                        base_register_tracking[base_name] = op_index
+                                        print(f"Allocating {bit_width} physical qubits for base register {base_name}")
+                                        
+                                        # Allocate physical qubits for all bits in this vector
+                                        for bit_idx in range(bit_width):
+                                            vector_tracking[vector_name][bit_idx] = op_index
+                                            op_index += 1
+                                    else:
+                                        # Reuse physical qubits for this base register
+                                        start_idx = base_register_tracking[base_name]
+                                        print(f"Reusing physical qubits for register {vector_name} (base: {base_name})")
+                                        
+                                        # Map to the same physical qubits as the base register
+                                        for bit_idx in range(bit_width):
+                                            vector_tracking[vector_name][bit_idx] = start_idx + bit_idx
                     
                 # Continue to next operation - extraction itself doesn't add circuit gates
                 current = current.next_op
@@ -136,7 +163,8 @@ def create_circuit(first_op, qubit_number, output_number):
             for i, name in enumerate(operands_names):
                 try:
                     if name and '_' in name:
-                        indexes.append(int(name.split("_")[0][1:]))
+                        # For names like q_32, extract the number after the underscore
+                        indexes.append(int(name.split("_")[1]))
                     else:
                         indexes.append(i)  # fallback to position-based index
                 except (ValueError, IndexError):
@@ -171,11 +199,6 @@ def get_quantum_circuit_info(input_args, first_op):
     @param input_args List of input arguments from the function operation
     @param first_op First operation in the IR sequence
     @return Dictionary containing qubit counts and circuit structure information
-    @details Returns a dictionary with keys:
-             - input_number: Number of input qubits
-             - output_number: Number of measured output bits
-             - init_number: Number of initialized qubits
-             - qubit_number: Total qubit count
     """
     # scroll through the IR tree to count the number of (qu)bits numbers
     input_number = len(input_args)
@@ -185,9 +208,21 @@ def get_quantum_circuit_info(input_args, first_op):
     current = first_op
     while(current is not None):
         if current.name == "quantum.init":
-            init_number += 1
+            # Check if this is initializing a vector (multi-qubit register)
+            if hasattr(current, 'result_types') and current.result_types:
+                result_type = current.result_types[0]
+                if hasattr(result_type, 'get_shape'):  # Is it a vector?
+                    vector_size = result_type.get_shape()[0]
+                    init_number += vector_size  # Count all bits in the vector
+                    print(f"Found vector register with {vector_size} bits")
+                else:
+                    init_number += 1  # Regular single qubit
+            else:
+                init_number += 1  # Default to 1 if we can't determine
+        
         if current.name == "quantum.measure":
             output_number += 1
+        
         current = current.next_op
 
     qubit_number = input_number + init_number

@@ -528,17 +528,9 @@ class QuantumIRGen:
             
             # handle direct number initialization
             if isinstance(expr.expr, NumberExprAST):
-                value = expr.expr.val
-                self.add_comment(f"// direct number initialization: {value}")
-                
-                # use ir_gen_init to create a properly tracked qubit
-                qubit = self.ir_gen_init(expr.expr)
-                
-                # apply not gate for non-zero values and update status
-                if value != 0:
-                    result = self.builder.insert(NotOp.from_value(qubit)).res
-                    result = self.update_qubit_status(result)
-                    qubit = result
+                self.add_comment(f"// direct number initialization: {expr.expr.val}")
+                # Use ir_gen_number_expr to properly encode binary representation
+                qubit = self.ir_gen_number_expr(expr.expr)
             
             # handle variable-to-variable copy
             elif isinstance(expr.expr, VariableExprAST):
