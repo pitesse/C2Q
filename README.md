@@ -38,6 +38,8 @@ pip install libclang
 
 pip install qiskit
 
+pip install qiskit[visualization] #or pip install 'qiskit[visualization]' for zsh
+
 pip install qiskit-aer
 
 pip install matplotlib

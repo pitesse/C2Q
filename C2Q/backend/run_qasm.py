@@ -13,9 +13,13 @@ from pathlib import Path
 import argparse
 
 from qiskit import QuantumCircuit
+# Resolve import paths explicitly
+from qiskit.circuit import QuantumRegister, ClassicalRegister
 from qiskit_aer import AerSimulator
 from qiskit.converters import circuit_to_dag
 from qiskit.dagcircuit import DAGOpNode
+import matplotlib.pyplot as plt
+from qiskit.visualization import circuit_drawer
 
 from xdsl.parser import Parser
 from xdsl.context import Context
@@ -25,173 +29,131 @@ from C2Q.dialects.quantum_dialect import Quantum
 
 ######### functions #########
 
+
 def parse_mlir_file(file_path):
     """!
     @brief Parse an MLIR file into IR objects
     @param file_path Path to the MLIR file
     @return Module object containing the parsed IR
     """
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         mlir_content = f.read()
-    
+
     # create context and register dialects
     context = Context()
     context.load_dialect(Builtin)
     context.load_dialect(Quantum)
-    
+
     # parse the MLIR file
     parser = Parser(context, mlir_content)
     module = parser.parse_module()
-    
+
     return module
 
+
 def create_circuit(first_op, qubit_number, output_number):
-    """!
-    @brief Create a Qiskit quantum circuit from IR operations
-    @param first_op First operation in the IR sequence
-    @param qubit_number Total number of qubits in the circuit
-    @return QuantumCircuit object representing the quantum program
     """
-    circuit = QuantumCircuit(qubit_number, output_number)
+    Create a Qiskit quantum circuit from IR operations with preserved register names
+    """
+    # Track all register versions (q0_0, q0_1, q0_3, etc.)
+    register_versions = {}
+    quantum_regs = {}
+    
+    # Track operations to apply later
+    deferred_gates = []
+    
+    # First pass - identify all registers and their extracted bits
     current = first_op
-    cbit_index = 0
-
-    # initialize counter for unnamed operands
-    op_index = 0
-
-    # Track the last operation applied to each vector/bit
-    # Maps register name to a dictionary of {index: qubit_index}
-    vector_tracking = {}
-
-    #Track base registers to reuse physical qubits across versions
-    base_register_tracking = {}  # Maps base register name to starting qubit index
-
-
-    if qubit_number > 0:
-        circuit.initialize(1, 0)  # Initialize the first qubit to |1⟩ state
-
-    while(current is not None):
-        # handle operations without operands safely
-        if not hasattr(current, 'operands') or len(current.operands) == 0:
-            current = current.next_op
-            continue
-            
-        # get operand indices safely
-        try:
-            # Process vector extraction operations
-            # Add this to the ExtractBitOp handling section
-            # In the create_circuit function, in the ExtractBitOp handling section
-            
-            if current.name == "quantum.extract_bit" and len(current.operands) > 0:
-                # Get vector name and index
-                vector_op = current.operands[0]
-                index_attr = current.attributes.get("index")
+    while current is not None:
+        if current.name == "quantum.init" and hasattr(current, "results") and current.results:
+            result = current.results[0]
+            if hasattr(result, "_name") and result._name:
+                reg_name = result._name
+                # Extract the base register name (e.g., q0 from q0_1)
+                base_name = reg_name.split('_')[0]
                 
-                if vector_op._name and index_attr:
-                    vector_name = vector_op._name
-                    bit_index = int(index_attr.value.data)
-                    
-                    # Track this extraction in result name
-                    if hasattr(current, 'results') and len(current.results) > 0:
-                        result = current.results[0]
-                        if result._name:
-                            # Format is typically "vector_name[index]"
-                            result._name = f"{vector_name}[{bit_index}]"
-                            
-                            # Check if we need to allocate the entire vector
-                            if vector_name not in vector_tracking:
-                                # Get base register name (e.g., "q1" from "q1_0" or "q1_1")
-                                base_name = vector_name.split('_')[0]
-                                
-                                if hasattr(vector_op, 'type') and hasattr(vector_op.type, 'get_shape'):
-                                    bit_width = vector_op.type.get_shape()[0]  # Get the vector size (32 for ints)
-                                    
-                                    # Initialize the tracking dictionary for this vector
-                                    vector_tracking[vector_name] = {}
-                                    
-                                    if base_name not in base_register_tracking:
-                                        # First time seeing this base register, allocate new physical qubits
-                                        base_register_tracking[base_name] = op_index
-                                        print(f"Allocating {bit_width} physical qubits for base register {base_name}")
-                                        
-                                        # Allocate physical qubits for all bits in this vector
-                                        for bit_idx in range(bit_width):
-                                            vector_tracking[vector_name][bit_idx] = op_index
-                                            op_index += 1
-                                    else:
-                                        # Reuse physical qubits for this base register
-                                        start_idx = base_register_tracking[base_name]
-                                        print(f"Reusing physical qubits for register {vector_name} (base: {base_name})")
-                                        
-                                        # Map to the same physical qubits as the base register
-                                        for bit_idx in range(bit_width):
-                                            vector_tracking[vector_name][bit_idx] = start_idx + bit_idx
-                    
-                # Continue to next operation - extraction itself doesn't add circuit gates
-                current = current.next_op
-                continue
+                # Get vector size if applicable
+                vec_size = 1
+                if hasattr(current, "result_types") and hasattr(current.result_types[0], "get_shape"):
+                    vec_size = current.result_types[0].get_shape()[0]
                 
-            # Process vector insertion operations
-            elif current.name == "quantum.insert_bit" and len(current.operands) > 1:
-                # The InsertBitOp just tracks the relationship but doesn't add gates
-                # The actual gates will be applied by other operations
-                current = current.next_op
-                continue
-            
-            operands_names = []
-            for op in current.operands:
-                if hasattr(op, '_name') and op._name is not None:
-                    # Check if this is a bit extracted from a vector
-                    if '[' in op._name and ']' in op._name:
-                        # Parse the vector name and bit index
-                        vector_name, bit_index = op._name.split('[')[0], int(op._name.split('[')[1].split(']')[0])
-                        if vector_name in vector_tracking and bit_index in vector_tracking[vector_name]:
-                            # Use the tracked qubit index
-                            operands_names.append(f"q_{vector_tracking[vector_name][bit_index]}")
-                        else:
-                            # Fall back to the vector name if not tracked
-                            operands_names.append(op._name)
-                    else:
-                        operands_names.append(op._name)
-                else:
-                    # use a generated name for operands without names
-                    operands_names.append(f"q_{op_index}")
-                    op_index += 1
-                    
-            # Extract indices safely with fallback to positional indices
-            indexes = []
-            for i, name in enumerate(operands_names):
-                try:
-                    if name and '_' in name:
-                        # For names like q_32, extract the number after the underscore
-                        indexes.append(int(name.split("_")[1]))
-                    else:
-                        indexes.append(i)  # fallback to position-based index
-                except (ValueError, IndexError):
-                    indexes.append(i)  # fallback to position-based index
-            
-            # Process standard quantum gates
-            if current.name == "quantum.not" and len(indexes) > 0:
-                circuit.x(indexes[0])
-            elif current.name == "quantum.cnot" and len(indexes) > 1:
-                circuit.cx(indexes[0], indexes[1])
-            elif current.name == "quantum.ccnot" and len(indexes) > 2:
-                circuit.ccx(indexes[0], indexes[1], indexes[2])
-            elif current.name == "quantum.h" and len(indexes) > 0:
-                circuit.h(indexes[0])
-            elif current.name == "quantum.t" and len(indexes) > 0:
-                circuit.t(indexes[0])
-            elif current.name == "quantum.tdagger" and len(indexes) > 0:
-                circuit.tdg(indexes[0])
-            elif current.name == "quantum.measure" and len(indexes) > 0:
-                circuit.measure(indexes[0], cbit_index)
-                cbit_index += 1
-        except Exception as e:
-            print(f"Warning: Skipping operation {current.name} due to: {e}")
+                # Create or get the register
+                if base_name not in quantum_regs:
+                    q_reg = QuantumRegister(vec_size, name=base_name)
+                    quantum_regs[base_name] = q_reg
+                
+                # Track this version of the register
+                register_versions[reg_name] = base_name
         
+        # Track bit extraction operations
+        elif current.name == "quantum.extract_bit" and len(current.operands) > 0:
+            # This extracts a bit from a vector
+            if hasattr(current, "results") and current.results:
+                result_name = current.results[0]._name if hasattr(current.results[0], "_name") else None
+                if result_name and "[" in result_name and "]" in result_name:
+                    # This names a bit like q0_1[2]
+                    vector_name = current.operands[0]._name if hasattr(current.operands[0], "_name") else None
+                    if vector_name and vector_name in register_versions:
+                        bit_idx = current.attributes["index"].value.data
+                        # Track that this named bit refers to this register/index
+                        register_versions[result_name] = (register_versions[vector_name], bit_idx)
+        
+        # Track operations on bits
+        elif (current.name.startswith("quantum.") and 
+              current.name not in ["quantum.comment", "quantum.extract_bit", "quantum.insert_bit", "quantum.init"]):
+            # This is a quantum gate operation - track it for later application
+            deferred_gates.append(current)
+            
         current = current.next_op
     
+    # Create classical register for outputs
+    c_reg = ClassicalRegister(output_number, "c")
+    
+    # Create circuit with all registers
+    circuit = QuantumCircuit(*quantum_regs.values(), c_reg)
+    
+    # Apply the deferred gates
+    cbit_index = 0
+    for gate_op in deferred_gates:
+        try:
+            # Process operands - translate them to actual qubits
+            operands = []
+            for op in gate_op.operands:
+                if hasattr(op, "_name") and op._name:
+                    name = op._name
+                    # Handle bit reference
+                    if name in register_versions:
+                        # Is this a direct bit reference from extraction?
+                        if isinstance(register_versions[name], tuple):
+                            base_name, bit_idx = register_versions[name]
+                            operands.append(quantum_regs[base_name][bit_idx])
+                        else:
+                            # It's a register reference
+                            base_name = register_versions[name]
+                            operands.append(quantum_regs[base_name])
+            
+            # Apply appropriate gate based on operation type
+            if gate_op.name == "quantum.not" and operands:
+                circuit.x(operands[0])
+            elif gate_op.name == "quantum.cnot" and len(operands) >= 2:
+                circuit.cx(operands[0], operands[1])
+            elif gate_op.name == "quantum.ccnot" and len(operands) >= 3:
+                circuit.ccx(operands[0], operands[1], operands[2])
+            elif gate_op.name == "quantum.h" and operands:
+                circuit.h(operands[0])
+            elif gate_op.name == "quantum.t" and operands:
+                circuit.t(operands[0])
+            elif gate_op.name == "quantum.tdagger" and operands:
+                circuit.tdg(operands[0])
+            elif gate_op.name == "quantum.measure" and operands:
+                circuit.measure(operands[0], c_reg[cbit_index])
+                cbit_index += 1
+                
+        except Exception as e:
+            print(f"Warning: Skipping operation {gate_op.name} due to: {e}")
+    
     return circuit
+
 
 def get_quantum_circuit_info(input_args, first_op):
     """!
@@ -206,12 +168,12 @@ def get_quantum_circuit_info(input_args, first_op):
     init_number = 0
 
     current = first_op
-    while(current is not None):
+    while current is not None:
         if current.name == "quantum.init":
             # Check if this is initializing a vector (multi-qubit register)
-            if hasattr(current, 'result_types') and current.result_types:
+            if hasattr(current, "result_types") and current.result_types:
                 result_type = current.result_types[0]
-                if hasattr(result_type, 'get_shape'):  # Is it a vector?
+                if hasattr(result_type, "get_shape"):  # Is it a vector?
                     vector_size = result_type.get_shape()[0]
                     init_number += vector_size  # Count all bits in the vector
                     print(f"Found vector register with {vector_size} bits")
@@ -219,20 +181,21 @@ def get_quantum_circuit_info(input_args, first_op):
                     init_number += 1  # Regular single qubit
             else:
                 init_number += 1  # Default to 1 if we can't determine
-        
+
         if current.name == "quantum.measure":
             output_number += 1
-        
+
         current = current.next_op
 
     qubit_number = input_number + init_number
-    
+
     return {
         "input_number": input_number,
         "output_number": output_number,
         "init_number": init_number,
-        "qubit_number": qubit_number
+        "qubit_number": qubit_number,
     }
+
 
 def metrics(circuit):
     """!
@@ -258,12 +221,12 @@ def metrics(circuit):
 
     # get gate counts by type
     gate_counts = circuit.count_ops()
-    
-    # count T gates (safely, in case there are none)
-    t_gate_count = gate_counts.get('t', 0) + gate_counts.get('tdg', 0)
 
-    # t gate depth 
-    t_gate_depth = circuit.depth(lambda instr: instr.operation.name in ['t', 'tdg'])
+    # count T gates (safely, in case there are none)
+    t_gate_count = gate_counts.get("t", 0) + gate_counts.get("tdg", 0)
+
+    # t gate depth
+    t_gate_depth = circuit.depth(lambda instr: instr.operation.name in ["t", "tdg"])
 
     return {
         "Depth": depth,
@@ -271,8 +234,9 @@ def metrics(circuit):
         "Gate Count": gate_count,
         "T Gate Count": t_gate_count,
         "T Gate Depth": t_gate_depth,
-        "Gate Distribution": gate_counts
+        "Gate Distribution": gate_counts,
     }
+
 
 def main():
     """!
@@ -281,55 +245,66 @@ def main():
              extracts circuit information, and displays metrics and circuit visualization
     """
     # parse command line arguments
-    parser = argparse.ArgumentParser(description='Calculate metrics for a quantum MLIR file')
-    parser.add_argument('mlir_file', type=str, help='Path to the quantum MLIR file')
+    parser = argparse.ArgumentParser(
+        description="Calculate metrics for a quantum MLIR file"
+    )
+    parser.add_argument("mlir_file", type=str, help="Path to the quantum MLIR file")
     args = parser.parse_args()
 
     mlir_path = Path(args.mlir_file)
     if not mlir_path.exists():
         print(f"Error: File {mlir_path} does not exist.")
         sys.exit(1)
-    
+
     print(f"Analyzing quantum circuit in: {mlir_path}")
-    
+
     # parse the MLIR file
     module = parse_mlir_file(mlir_path)
-    
+
     # extract function operation from module
     funcOp = module.body.block._first_op
-    
+
     # get input arguments and first operation
     input_args = funcOp.body.block._args
     first_op = funcOp.body.block._first_op
-    
+
     # get circuit information
     circuit_info = get_quantum_circuit_info(input_args, first_op)
-    
+
     # create Qiskit circuit
-    circuit = create_circuit(first_op, circuit_info["qubit_number"], circuit_info["output_number"])
-    
+    circuit = create_circuit(
+        first_op, circuit_info["qubit_number"], circuit_info["output_number"]
+    )
+
     # calculate metrics
     circuit_metrics = metrics(circuit)
-    
+
     # output results
     print("\nQuantum Circuit Metrics:")
     for key, value in circuit_metrics.items():
         if key != "Gate Distribution":
             print(f"{key}: {value}")
-    
+
     print("\nGate Distribution:")
     for gate, count in circuit_metrics["Gate Distribution"].items():
         print(f"  {gate}: {count}")
-    
+
     print("\nCircuit Information:")
     print(f"Input qubits: {circuit_info['input_number']}")
     print(f"Support qubits: {circuit_info['init_number']}")
     print(f"Total qubits used: {circuit_info['qubit_number']}")
     print(f"Output bits: {circuit_info['output_number']}")
-    
+
     # optionally draw the circuit
     print("\nCircuit Visualization:")
-    print(circuit.draw(output='text'))
+    print(circuit.draw(output="text"))
+
+    #TODO doesnt work
+    figure = circuit.draw("mpl")
+    plt.savefig("quantum_circuit.png")
+    print("Circuit saved to 'quantum_circuit.png'")
+    plt.show()  
+
 
 if __name__ == "__main__":
     main()
