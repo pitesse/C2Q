@@ -89,6 +89,7 @@ def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
     # Draw the circuit
     print("\nCircuit Visualization:")
     print(circuit.draw(output="text"))
+    circuit.draw(filename="circuit.png", output="mpl")
 
 #------------------------------------------------------------------------------
 # MAIN FUNCTION
@@ -161,7 +162,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
             try:
                 circuit = create_circuit(
                     first_op,
-                    circuit_info["qubit_number"],
+                    # circuit_info["qubit_number"],
                     circuit_info["output_number"],
                 )
                 

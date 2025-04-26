@@ -52,6 +52,32 @@ def parse_mlir_file(file_path):
     return module
 
 
+def create_quantum_register(op):
+    """!
+    @brief Create a Qiskit QuantumRegister from an IR operation
+    @param op IR operation representing a quantum register
+    @return Qiskit QuantumRegister object
+    """
+    result = op.results[0]
+    if hasattr(result, "_name") and result._name:
+        reg_name = result._name
+        # Extract the base register name (e.g., q0 from q0_1)
+        base_name = reg_name.split('_')[0]
+    else:
+        print("Warning: Register name not found")
+
+    # Get vector size 
+    vec_size = 1
+    if hasattr(op, "result_types") and hasattr(
+        op.result_types[0], "get_shape"
+    ):
+        vec_size = op.result_types[0].get_shape()[0]
+
+    q_reg = QuantumRegister(vec_size, name=base_name)
+
+    return q_reg
+
+
 def create_circuit(first_op, output_number):
     """
     Create a Qiskit quantum circuit from IR operations with preserved register names
@@ -62,31 +88,35 @@ def create_circuit(first_op, output_number):
 
     circuit = QuantumCircuit()
 
-    while(current_op is not None):
-        if current_op.name == "quantum.init":
+    while current_op is not None:
+        print(f"Processing operation: {current_op.name}")
+        if current_op.name == "quantum.init" and hasattr(current_op, "results") and current_op.results:
             new_reg = create_quantum_register(current_op)
-            quantum_registers[reg_counter] = new_reg
-            reg_counter += 1
-            circuit.add_register(new_reg)
-        elif current_op.name == "quantum.not" and current_op.operands:
-            circuit.x(current_op.operands[0])
-        elif current_op.name == "quantum.cnot" and len(current_op.operands) >= 2:
-            circuit.cx(current_op.operands[0], current_op.operands[1])
-        elif current_op.name == "quantum.ccnot" and len(current_op.operands) >= 3:
-            circuit.ccx(current_op.operands[0], current_op.operands[1], current_op.operands[2])
-        elif current_op.name == "quantum.h" and current_op.operands:
-            circuit.h(current_op.operands[0])
-        elif current_op.name == "quantum.t" and current_op.operands:
-            circuit.t(current_op.operands[0])
-        elif current_op.name == "quantum.tdagger" and current_op.operands:
-            circuit.tdg(current_op.operands[0])
-        elif current_op.name == "quantum.measure" and current_op.operands:
-            circuit.measure(current_op.operands[0], c_reg[cbit_index])
-            cbit_index += 1
-        elif current_op.name == "quantum.measure":
-            # Create a classical register for the measurement results
-            creg = ClassicalRegister(output_number, name=current_op.result_names[0])
-            quantum_registers[current_op.result_names[0]] = creg
+            if(new_reg.name not in quantum_registers):
+                quantum_registers[reg_counter] = new_reg
+                reg_counter += 1
+                circuit.add_register(new_reg)
+
+           
+        # elif current_op.name == "quantum.not" and current_op.operands:
+        #     circuit.x(current_op.operands[0])
+        # elif current_op.name == "quantum.cnot" and len(current_op.operands) >= 2:
+        #     circuit.cx(current_op.operands[0], current_op.operands[1])
+        # elif current_op.name == "quantum.ccnot" and len(current_op.operands) >= 3:
+        #     circuit.ccx(current_op.operands[0], current_op.operands[1], current_op.operands[2])
+        # elif current_op.name == "quantum.h" and current_op.operands:
+        #     circuit.h(current_op.operands[0])
+        # elif current_op.name == "quantum.t" and current_op.operands:
+        #     circuit.t(current_op.operands[0])
+        # elif current_op.name == "quantum.tdagger" and current_op.operands:
+        #     circuit.tdg(current_op.operands[0])
+        # elif current_op.name == "quantum.measure" and current_op.operands:
+        #     circuit.measure(current_op.operands[0], c_reg[cbit_index])
+        #     cbit_index += 1
+        # elif current_op.name == "quantum.measure":
+        #     # Create a classical register for the measurement results
+        #     creg = ClassicalRegister(output_number, name=current_op.result_names[0])
+        #     quantum_registers[current_op.result_names[0]] = creg
 
         current_op = current_op.next_op
 
@@ -174,73 +204,3 @@ def metrics(circuit):
         "T Gate Depth": t_gate_depth,
         "Gate Distribution": gate_counts,
     }
-
-
-def main():
-    """!
-    @brief Main function to process MLIR files and analyze quantum circuits
-    @details Parses command line arguments, processes the MLIR file,
-             extracts circuit information, and displays metrics and circuit visualization
-    """
-    # parse command line arguments
-    parser = argparse.ArgumentParser(
-        description="Calculate metrics for a quantum MLIR file"
-    )
-    parser.add_argument("mlir_file", type=str, help="Path to the quantum MLIR file")
-    args = parser.parse_args()
-
-    mlir_path = Path(args.mlir_file)
-    if not mlir_path.exists():
-        print(f"Error: File {mlir_path} does not exist.")
-        sys.exit(1)
-
-    print(f"Analyzing quantum circuit in: {mlir_path}")
-
-    # parse the MLIR file
-    module = parse_mlir_file(mlir_path)
-
-    # extract function operation from module
-    funcOp = module.body.block._first_op
-
-    # get input arguments and first operation
-    input_args = funcOp.body.block._args
-    first_op = funcOp.body.block._first_op
-
-    # get circuit information
-    circuit_info = get_quantum_circuit_info(input_args, first_op)
-
-    # create Qiskit circuit
-    circuit = create_circuit(first_op, circuit_info["output_number"])
-
-    # calculate metrics
-    circuit_metrics = metrics(circuit)
-
-    # output results
-    print("\nQuantum Circuit Metrics:")
-    for key, value in circuit_metrics.items():
-        if key != "Gate Distribution":
-            print(f"{key}: {value}")
-
-    print("\nGate Distribution:")
-    for gate, count in circuit_metrics["Gate Distribution"].items():
-        print(f"  {gate}: {count}")
-
-    print("\nCircuit Information:")
-    print(f"Input qubits: {circuit_info['input_number']}")
-    print(f"Support qubits: {circuit_info['init_number']}")
-    print(f"Total qubits used: {circuit_info['qubit_number']}")
-    print(f"Output bits: {circuit_info['output_number']}")
-
-    # optionally draw the circuit
-    print("\nCircuit Visualization:")
-    print(circuit.draw(output="text"))
-
-    # TODO doesnt work
-    figure = circuit.draw("mpl")
-    plt.savefig("quantum_circuit.png")
-    print("Circuit saved to 'quantum_circuit.png'")
-    plt.show()
-
-
-if __name__ == "__main__":
-    main()
