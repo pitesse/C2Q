@@ -103,6 +103,7 @@ def apply_not(circuit, op):
     else:
         print("Warning: Invalid number of operands for NOT operation")
 
+
 def apply_cnot(circuit, op):
     """!
     @brief Apply a CNOT gate to the circuit
@@ -141,6 +142,7 @@ def apply_cnot(circuit, op):
     else:
         print("Warning: Invalid number of operands for CNOT operation")
 
+
 def apply_ccnot(circuit, op):
     """!
     @brief Apply a CCNOT gate to the circuit
@@ -158,6 +160,7 @@ def apply_ccnot(circuit, op):
         apply_cnot(circuit, control_qubit1, target_qubit)
     else:
         print("Warning: Invalid number of operands for CCNOT operation")
+
 
 def apply_hadamard(circuit, op):
     """!
@@ -182,6 +185,7 @@ def apply_hadamard(circuit, op):
     else:
         print("Warning: Invalid number of operands for Hadamard operation")
 
+
 def apply_t(circuit, op):
     """!
     @brief Apply a T gate to the circuit
@@ -205,6 +209,7 @@ def apply_t(circuit, op):
     else:
         print("Warning: Invalid number of operands for T operation")
 
+
 def apply_tdagger(circuit, op):
     """!
     @brief Apply a T-dagger gate to the circuit
@@ -227,7 +232,6 @@ def apply_tdagger(circuit, op):
             print("Warning: Operand name not found")
     else:
         print("Warning: Invalid number of operands for T-dagger operation")
-
 
 
 def create_circuit(first_op, output_number):
@@ -265,6 +269,7 @@ def create_circuit(first_op, output_number):
             apply_t(circuit, current_op)
         elif current_op.name == "quantum.tdagger" and current_op.operands:
             apply_tdagger(circuit, current_op)
+            # TODO
         # elif current_op.name == "quantum.measure" and current_op.operands:
         #     circuit.measure(current_op.operands[0], c_reg[cbit_index])
         #     cbit_index += 1
