@@ -103,6 +103,132 @@ def apply_not(circuit, op):
     else:
         print("Warning: Invalid number of operands for NOT operation")
 
+def apply_cnot(circuit, op):
+    """!
+    @brief Apply a CNOT gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the CNOT gate
+    """
+    if len(op.operands) == 2:
+        control_qubit = op.operands[0]
+        target_qubit = op.operands[1]
+
+        if hasattr(control_qubit, "_name") and control_qubit._name:
+            control_name = control_qubit._name
+            base_name = control_name.split("_")[0]
+            control_index = int(control_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    control_qreg = qreg[control_index]
+                    break
+            else:
+                print(f"Warning: Control register {base_name} not found in circuit")
+                return
+
+        if hasattr(target_qubit, "_name") and target_qubit._name:
+            target_name = target_qubit._name
+            base_name = target_name.split("_")[0]
+            target_index = int(target_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    target_qreg = qreg[target_index]
+                    break
+            else:
+                print(f"Warning: Target register {base_name} not found in circuit")
+                return
+
+        circuit.cx(control_qreg, target_qreg)
+    else:
+        print("Warning: Invalid number of operands for CNOT operation")
+
+def apply_ccnot(circuit, op):
+    """!
+    @brief Apply a CCNOT gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the CCNOT gate
+    """
+    if len(op.operands) == 3:
+        control_qubit1 = op.operands[0]
+        control_qubit2 = op.operands[1]
+        target_qubit = op.operands[2]
+
+        # Extract control and target qubits from operands
+        apply_cnot(circuit, control_qubit1, control_qubit2)
+        apply_cnot(circuit, control_qubit2, target_qubit)
+        apply_cnot(circuit, control_qubit1, target_qubit)
+    else:
+        print("Warning: Invalid number of operands for CCNOT operation")
+
+def apply_hadamard(circuit, op):
+    """!
+    @brief Apply a Hadamard gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the Hadamard gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            base_name = qubit_name.split("_")[0]
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.h(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for Hadamard operation")
+
+def apply_t(circuit, op):
+    """!
+    @brief Apply a T gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the T gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            base_name = qubit_name.split("_")[0]
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.t(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for T operation")
+
+def apply_tdagger(circuit, op):
+    """!
+    @brief Apply a T-dagger gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the T-dagger gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            base_name = qubit_name.split("_")[0]
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.tdg(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for T-dagger operation")
+
+
 
 def create_circuit(first_op, output_number):
     """
@@ -129,16 +255,16 @@ def create_circuit(first_op, output_number):
 
         elif current_op.name == "quantum.not":
             apply_not(circuit, current_op)
-        # elif current_op.name == "quantum.cnot" and len(current_op.operands) >= 2:
-        #     circuit.cx(current_op.operands[0], current_op.operands[1])
-        # elif current_op.name == "quantum.ccnot" and len(current_op.operands) >= 3:
-        #     circuit.ccx(current_op.operands[0], current_op.operands[1], current_op.operands[2])
-        # elif current_op.name == "quantum.h" and current_op.operands:
-        #     circuit.h(current_op.operands[0])
-        # elif current_op.name == "quantum.t" and current_op.operands:
-        #     circuit.t(current_op.operands[0])
-        # elif current_op.name == "quantum.tdagger" and current_op.operands:
-        #     circuit.tdg(current_op.operands[0])
+        elif current_op.name == "quantum.cnot" and len(current_op.operands) >= 2:
+            apply_cnot(circuit, current_op)
+        elif current_op.name == "quantum.ccnot" and len(current_op.operands) >= 3:
+            apply_ccnot(circuit, current_op)
+        elif current_op.name == "quantum.h" and current_op.operands:
+            apply_hadamard(circuit, current_op)
+        elif current_op.name == "quantum.t" and current_op.operands:
+            apply_t(circuit, current_op)
+        elif current_op.name == "quantum.tdagger" and current_op.operands:
+            apply_tdagger(circuit, current_op)
         # elif current_op.name == "quantum.measure" and current_op.operands:
         #     circuit.measure(current_op.operands[0], c_reg[cbit_index])
         #     cbit_index += 1
