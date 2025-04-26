@@ -62,20 +62,46 @@ def create_quantum_register(op):
     if hasattr(result, "_name") and result._name:
         reg_name = result._name
         # Extract the base register name (e.g., q0 from q0_1)
-        base_name = reg_name.split('_')[0]
+        base_name = reg_name.split("_")[0]
     else:
         print("Warning: Register name not found")
 
-    # Get vector size 
+    # Get vector size
     vec_size = 1
-    if hasattr(op, "result_types") and hasattr(
-        op.result_types[0], "get_shape"
-    ):
+    if hasattr(op, "result_types") and hasattr(op.result_types[0], "get_shape"):
         vec_size = op.result_types[0].get_shape()[0]
 
     q_reg = QuantumRegister(vec_size, name=base_name)
 
+    print(f"Creating QuantumRegister: {q_reg.name} with size {vec_size}")
+
     return q_reg
+
+
+def apply_not(circuit, op):
+    """!
+    @brief Apply a NOT gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the NOT gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            # (e.g., q0 from q0_0)
+            base_name = qubit_name.split("_")[0]
+            # (e.g., "0" from "[0]")
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.x(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for NOT operation")
 
 
 def create_circuit(first_op, output_number):
@@ -90,16 +116,19 @@ def create_circuit(first_op, output_number):
 
     while current_op is not None:
         print(f"Processing operation: {current_op.name}")
-        if current_op.name == "quantum.init" and hasattr(current_op, "results") and current_op.results:
+        if (
+            current_op.name == "quantum.init"
+            and hasattr(current_op, "results")
+            and current_op.results
+        ):
             new_reg = create_quantum_register(current_op)
-            if(new_reg.name not in quantum_registers):
+            if new_reg.name not in quantum_registers:
                 quantum_registers[reg_counter] = new_reg
                 reg_counter += 1
                 circuit.add_register(new_reg)
 
-           
-        # elif current_op.name == "quantum.not" and current_op.operands:
-        #     circuit.x(current_op.operands[0])
+        elif current_op.name == "quantum.not":
+            apply_not(circuit, current_op)
         # elif current_op.name == "quantum.cnot" and len(current_op.operands) >= 2:
         #     circuit.cx(current_op.operands[0], current_op.operands[1])
         # elif current_op.name == "quantum.ccnot" and len(current_op.operands) >= 3:

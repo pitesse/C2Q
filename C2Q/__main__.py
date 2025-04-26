@@ -156,6 +156,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
             # extract circuit information
             input_args = funcOp.regions[0].blocks[0]._args
             first_op = funcOp.regions[0].blocks[0]._first_op
+            print(f"First operation: {first_op}")
             circuit_info = get_quantum_circuit_info(input_args, first_op)
 
             # create and analyze quantum circuit
