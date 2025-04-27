@@ -160,6 +160,7 @@ class QuantumIRGen:
         self.builder = Builder(InsertPoint.at_end(block))
 
         # process function parameters
+        # TODO review this
         for arg in func_op.regions[0].blocks[0]._args:
             self.add_comment(f"// initialize main parameter: {arg.name}")
             qubit = self.builder.insert(InitOp.from_value(IntegerType(1)))
@@ -251,53 +252,35 @@ class QuantumIRGen:
         @param expr: the binaryexprast node representing a binary operation
         @return the resulting quantum value
         """
-        operation_str = ""
-        if isinstance(expr.lhs, VariableExprAST):
-            lhs_str = expr.lhs.name
-        else:
-            lhs_str = "expression"
+        # # handle assignment separately
+        # if expr.op == "=":
+        #     if isinstance(expr.lhs, VariableExprAST):
+        #         lhs_name = expr.lhs.name
+        #         self.add_comment(f"// assignment to variable: {lhs_name}")
+        #         rhs = self.ir_gen_expr(expr.rhs)
 
-        if isinstance(expr.rhs, VariableExprAST):
-            rhs_str = expr.rhs.name
-        elif isinstance(expr.rhs, NumberExprAST):
-            rhs_str = str(expr.rhs.val)
-        else:
-            rhs_str = "expression"
-
-        self.add_comment(f"// binary operation: {lhs_str} {expr.op} {rhs_str}")
-
-        # handle assignment separately
-        if expr.op == "=":
-            if isinstance(expr.lhs, VariableExprAST):
-                lhs_name = expr.lhs.name
-                self.add_comment(f"// assignment to variable: {lhs_name}")
-                rhs = self.ir_gen_expr(expr.rhs)
-
-                # create a new scope for the updated variable
-                self.symbol_table = ScopedDict(parent=self.symbol_table)
-                self.symbol_table[lhs_name] = rhs
-                return rhs
-            else:
-                raise IRGenError("Left side of assignment must be a variable")
-
-        # for other operations, evaluate both sides
-        lhs = self.ir_gen_expr(expr.lhs)
-        rhs = self.ir_gen_expr(expr.rhs)
+        #         # create a new scope for the updated variable
+        #         self.symbol_table = ScopedDict(parent=self.symbol_table)
+        #         self.symbol_table[lhs_name] = rhs
+        #         return rhs
+        #     else:
+        #         raise IRGenError("Left side of assignment must be a variable")
 
         # handle cases where lhs or rhs might be none
-        if lhs is None or rhs is None:
+        if expr.lhs is None or expr.rhs is None:
             self.add_comment("// warning: null operand in binary operation")
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
+        # handle binary operations
         if expr.op == "+":
             self.add_comment(f"// perform quantum addition")
-            return self.ir_gen_quantum_addition(lhs, rhs)
+            return self.ir_gen_quantum_addition(expr.lhs, expr.rhs)
         elif expr.op == "-":
             self.add_comment(f"// perform quantum subtraction")
-            return self.ir_gen_quantum_subtraction(lhs, rhs)
+            return self.ir_gen_quantum_subtraction(expr.lhs, expr.rhs)
         else:
             self.add_comment(f"// unsupported binary operation: {expr.op}")
-            return lhs
+            return expr.lhs
 
     # ==== operations ====
 
@@ -311,69 +294,31 @@ class QuantumIRGen:
         @param b: Second multi-qubit operand register
         @return: The resulting register representing the sum
         """
-        self.add_comment(f"quantum addition of registers {a._name} and {b._name}")
+        # self.add_comment(f"quantum addition of registers {a._name} and {b._name}")
         
-        # Create a result register
+        #  TODO this maybe useless
         result = self.ir_gen_init(None)
         
         # Implement a quantum adder circuit that works bit by bit
         bit_width = 32  # Same as in ir_gen_init
         carry = None
+
+        #TODO here we need to retrive the register for the variables that are being summed
+        # or create a number to sum to a register or with a new number
         
         for i in range(bit_width):
             # Extract bits from both operands
-            a_bit = self.get_qubit(a, i)
-            b_bit = self.get_qubit(b, i)
+            a_bit = self.get_qubit(a, i) #TODO this is wrong because we are passing a VariableExprAST instead of a SSAValue register
+            b_bit = self.get_qubit(b, i) # actually need something that has type VectorType
+
             
-            if i == 0:
-                # First bit - simpler addition without previous carry
-                self.add_comment(f"adding least significant bits (position {i})")
-                
-                # Apply Hadamard to put a_bit in superposition
-                temp1 = self.builder.insert(HadamardOp.from_value(a_bit)).res
-                
-                # Use CNOT to entangle with b_bit
-                temp2 = self.builder.insert(CNotOp(temp1, b_bit)).res
-                
-                # Initialize result bit
-                result_bit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
-                
-                # Use Toffoli (CCNOT) for the sum bit
-                sum_bit = self.builder.insert(CCNotOp(temp1, temp2, result_bit)).res
-                
-                # Set this bit in the result register
-                result = self.set_qubit(result, i, sum_bit)
-                
-                # Generate carry bit for next position using CNOT
-                carry = self.builder.insert(InitOp.from_value(IntegerType(1))).res
-                carry = self.builder.insert(CNotOp(a_bit, b_bit)).res
-            else:
-                # For subsequent bits, include carry from previous bit
-                self.add_comment(f"adding bits with carry at position {i}")
-                
-                # Create a temporary qubit for this bit's result
-                sum_bit = self.builder.insert(InitOp.from_value(IntegerType(1))).res
-                
-                # Simplified quantum full adder
-                # (In a real implementation, this would be more complex)
-                sum_bit = self.builder.insert(CNotOp(a_bit, sum_bit)).res
-                sum_bit = self.builder.insert(CNotOp(b_bit, sum_bit)).res
-                sum_bit = self.builder.insert(CNotOp(carry, sum_bit)).res
-                
-                # Set this bit in the result register
-                result = self.set_qubit(result, i, sum_bit)
-                
-                # Update carry for next bit
-                new_carry = self.builder.insert(InitOp.from_value(IntegerType(1))).res
-                new_carry = self.builder.insert(CCNotOp(a_bit, b_bit, new_carry)).res
-                carry = new_carry
         
         # Apply proper naming to the result register
         result = self.update_qubit_status(result)
         
         return result
 
-    def ir_gen_quantum_subtraction(self, a, b) -> SSAValue:
+    def ir_gen_quantum_subtraction(self, a : SSAValue, b : SSAValue) -> SSAValue:
         """
         @brief generate quantum circuit for subtraction.
 
@@ -492,14 +437,7 @@ class QuantumIRGen:
                 if bit == '1':
                     self.add_comment(f"flipping bit {i} for value {value}")
                     
-                    # Extract the qubit
-                    qubit = self.get_qubit(register, i)
-                    
-                    # Apply NOT operation to flip from |0⟩ to |1⟩
-                    flipped_qubit = self.builder.insert(NotOp.from_value(qubit)).res
-                    
-                    # Update the register with the modified qubit
-                    register = self.set_qubit(register, i, flipped_qubit)
+                    register = self.flip_qubit(register, i)
             
             # Update the register version to track the changes
             register = self.update_qubit_status(register)
@@ -633,7 +571,7 @@ class QuantumIRGen:
         # Use ExtractBitOp to extract the qubit at the specified index
         extracted = self.builder.insert(ExtractBitOp.from_value(register, index)).res
         
-        # Maintain traceability with naming
+        # Maintain traceability with naming -- here we create the qX_Y[index] format
         if register._name:
             extracted._name = f"{register._name}[{index}]"
             
@@ -668,6 +606,18 @@ class QuantumIRGen:
                 new_register._name = f"q{register_num}_{version_num}"
         
         return new_register
+    
+    def flip_qubit(self, register: SSAValue, index: int) -> SSAValue:
+        """
+        Flip a specific qubit in a multi-qubit register using a NOT operation.
+        
+        @param register: The multi-qubit register to modify
+        @param index: The index of the qubit to flip (0 is LSB)
+        @return: The updated register with the flipped bit
+        """
+        qubit = self.get_qubit(register, index)
+        flipped_qubit = self.builder.insert(NotOp.from_value(qubit)).res
+        return self.set_qubit(register, index, flipped_qubit)
 
     def add_comment(self, comment_text):
         """

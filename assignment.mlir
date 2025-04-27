@@ -44,7 +44,9 @@ builtin.module {
     "quantum.comment"() {comment_text = "updated register to version: q1_3"} : () -> ()
     "quantum.comment"() {comment_text = "binary encoding complete for 10.0"} : () -> ()
     "quantum.comment"() {comment_text = "declare variable: c"} : () -> ()
-    "quantum.comment"() {comment_text = "default initialization of c to |0\u27e9"} : () -> ()
+    "quantum.comment"() {comment_text = "initialize c with expression"} : () -> ()
+    "quantum.comment"() {comment_text = "initializing with binary expression"} : () -> ()
+    "quantum.comment"() {comment_text = "perform quantum addition"} : () -> ()
     "quantum.comment"() {comment_text = "creating register q2_0 with 32 qubits"} : () -> ()
     %q2_0 = "quantum.init"() {type = vector<32xi1>, value = 0 : i32} : () -> vector<32xi1>
     "quantum.comment"() {comment_text = "process return value expression"} : () -> ()

@@ -51,6 +51,8 @@ def parse_mlir_file(file_path):
 
     return module
 
+######## functions for creating Qiskit circuit from IR operations #####
+
 
 def create_quantum_register(op):
     """!
