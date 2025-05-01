@@ -23,7 +23,7 @@ from .frontend.parser import CParser
 from .frontend.ir_gen import QuantumIRGen
 
 # Local imports - backend
-from .backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
+from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
 
 #------------------------------------------------------------------------------
 # HELPER FUNCTIONS

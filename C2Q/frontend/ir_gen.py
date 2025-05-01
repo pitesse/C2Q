@@ -41,6 +41,9 @@ from ..dialects.quantum_dialect import (
     CommentOp,
     ExtractBitOp,
     InsertBitOp,
+    OnQubitNotOp,
+    OnQubitCNotOp,
+    OnQubitCCnotOp,
 )
 
 
@@ -143,7 +146,7 @@ class QuantumIRGen:
 
         @param main_func: the functionast node representing the main function
         """
-        self.add_comment("// begin main function")
+        # self.add_comment("// begin main function")
 
         # create a new scope for the main function
         self.symbol_table = ScopedDict[str, SSAValue]()
@@ -162,7 +165,7 @@ class QuantumIRGen:
         # process function parameters
         # TODO review this
         for arg in func_op.regions[0].blocks[0]._args:
-            self.add_comment(f"// initialize main parameter: {arg.name}")
+            # self.add_comment(f"// initialize main parameter: {arg.name}")
             qubit = self.builder.insert(InitOp.from_value(IntegerType(1)))
             self.symbol_table[arg._name] = qubit.res
 
@@ -171,7 +174,7 @@ class QuantumIRGen:
         for expr in main_func.body:
             self.ir_gen_expr(expr)
 
-        self.add_comment("// end main function")
+        # self.add_comment("// end main function")
 
     def ir_gen_func_call(self, func_ast: FunctionAST, args: list[ExprAST]):
         """
@@ -184,7 +187,7 @@ class QuantumIRGen:
         @param args: the list of arguments passed to the function
         """
         # TODO handle function return value
-        self.add_comment(f"// function call: {func_ast.proto.name}")
+        # self.add_comment(f"// function call: {func_ast.proto.name}")
 
         # create a new scope for the function call
         self.symbol_table = ScopedDict(parent=self.symbol_table)
@@ -213,7 +216,7 @@ class QuantumIRGen:
         if called_func is None:
             raise IRGenError(f"Function {expr.callee} not found")
         else:
-            self.add_comment(f"// function call: {expr.callee}")
+            # self.add_comment(f"// function call: {expr.callee}")
 
             # unroll the function call
             func_ast = self.function_map[expr.callee]
@@ -241,6 +244,8 @@ class QuantumIRGen:
             return self.ir_gen_return_expr(expr)
         elif isinstance(expr, CallExprAST):
             return self.ir_gen_call_expr(expr)
+        elif isinstance(expr, VariableExprAST):
+            return self.ir_gen_variable_expr(expr)
         else:
             raise IRGenError(f"Unsupported expression type: {type(expr)}")
 
@@ -256,7 +261,7 @@ class QuantumIRGen:
         # if expr.op == "=":
         #     if isinstance(expr.lhs, VariableExprAST):
         #         lhs_name = expr.lhs.name
-        #         self.add_comment(f"// assignment to variable: {lhs_name}")
+        # self.add_comment(f"// assignment to variable: {lhs_name}")
         #         rhs = self.ir_gen_expr(expr.rhs)
 
         #         # create a new scope for the updated variable
@@ -268,72 +273,194 @@ class QuantumIRGen:
 
         # handle cases where lhs or rhs might be none
         if expr.lhs is None or expr.rhs is None:
-            self.add_comment("// warning: null operand in binary operation")
+            # self.add_comment("// warning: null operand in binary operation")
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
         # handle binary operations
         if expr.op == "+":
-            self.add_comment(f"// perform quantum addition")
+            # self.add_comment(f"// perform quantum addition")
             return self.ir_gen_quantum_addition(expr.lhs, expr.rhs)
         elif expr.op == "-":
-            self.add_comment(f"// perform quantum subtraction")
+            # self.add_comment(f"// perform quantum subtraction")
             return self.ir_gen_quantum_subtraction(expr.lhs, expr.rhs)
         else:
-            self.add_comment(f"// unsupported binary operation: {expr.op}")
+            # self.add_comment(f"// unsupported binary operation: {expr.op}")
             return expr.lhs
 
     # ==== operations ====
 
-    def ir_gen_quantum_addition(self, a: SSAValue, b: SSAValue) -> SSAValue:
+    def ir_gen_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
         """
-        Generate quantum circuit for addition of multi-qubit registers.
-        
-        Implements a quantum adder for registers representing integers.
-        
-        @param a: First multi-qubit operand register
-        @param b: Second multi-qubit operand register
+        Generate quantum circuit for addition of multi-qubit registers using reversible ripple carry adder.
+    
+        Implements a quantum adder for registers representing integers based on the
+        reversible methodology with no ancilla inputs.
+    
+        @param a_expr: First operand expression
+        @param b_expr: Second operand expression
         @return: The resulting register representing the sum
         """
-        # self.add_comment(f"quantum addition of registers {a._name} and {b._name}")
-        
-        #  TODO this maybe useless
+        # Evaluate expressions to get the quantum registers
+        a = self.ir_gen_expr(a_expr)
+        b = self.ir_gen_expr(b_expr)
+    
+        if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
+            # Handle the case where inputs might be single qubits
+            if not isinstance(a.type, VectorType):
+                a_temp = self.ir_gen_init(None)
+                self.set_qubit(a_temp, 0, a)
+                a = a_temp
+            if not isinstance(b.type, VectorType):
+                b_temp = self.ir_gen_init(None)
+                self.set_qubit(b_temp, 0, b)
+                b = b_temp
+    
+        # Initialize result register
         result = self.ir_gen_init(None)
         
-        # Implement a quantum adder circuit that works bit by bit
-        bit_width = 32  # Same as in ir_gen_init
-        carry = None
-
-        #TODO here we need to retrive the register for the variables that are being summed
-        # or create a number to sum to a register or with a new number
-        
+        # Initialize carry register
+        z_reg = self.ir_gen_init(None)  
+        z_reg._name = "z_0"  
+    
+        bit_width = 32  # For 32-bit integers
+    
+        # Step 1: CNOT between Ai and Bi for i=1 to n-1
+        for i in range(1, bit_width):
+            # Use direct CNOT operation on bits
+            b = self.apply_cnot_on_bits(a, i, b, i)
+    
+        # Step 2: CNOT between Ai and Ai+1 from n-1 down to 1
+        temp_a = a  # Create a separate copy for tracking changes
+        for i in range(bit_width - 1, 0, -1):
+            temp_a = self.apply_cnot_on_bits(temp_a, i-1, temp_a, i)
+    
+        # Step 3: Toffoli gate at Bi, Ai, and Ai+1 for i=0 to n-2
+        for i in range(0, bit_width - 1):
+            # Use direct CCNOT operation on bits
+            temp_a = self.apply_ccnot_on_bits(b, i, temp_a, i, temp_a, i+1)
+    
+        # Step 4: Peres gate (which is Toffoli + CNOT)
+        for i in range(bit_width - 1, -1, -1):
+            # First part of Peres (Toffoli): C' = C ⊕ (A·B)
+            if i == bit_width - 1:
+                # For highest bit, use z_reg as carry bit
+                z_reg = self.apply_ccnot_on_bits(temp_a, i, b, i, z_reg, 0)
+            else:
+                temp_a = self.apply_ccnot_on_bits(temp_a, i, b, i, temp_a, i+1)
+    
+            # Second part of Peres (CNOT): B' = B ⊕ A
+            b = self.apply_cnot_on_bits(temp_a, i, b, i)
+    
+        # Step 5: CNOT between Ai and Ai+1 for i=1 to n-2
+        for i in range(1, bit_width - 1):
+            temp_a = self.apply_cnot_on_bits(temp_a, i, temp_a, i+1)
+    
+        # Step 6: CNOT between Bi and Ai for i=1 to n-1
+        for i in range(1, bit_width):
+            b = self.apply_cnot_on_bits(temp_a, i, b, i)
+    
+        # Copy the result from b (which now contains the sum bits) to result register
         for i in range(bit_width):
-            # Extract bits from both operands
-            a_bit = self.get_qubit(a, i) #TODO this is wrong because we are passing a VariableExprAST instead of a SSAValue register
-            b_bit = self.get_qubit(b, i) # actually need something that has type VectorType
-
-            
-        
-        # Apply proper naming to the result register
+            result = self.apply_cnot_on_bits(b, i, result, i)
+    
+        # Set the carry in the highest bit if needed
+        if z_reg._name != "z_0":  # Only if the carry bit was modified
+            result = self.apply_cnot_on_bits(z_reg, 0, result, bit_width-1)
+    
+        # Update the register version to track the changes
         result = self.update_qubit_status(result)
-        
+    
         return result
 
-    def ir_gen_quantum_subtraction(self, a : SSAValue, b : SSAValue) -> SSAValue:
+    # TODO test this
+    def ir_gen_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
         """
-        @brief generate quantum circuit for subtraction.
-
-        implements subtraction by first inverting the second operand using a not gate,
-        and then performing addition. this is a simplified implementation.
-
-        @param a: first quantum operand (minuend)
-        @param b: second quantum operand (subtrahend)
-        @return the resulting quantum value representing the difference
+        Generate quantum circuit for subtraction using direct bit operations.
+    
+        This implementation follows the paper's approach for reversible subtraction
+        where we first complement a, then add b, then complement the result.
+    
+        @param a_expr: First operand expression (minuend)
+        @param b_expr: Second operand expression (subtrahend)
+        @return: The resulting register representing the difference
         """
-        # invert b using a not gate
-        not_b = self.builder.insert(NotOp.from_value(b)).res
-
-        # then add a and not_b
-        return self.ir_gen_quantum_addition(a, not_b)
+        # Evaluate expressions to get the quantum registers
+        a = self.ir_gen_expr(a_expr)
+        b = self.ir_gen_expr(b_expr)
+    
+        if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
+            # Handle single qubits (same as in addition)
+            if not isinstance(a.type, VectorType):
+                a_temp = self.ir_gen_init(None)
+                self.set_qubit(a_temp, 0, a)
+                a = a_temp
+            if not isinstance(b.type, VectorType):
+                b_temp = self.ir_gen_init(None)
+                self.set_qubit(b_temp, 0, b)
+                b = b_temp
+    
+        # Initialize result register
+        result = self.ir_gen_init(None)
+        
+        bit_width = 32  # For 32-bit integers
+    
+        # Step 1: Complement input 'a' (NOT all bits in a)
+        not_a = self.ir_gen_init(None)
+        for i in range(bit_width):
+            # First copy the bits directly
+            not_a = self.apply_cnot_on_bits(a, i, not_a, i)
+            # Then complement each bit directly
+            not_a = self.flip_qubit(not_a, i)
+    
+        # Step 2: Use the addition algorithm to compute (NOT a) + b with direct operations
+        # Initialize a temporary 'z' bit to hold the final carry
+        z_reg = self.ir_gen_init(None)
+        z_reg._name = "z_0"
+    
+        temp_a = not_a  # Use not_a as our 'a' input for addition
+        temp_b = b      # Use b directly  
+    
+        # Steps 1-6 from the ripple carry adder - same as in addition but with direct operations
+        # Step 1: CNOT between Ai and Bi for i=1 to n-1
+        for i in range(1, bit_width):
+            temp_b = self.apply_cnot_on_bits(temp_a, i, temp_b, i)
+    
+        # Step 2: CNOT between Ai and Ai+1 from n-1 down to 1
+        for i in range(bit_width - 1, 0, -1):
+            temp_a = self.apply_cnot_on_bits(temp_a, i-1, temp_a, i)
+    
+        # Step 3: Toffoli gate at Bi, Ai, and Ai+1 for i=0 to n-2
+        for i in range(0, bit_width - 1):
+            temp_a = self.apply_ccnot_on_bits(temp_b, i, temp_a, i, temp_a, i+1)
+    
+        # Step 4: Peres gate (which is Toffoli + CNOT)
+        for i in range(bit_width - 1, -1, -1):
+            if i == bit_width - 1:
+                z_reg = self.apply_ccnot_on_bits(temp_a, i, temp_b, i, z_reg, 0)
+            else:
+                temp_a = self.apply_ccnot_on_bits(temp_a, i, temp_b, i, temp_a, i+1)
+                
+            temp_b = self.apply_cnot_on_bits(temp_a, i, temp_b, i)
+    
+        # Step 5: CNOT between Ai and Ai+1 for i=1 to n-2
+        for i in range(1, bit_width - 1):
+            temp_a = self.apply_cnot_on_bits(temp_a, i, temp_a, i+1)
+    
+        # Step 6: CNOT between Bi and Ai for i=1 to n-1
+        for i in range(1, bit_width):
+            temp_b = self.apply_cnot_on_bits(temp_a, i, temp_b, i)
+    
+        # Step 3: Complement the result (apply NOT to all bits) using direct operations
+        for i in range(bit_width):
+            # First copy the bit directly
+            result = self.apply_cnot_on_bits(temp_b, i, result, i)
+            # Then complement it directly
+            result = self.flip_qubit(result, i)
+    
+        # Update the register version to track the changes
+        result = self.update_qubit_status(result)
+    
+        return result
 
     # ==== declarations and assigment ====
 
@@ -358,150 +485,133 @@ class QuantumIRGen:
             return True
         return False
 
+    def ir_gen_variable_expr(self, expr: VariableExprAST) -> SSAValue:
+        """
+        @brief Generate IR for a variable reference.
+
+        Looks up the variable in the symbol table and returns its SSA value.
+
+        @param expr: the VariableExprAST node representing a variable reference
+        @return the SSA value associated with the variable
+        """
+        var_name = expr.name
+        # self.add_comment(f"// variable reference: {var_name}")
+
+        if var_name in self.symbol_table:
+            return self.symbol_table[var_name]
+        else:
+            raise IRGenError(f"Referenced undefined variable: {var_name}")
+
     def ir_gen_init(self, expr: NumberExprAST = None) -> SSAValue:
         """
         Initialize a new multi-qubit register for integer representation.
-        
+
         Creates a vector of qubits with proper naming convention qx_y where:
         - x is the register number
         - y is the version tracking write operations
-        
+
         @param expr: Optional expression for context (typically a NumberExprAST)
         @return: SSA value representing the multi-qubit register
         """
         bit_width = 32  # default bit width for integers
-        
+
         # Get base register number
         register_num = self.n_qubit // bit_width
         status_num = 0
-        
+
         # Register name follows qX_Y convention
         register_name = f"q{register_num}_{status_num}"
-        self.add_comment(f"// creating register {register_name} with {bit_width} qubits")
-        
+        # self.add_comment(f"// creating register {register_name} with {bit_width} qubits")
+
         # Create a vector of qubits (each with 1 bit) with vector size = bit_width
         register = self.builder.insert(
             InitOp.from_value(VectorType(IntegerType(1), [bit_width]))
         )
-        
+
         # Set the result name to follow our convention
         register.res._name = register_name
-        
+
         # Increment the global qubit counter
         self.n_qubit += bit_width
-        
+
         return register.res
-    
-    def update_qubit_status(self, register: SSAValue) -> SSAValue:
-        """
-        Update the version number of a register after a modification.
-        
-        @param register: The register SSA value to update
-        @return: The same register with updated version number
-        """
-        if register and register._name:
-            parts = register._name.split('_')
-            if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
-                version_num = int(parts[1]) + 1
-                register._name = f"q{register_num}_{version_num}"
-                self.add_comment(f"// updated register to version: {register._name}")
-        return register
 
     def ir_gen_number_expr(self, expr: NumberExprAST) -> SSAValue:
-        """
-        Generate IR for a number literal using binary representation across multiple qubits.
-        
-        @param expr: the NumberExprAST node representing a number literal
-        @return the quantum register representing the number
-        """
-        self.add_comment(f"initialize number literal: {expr.val}")
-        
+        """Generate IR for a number literal using binary representation across multiple qubits."""
         # Create multi-qubit register
         register = self.ir_gen_init(expr)
-        
-        # If value is non-zero, we need to encode it using binary representation
+    
+        # If value is non-zero, encode it using binary representation
         if expr.val != 0:
             value = int(expr.val)
-            self.add_comment(f"encoding value {value} in binary across qubits")
-            
-            # Convert to binary and remove '0b' prefix
-            binary_str = bin(value)[2:]  
-            
-            # Handle proper bit width for the register
-            bit_width = 32  # Same as in ir_gen_init
-            binary_str = binary_str.zfill(bit_width)[-bit_width:]  # Zero-pad and take last bit_width bits
-            
+            binary_str = bin(value)[2:].zfill(32)[-32:]  # Zero-pad and take last 32 bits
+    
             # Apply NOT gates to each qubit position where the binary digit is 1
             for i, bit in enumerate(reversed(binary_str)):  # LSB first
-                if bit == '1':
-                    self.add_comment(f"flipping bit {i} for value {value}")
-                    
+                if bit == "1":
+                    # Use OnQubitNotOp directly
                     register = self.flip_qubit(register, i)
-            
-            # Update the register version to track the changes
-            register = self.update_qubit_status(register)
-            self.add_comment(f"binary encoding complete for {expr.val}")
-        
+    
         return register
+
 
     def ir_gen_var_decl_expr(self, expr: VarDeclExprAST) -> SSAValue:
         """
         @brief generate ir for a variable declaration with proper qubit tracking.
-    
+
         creates a new qubit register with the qx_y naming convention where:
         - x represents the qubit number (position)
         - y represents the status number tracking write operations
-        
+
         maintains ssa (static single assignment) form by tracking qubit state changes.
-    
+
         @param expr: the vardeclexprast node representing a variable declaration
         @return the quantum value associated with the new variable
         """
-        self.add_comment(f"// declare variable: {expr.name}")
-        
+        # self.add_comment(f"// declare variable: {expr.name}")
+
         # variable will be initialized with an expression or default to zero
         if expr.expr is not None:
-            self.add_comment(f"// initialize {expr.name} with expression")
-            
+            # self.add_comment(f"// initialize {expr.name} with expression")
+
             # handle direct number initialization
             if isinstance(expr.expr, NumberExprAST):
-                self.add_comment(f"// direct number initialization: {expr.expr.val}")
+                # self.add_comment(f"// direct number initialization: {expr.expr.val}")
                 # Use ir_gen_number_expr to properly encode binary representation
                 qubit = self.ir_gen_number_expr(expr.expr)
-            
+
             # handle variable-to-variable copy
+            # Replace this section in ir_gen_var_decl_expr:
             elif isinstance(expr.expr, VariableExprAST):
                 var_name = expr.expr.name
-                self.add_comment(f"// copying from variable: {var_name}")
-                
                 if var_name in self.symbol_table:
                     source = self.symbol_table[var_name]
                     # initialize target qubit
                     qubit = self.ir_gen_init(None)
-                    # use cnot to copy state
-                    result = self.builder.insert(CNotOp(source, qubit)).res
-                    # update the status to track the operation
-                    result = self.update_qubit_status(result)
-                    qubit = result
+                    # Use direct copy instead of CNotOp
+                    # For each bit in the register
+                    bit_width = 32  # Default bit width
+                    for i in range(bit_width):
+                        qubit = self.apply_cnot_on_bits(source, i, qubit, i)
+                    return qubit
                 else:
                     raise IRGenError(f"Referenced undefined variable: {var_name}")
-            
+
             # handle binary expressions
             elif isinstance(expr.expr, BinaryExprAST):
-                self.add_comment(f"// initializing with binary expression")
+                # self.add_comment(f"// initializing with binary expression")
                 # evaluate the binary expression first
                 expr_result = self.ir_gen_expr(expr.expr)
-                
+
                 if expr_result is None:
                     raise IRGenError("Binary expression evaluation failed")
-                    
+
                 # no need to create a new qubit - use the result directly
                 qubit = expr_result
-            
+
             # handle other expression types
             else:
-                self.add_comment(f"// general expression initialization")
+                # self.add_comment(f"// general expression initialization")
                 # let ir_gen_expr handle the expression
                 try:
                     qubit = self.ir_gen_expr(expr.expr)
@@ -509,26 +619,24 @@ class QuantumIRGen:
                         raise IRGenError("Expression evaluation returned None")
                 except Exception as e:
                     raise IRGenError(f"Failed to initialize {expr.name}: {str(e)}")
-        
+
         # default initialization (to |0⟩)
         else:
-            self.add_comment(f"// default initialization of {expr.name} to |0⟩")
+            # self.add_comment(f"// default initialization of {expr.name} to |0⟩")
             qubit = self.ir_gen_init(None)
-        
+
         # register in symbol table
         # create a new scope if needed, preserving parent scope accessibility
         if expr.name in self.symbol_table._local_scope:
             # variable already exists in current scope, create a new nested scope
             self.symbol_table = ScopedDict(parent=self.symbol_table)
-        
+
         # add the variable to the symbol table
         self.symbol_table[expr.name] = qubit
-        
+
         return qubit
 
     def ir_gen_return_expr(self, expr: ReturnExprAST) -> SSAValue:
-
-
         """
         @brief generate ir for a return statement with improved return value handling.
 
@@ -537,11 +645,11 @@ class QuantumIRGen:
         """
         # TODO use mesureop to get the return value?
         if expr.expr is not None:
-            self.add_comment(f"// process return value expression")
+            # self.add_comment(f"// process return value expression")
             return_value = self.ir_gen_expr(expr.expr)
 
             if return_value is None:
-                self.add_comment("// warning: return expression evaluated to none")
+                # self.add_comment("// warning: return expression evaluated to none")
                 return_value = self.builder.insert(
                     InitOp.from_value(IntegerType(1))
                 ).res
@@ -549,81 +657,140 @@ class QuantumIRGen:
             return return_value
         else:
             # for void returns
-            self.add_comment("// void return (default to 0)")
+            # self.add_comment("// void return (default to 0)")
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
-# ==== helper ====
+    # ==== helper ====
 
-    def get_qubit(self, register: SSAValue, index: int) -> SSAValue:
-        """
-        Extract a single qubit from a multi-qubit register.
-        
-        @param register: The multi-qubit register
-        @param index: The index of the qubit to extract (0 is LSB)
-        @return: The extracted qubit as an SSA value
-        """
-        if not isinstance(register.type, VectorType):
-            # If it's already a single qubit, just return it
-            return register
-        
-        self.add_comment(f"extracting qubit {index} from register {register._name}")
-        
-        # Use ExtractBitOp to extract the qubit at the specified index
-        extracted = self.builder.insert(ExtractBitOp.from_value(register, index)).res
-        
-        # Maintain traceability with naming -- here we create the qX_Y[index] format
-        if register._name:
-            extracted._name = f"{register._name}[{index}]"
-            
-        return extracted
-    
-    def set_qubit(self, register: SSAValue, index: int, value: SSAValue) -> SSAValue:
-        """
-        Set a specific qubit in a multi-qubit register.
-        
-        @param register: The multi-qubit register to modify
-        @param index: The index of the qubit to set (0 is LSB)
-        @param value: The new value for the qubit
-        @return: The updated register with the modified bit
-        """
-        if not isinstance(register.type, VectorType):
-            # If it's just a single qubit, replace it entirely
-            return value
-        
-        self.add_comment(f"setting qubit {index} in register {register._name}")
-        
-        # Use InsertBitOp to insert the value at the specified index
-        new_register = self.builder.insert(
-            InsertBitOp.from_values(register, value, index)
-        ).res
-        
-        # Update the version tracking to maintain SSA form
-        if register._name:
-            parts = register._name.split('_')
-            if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
-                version_num = int(parts[1]) + 1
-                new_register._name = f"q{register_num}_{version_num}"
-        
-        return new_register
-    
     def flip_qubit(self, register: SSAValue, index: int) -> SSAValue:
         """
-        Flip a specific qubit in a multi-qubit register using a NOT operation.
-        
+        Flip a specific qubit in a multi-qubit register using a direct NOT operation.
+
         @param register: The multi-qubit register to modify
         @param index: The index of the qubit to flip (0 is LSB)
         @return: The updated register with the flipped bit
         """
-        qubit = self.get_qubit(register, index)
-        flipped_qubit = self.builder.insert(NotOp.from_value(qubit)).res
-        return self.set_qubit(register, index, flipped_qubit)
+        if not isinstance(register.type, VectorType):
+            # If it's already a single qubit, apply NOT directly
+            return self.builder.insert(NotOp.from_value(register)).res
 
-    def add_comment(self, comment_text):
+        # Use the new OnQubitNotOp to flip the bit directly
+        flipped_register = self.builder.insert(
+            OnQubitNotOp.from_value(register, index)
+        ).res
+
+        # Maintain the naming convention
+        if register._name:
+            parts = register._name.split("_")
+            if len(parts) == 2:
+                register_num = parts[0].lstrip("q")
+                version_num = int(parts[1]) + 1
+                flipped_register._name = f"q{register_num}_{version_num}"
+
+        return flipped_register
+    
+
+    def apply_cnot_on_bits(self, control_register: SSAValue, control_index: int, 
+                          target_register: SSAValue, target_index: int) -> SSAValue:
         """
-        @brief add a comment to the ir for debugging and clarity without creating dummy qubits.
+        Apply a CNOT gate directly between bits in two registers.
         
-        @param comment_text: the comment text to add
+        @param control_register: The register containing the control qubit
+        @param control_index: The index of the control bit
+        @param target_register: The register containing the target qubit
+        @param target_index: The index of the target bit
+        @return: The updated target register after applying CNOT
         """
-        # just create a dedicated comment operation instead of a dummy qubit
-        self.builder.insert(CommentOp(comment_text.lstrip("// ")))
+        # Use the new OnQubitCNotOp to apply CNOT directly
+        result = self.builder.insert(
+            OnQubitCNotOp.from_values(
+                control_register, control_index, 
+                target_register, target_index
+            )
+        ).res
+        
+        # Maintain the naming convention
+        if target_register._name:
+            parts = target_register._name.split('_')
+            if len(parts) == 2:
+                register_num = parts[0].lstrip('q')
+                version_num = int(parts[1]) + 1
+                result._name = f"q{register_num}_{version_num}"
+        
+        return result
+    
+    def apply_ccnot_on_bits(self, control1_register: SSAValue, control1_index: int,
+                            control2_register: SSAValue, control2_index: int,
+                            target_register: SSAValue, target_index: int) -> SSAValue:
+        """
+        Apply a CCNOT (Toffoli) gate directly between bits in three registers.
+        
+        @param control1_register: The register containing the first control qubit
+        @param control1_index: The index of the first control bit
+        @param control2_register: The register containing the second control qubit
+        @param control2_index: The index of the second control bit
+        @param target_register: The register containing the target qubit
+        @param target_index: The index of the target bit
+        @return: The updated target register after applying CCNOT
+        """
+        # Use the new OnQubitCCnotOp to apply CCNOT directly
+        result = self.builder.insert(
+            OnQubitCCnotOp.from_values(
+                control1_register, control1_index,
+                control2_register, control2_index,
+                target_register, target_index
+            )
+        ).res
+        
+        # Maintain the naming convention
+        if target_register._name:
+            parts = target_register._name.split('_')
+            if len(parts) == 2:
+                register_num = parts[0].lstrip('q')
+                version_num = int(parts[1]) + 1
+                result._name = f"q{register_num}_{version_num}"
+        
+        return result
+    
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣶⣾⣿⣿⣶⣦⣤⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⢀⣠⣴⣶⣾⣿⣿⣿⡷⢀⣠⣴⣶⣾⣿⣿⣷⡄⠀⠀⠉⠛⠛⢻⣿⣿⠿⠿⠿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⣰⣿⣿⡿⠟⠛⠉⠉⠉⣱⣿⣿⡿⠛⠛⠛⣿⣿⣿⡀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⣿⣿⣏⠀⠀⠀⠀⠀⠀⣿⣿⣯⠀⠀⠀⢠⣿⣿⣿⣷⠀⠀⠀⠀⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠸⣿⣿⣷⣶⣾⣿⣆⠀⢹⣿⣿⣶⣀⣶⣿⣿⡿⣿⣿⣇⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠈⠛⠿⠿⠿⠛⠃⠀⠀⠙⠿⣿⣿⣿⠿⠛⠀⠙⢿⣿⠇⠀⠀⠈⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⢀⣶⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣶⣦⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⠻⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠈⠻⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⡟⠁⠀⠸⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⢸⣿⣿⠃⠀⠀⠈⢻⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⣿⠟⠀⠀⠀⠀⠹⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠙⢿⣿⣷⣀⣀⣀⣀⣀⣀⣾⣿⡿⠋⠀⠀⠀⠀⠀⠀⢻⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⣿⣿⡏⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⢀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣷⡀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠘⠿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣄⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⣠⣶⣶⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠿⣿⣿⣆⠀⠀⠀⠀
+# ⠀⠀⢀⣼⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠹⣿⣿⣆⠀⠀⠀
+# ⠀⢠⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣆⠀⠀⠀⠀⠀⠀⠈⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠹⣿⣿⡆⠀⠀
+# ⢀⣿⣿⡏⠀⠀⠀⠀⢠⣴⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠛⠋⠀⠀⠀⠀⠀⠀⢠⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡿⠀⠀⠀⢹⣿⣿⡄⠀
+# ⢸⣿⣿⠀⠀⠀⠀⠀⠘⠻⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⢻⣿⣷⠀
+# ⠘⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⣿⣁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠃⠀⠀⠀⠀⢸⣿⣿⠆
+# ⠀⠹⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣴⣿⣿⠿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⢸⣿⣿⠃
+# ⠀⠀⠹⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣴⣾⣿⣿⠟⠁⠀⠀⠉⠛⢿⣿⣿⣶⣄⠀⠀⠀⠀⣼⣿⣿⠀⠀⠀⠀⠀⣾⣿⡿⠀
+# ⠀⠀⠀⠈⠻⣿⣿⣶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣤⣶⣿⣿⣿⡿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠈⠛⢿⣿⣷⣄⠀⠀⣿⣿⣿⠀⠀⠀⢀⣼⣿⣿⠃⠀
+# ⠀⠀⠀⠀⠀⠈⠛⠿⣿⣿⣿⣷⣶⣶⣶⣶⣶⣦⣶⣶⣶⣶⣶⣿⣿⣿⣿⠿⠿⠛⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣿⣿⣷⡀⢻⣿⣿⠀⢀⣴⣿⣿⠟⠁⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣩⣽⡛⠛⠛⠻⠿⠿⠿⠿⠿⠛⠛⠛⠋⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣆⠉⠉⠀⠈⠻⠛⠁⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣻⣿⣿⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣾⣿⣿⠏⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣷⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣰⣾⣿⣿⣶⣀⠀⢀⣾⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⠿⠿⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣿⣿⣦⡀⠀⠀⠀⢀⣀⣤⣶⣿⣿⡿⠟⠿⢿⣿⣿⣿⣿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢿⣿⣿⣷⣿⣿⣿⣿⡿⠟⠛⠁⠀⠀⠀⠀⠈⠙⠛⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
