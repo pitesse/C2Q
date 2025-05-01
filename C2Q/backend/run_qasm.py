@@ -13,6 +13,7 @@ from pathlib import Path
 import argparse
 
 from qiskit import QuantumCircuit
+
 # Resolve import paths explicitly
 from qiskit.circuit import QuantumRegister, ClassicalRegister
 from qiskit_aer import AerSimulator
@@ -51,107 +52,472 @@ def parse_mlir_file(file_path):
     return module
 
 
-def create_circuit(first_op, qubit_number, output_number):
+######## functions for creating Qiskit circuit from IR operations #####
+
+
+def create_quantum_register(op):
+    """!
+    @brief Create a Qiskit QuantumRegister from an IR operation
+    @param op IR operation representing a quantum register
+    @return Qiskit QuantumRegister object
+    """
+    result = op.results[0]
+    if hasattr(result, "_name") and result._name:
+        reg_name = result._name
+        # Extract the base register name (e.g., q0 from q0_1)
+        base_name = reg_name.split("_")[0]
+    else:
+        print("Warning: Register name not found")
+
+    # Get vector size
+    vec_size = 1
+    if hasattr(op, "result_types") and hasattr(op.result_types[0], "get_shape"):
+        vec_size = op.result_types[0].get_shape()[0]
+
+    q_reg = QuantumRegister(vec_size, name=base_name)
+
+    print(f"Creating QuantumRegister: {q_reg.name} with size {vec_size}")
+
+    return q_reg
+
+
+def apply_not(circuit, op):
+    """!
+    @brief Apply a NOT gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the NOT gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            # (e.g., q0 from q0_0)
+            base_name = qubit_name.split("_")[0]
+            # (e.g., "0" from "[0]")
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.x(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for NOT operation")
+
+
+def apply_onqubit_not(circuit, op):
+    """!
+    @brief Apply a direct NOT gate to a specific bit in a register
+    @param circuit Qiskit QuantumCircuit object
+    @param op OnQubitNotOp operation
+    """
+    if len(op.operands) == 1:
+        # Get the vector register
+        vector = op.operands[0]
+
+        # Get the index from the operation attributes
+        if hasattr(op, "attributes") and "index" in op.attributes:
+            bit_index = op.attributes["index"].value.data
+
+            # Get the register name
+            if hasattr(vector, "_name") and vector._name:
+                reg_name = vector._name
+                base_name = reg_name.split("_")[0]
+
+                # Find the register in the circuit
+                for qreg in circuit.qregs:
+                    if qreg.name == base_name:
+                        # Apply the NOT gate directly to the bit
+                        circuit.x(qreg[bit_index])
+                        return
+
+                print(f"Warning: Register {base_name} not found in circuit")
+            else:
+                print("Warning: Vector name not found")
+        else:
+            print("Warning: Bit index attribute not found")
+    else:
+        print("Warning: Invalid number of operands for OnQubit NOT operation")
+
+
+def apply_onqubit_cnot(circuit, op):
+    """!
+    @brief Apply a direct CNOT gate between bits in two registers
+    @param circuit Qiskit QuantumCircuit object
+    @param op OnQubitCNotOp operation
+    """
+    if len(op.operands) == 2:
+        # Get the control and target vectors
+        control_vector = op.operands[0]
+        target_vector = op.operands[1]
+
+        # Get the indices from attributes
+        if (
+            hasattr(op, "attributes")
+            and "control_index" in op.attributes
+            and "target_index" in op.attributes
+        ):
+
+            control_index = op.attributes["control_index"].value.data
+            target_index = op.attributes["target_index"].value.data
+
+            # Get register names
+            if (
+                hasattr(control_vector, "_name")
+                and control_vector._name
+                and hasattr(target_vector, "_name")
+                and target_vector._name
+            ):
+
+                control_name = control_vector._name
+                control_base = control_name.split("_")[0]
+
+                target_name = target_vector._name
+                target_base = target_name.split("_")[0]
+
+                # Find the registers in the circuit
+                control_qreg = None
+                target_qreg = None
+
+                for qreg in circuit.qregs:
+                    if qreg.name == control_base:
+                        control_qreg = qreg
+                    if qreg.name == target_base:
+                        target_qreg = qreg
+
+                if control_qreg and target_qreg:
+                    # Apply CNOT directly between the bits
+                    circuit.cx(control_qreg[control_index], target_qreg[target_index])
+                    return
+                else:
+                    if not control_qreg:
+                        print(f"Warning: Control register {control_base} not found")
+                    if not target_qreg:
+                        print(f"Warning: Target register {target_base} not found")
+            else:
+                print("Warning: Register names not found")
+        else:
+            print("Warning: Index attributes not found")
+    else:
+        print("Warning: Invalid number of operands for OnQubit CNOT operation")
+
+
+def apply_cnot(circuit, op):
+    """!
+    @brief Apply a CNOT gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the CNOT gate
+    """
+    if len(op.operands) == 2:
+        control_qubit = op.operands[0]
+        target_qubit = op.operands[1]
+
+        if hasattr(control_qubit, "_name") and control_qubit._name:
+            control_name = control_qubit._name
+            base_name = control_name.split("_")[0]
+            control_index = int(control_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    control_qreg = qreg[control_index]
+                    break
+            else:
+                print(f"Warning: Control register {base_name} not found in circuit")
+                return
+
+        if hasattr(target_qubit, "_name") and target_qubit._name:
+            target_name = target_qubit._name
+            base_name = target_name.split("_")[0]
+            target_index = int(target_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    target_qreg = qreg[target_index]
+                    break
+            else:
+                print(f"Warning: Target register {base_name} not found in circuit")
+                return
+
+        circuit.cx(control_qreg, target_qreg)
+    else:
+        print("Warning: Invalid number of operands for CNOT operation")
+
+
+def apply_ccnot(circuit, op):
+    """!
+    @brief Apply a CCNOT gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the CCNOT gate
+    """
+    if len(op.operands) == 3:
+        control_qubit1 = op.operands[0]
+        control_qubit2 = op.operands[1]
+        target_qubit = op.operands[2]
+
+        # Extract control and target qubits properly
+        if hasattr(control_qubit1, "_name") and control_qubit1._name:
+            c1_name = control_qubit1._name
+            c1_base = c1_name.split("_")[0]
+            c1_index = int(c1_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == c1_base:
+                    c1_qreg = qreg[c1_index]
+                    break
+            else:
+                print(f"Warning: Control register {c1_base} not found in circuit")
+                return
+
+        if hasattr(control_qubit2, "_name") and control_qubit2._name:
+            c2_name = control_qubit2._name
+            c2_base = c2_name.split("_")[0]
+            c2_index = int(c2_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == c2_base:
+                    c2_qreg = qreg[c2_index]
+                    break
+            else:
+                print(f"Warning: Control register {c2_base} not found in circuit")
+                return
+
+        if hasattr(target_qubit, "_name") and target_qubit._name:
+            t_name = target_qubit._name
+            t_base = t_name.split("_")[0]
+
+            # Check if the name contains brackets
+            if "[" in t_name:
+                # Handle standard format with brackets: q0_65[31]
+                t_index = int(t_name.split("[")[1].split("]")[0])
+                for qreg in circuit.qregs:
+                    if qreg.name == t_base:
+                        t_qreg = qreg[t_index]
+                        break
+                else:
+                    print(f"Warning: Target register {t_base} not found in circuit")
+                    return
+            else:
+                # Handle ancilla qubit format: z_0
+                # Check if we already have a register for this qubit
+                for qreg in circuit.qregs:
+                    if qreg.name == t_base:
+                        # If found, assume index 0 for single-qubit register
+                        t_qreg = qreg[0]
+                        break
+                else:
+                    # If not found, create a new single-qubit register
+                    print(f"Creating new register for ancilla qubit {t_name}")
+                    new_qreg = QuantumRegister(1, name=t_base)
+                    circuit.add_register(new_qreg)
+                    t_qreg = new_qreg[0]
+
+        # Use the built-in ccx gate (Toffoli)
+        circuit.ccx(c1_qreg, c2_qreg, t_qreg)
+    else:
+        print("Warning: Invalid number of operands for CCNOT operation")
+
+
+def apply_onqubit_ccnot(circuit, op):
+    """!
+    @brief Apply a direct CCNOT gate between bits in three registers
+    @param circuit Qiskit QuantumCircuit object
+    @param op OnQubitCCnotOp operation
+    """
+    if len(op.operands) == 3:
+        # Get the vectors
+        control1_vector = op.operands[0]
+        control2_vector = op.operands[1]
+        target_vector = op.operands[2]
+
+        # Get indices from attributes
+        if (
+            hasattr(op, "attributes")
+            and "control1_index" in op.attributes
+            and "control2_index" in op.attributes
+            and "target_index" in op.attributes
+        ):
+
+            control1_index = op.attributes["control1_index"].value.data
+            control2_index = op.attributes["control2_index"].value.data
+            target_index = op.attributes["target_index"].value.data
+
+            # Get register names
+            if (
+                hasattr(control1_vector, "_name")
+                and control1_vector._name
+                and hasattr(control2_vector, "_name")
+                and control2_vector._name
+                and hasattr(target_vector, "_name")
+                and target_vector._name
+            ):
+
+                control1_name = control1_vector._name
+                control1_base = control1_name.split("_")[0]
+
+                control2_name = control2_vector._name
+                control2_base = control2_name.split("_")[0]
+
+                target_name = target_vector._name
+                target_base = target_name.split("_")[0]
+
+                # Find registers in circuit
+                control1_qreg = None
+                control2_qreg = None
+                target_qreg = None
+
+                for qreg in circuit.qregs:
+                    if qreg.name == control1_base:
+                        control1_qreg = qreg
+                    if qreg.name == control2_base:
+                        control2_qreg = qreg
+                    if qreg.name == target_base:
+                        target_qreg = qreg
+
+                if control1_qreg and control2_qreg and target_qreg:
+                    # Apply CCNOT directly between bits
+                    circuit.ccx(
+                        control1_qreg[control1_index],
+                        control2_qreg[control2_index],
+                        target_qreg[target_index],
+                    )
+                    return
+                else:
+                    if not control1_qreg:
+                        print(f"Warning: Control1 register {control1_base} not found")
+                    if not control2_qreg:
+                        print(f"Warning: Control2 register {control2_base} not found")
+                    if not target_qreg:
+                        print(f"Warning: Target register {target_base} not found")
+            else:
+                print("Warning: Register names not found")
+        else:
+            print("Warning: Index attributes not found")
+    else:
+        print("Warning: Invalid number of operands for OnQubit CCNOT operation")
+
+
+def apply_hadamard(circuit, op):
+    """!
+    @brief Apply a Hadamard gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the Hadamard gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            base_name = qubit_name.split("_")[0]
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.h(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for Hadamard operation")
+
+
+def apply_t(circuit, op):
+    """!
+    @brief Apply a T gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the T gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            base_name = qubit_name.split("_")[0]
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.t(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for T operation")
+
+
+def apply_tdagger(circuit, op):
+    """!
+    @brief Apply a T-dagger gate to the circuit
+    @param circuit Qiskit QuantumCircuit object
+    @param op IR operation representing the T-dagger gate
+    """
+    if len(op.operands) == 1:
+        qubit = op.operands[0]
+        if hasattr(qubit, "_name") and qubit._name:
+            qubit_name = qubit._name
+            base_name = qubit_name.split("_")[0]
+            qubit_index = int(qubit_name.split("[")[1].split("]")[0])
+            for qreg in circuit.qregs:
+                if qreg.name == base_name:
+                    circuit.tdg(qreg[qubit_index])
+                    return
+
+            print(f"Warning: Register {base_name} not found in circuit")
+        else:
+            print("Warning: Operand name not found")
+    else:
+        print("Warning: Invalid number of operands for T-dagger operation")
+
+
+def create_circuit(first_op, output_number):
     """
     Create a Qiskit quantum circuit from IR operations with preserved register names
     """
-    # Track all register versions (q0_0, q0_1, q0_3, etc.)
-    register_versions = {}
-    quantum_regs = {}
-    
-    # Track operations to apply later
-    deferred_gates = []
-    
-    # First pass - identify all registers and their extracted bits
-    current = first_op
-    while current is not None:
-        if current.name == "quantum.init" and hasattr(current, "results") and current.results:
-            result = current.results[0]
-            if hasattr(result, "_name") and result._name:
-                reg_name = result._name
-                # Extract the base register name (e.g., q0 from q0_1)
-                base_name = reg_name.split('_')[0]
-                
-                # Get vector size if applicable
-                vec_size = 1
-                if hasattr(current, "result_types") and hasattr(current.result_types[0], "get_shape"):
-                    vec_size = current.result_types[0].get_shape()[0]
-                
-                # Create or get the register
-                if base_name not in quantum_regs:
-                    q_reg = QuantumRegister(vec_size, name=base_name)
-                    quantum_regs[base_name] = q_reg
-                
-                # Track this version of the register
-                register_versions[reg_name] = base_name
-        
-        # Track bit extraction operations
-        elif current.name == "quantum.extract_bit" and len(current.operands) > 0:
-            # This extracts a bit from a vector
-            if hasattr(current, "results") and current.results:
-                result_name = current.results[0]._name if hasattr(current.results[0], "_name") else None
-                if result_name and "[" in result_name and "]" in result_name:
-                    # This names a bit like q0_1[2]
-                    vector_name = current.operands[0]._name if hasattr(current.operands[0], "_name") else None
-                    if vector_name and vector_name in register_versions:
-                        bit_idx = current.attributes["index"].value.data
-                        # Track that this named bit refers to this register/index
-                        register_versions[result_name] = (register_versions[vector_name], bit_idx)
-        
-        # Track operations on bits
-        elif (current.name.startswith("quantum.") and 
-              current.name not in ["quantum.comment", "quantum.extract_bit", "quantum.insert_bit", "quantum.init"]):
-            # This is a quantum gate operation - track it for later application
-            deferred_gates.append(current)
-            
-        current = current.next_op
-    
-    # Create classical register for outputs
-    c_reg = ClassicalRegister(output_number, "c")
-    
-    # Create circuit with all registers
-    circuit = QuantumCircuit(*quantum_regs.values(), c_reg)
-    
-    # Apply the deferred gates
-    cbit_index = 0
-    for gate_op in deferred_gates:
-        try:
-            # Process operands - translate them to actual qubits
-            operands = []
-            for op in gate_op.operands:
-                if hasattr(op, "_name") and op._name:
-                    name = op._name
-                    # Handle bit reference
-                    if name in register_versions:
-                        # Is this a direct bit reference from extraction?
-                        if isinstance(register_versions[name], tuple):
-                            base_name, bit_idx = register_versions[name]
-                            operands.append(quantum_regs[base_name][bit_idx])
-                        else:
-                            # It's a register reference
-                            base_name = register_versions[name]
-                            operands.append(quantum_regs[base_name])
-            
-            # Apply appropriate gate based on operation type
-            if gate_op.name == "quantum.not" and operands:
-                circuit.x(operands[0])
-            elif gate_op.name == "quantum.cnot" and len(operands) >= 2:
-                circuit.cx(operands[0], operands[1])
-            elif gate_op.name == "quantum.ccnot" and len(operands) >= 3:
-                circuit.ccx(operands[0], operands[1], operands[2])
-            elif gate_op.name == "quantum.h" and operands:
-                circuit.h(operands[0])
-            elif gate_op.name == "quantum.t" and operands:
-                circuit.t(operands[0])
-            elif gate_op.name == "quantum.tdagger" and operands:
-                circuit.tdg(operands[0])
-            elif gate_op.name == "quantum.measure" and operands:
-                circuit.measure(operands[0], c_reg[cbit_index])
-                cbit_index += 1
-                
-        except Exception as e:
-            print(f"Warning: Skipping operation {gate_op.name} due to: {e}")
-    
+    quantum_registers = {}
+    reg_counter = 0
+    current_op = first_op
+
+    circuit = QuantumCircuit()
+
+    while current_op is not None:
+        print(f"Processing operation: {current_op.name}")
+
+        if (
+            current_op.name == "quantum.init"
+            and hasattr(current_op, "results")
+            and current_op.results
+        ):
+            new_reg = create_quantum_register(current_op)
+            if new_reg.name not in quantum_registers:
+                quantum_registers[reg_counter] = new_reg
+                reg_counter += 1
+                circuit.add_register(new_reg)
+        elif current_op.name == "quantum.not":
+            apply_not(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_not":
+            apply_onqubit_not(circuit, current_op)
+        elif current_op.name == "quantum.cnot":
+            apply_cnot(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_cnot":
+            apply_onqubit_cnot(circuit, current_op)
+        elif current_op.name == "quantum.ccnot":
+            apply_ccnot(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_ccnot":
+            apply_onqubit_ccnot(circuit, current_op)
+        elif current_op.name == "quantum.h" and current_op.operands:
+            apply_hadamard(circuit, current_op)
+        elif current_op.name == "quantum.t" and current_op.operands:
+            apply_t(circuit, current_op)
+        elif current_op.name == "quantum.tdagger" and current_op.operands:
+            apply_tdagger(circuit, current_op)
+            # TODO
+        # elif current_op.name == "quantum.measure" and current_op.operands:
+        #     circuit.measure(current_op.operands[0], c_reg[cbit_index])
+        #     cbit_index += 1
+        # elif current_op.name == "quantum.measure":
+        #     # Create a classical register for the measurement results
+        #     creg = ClassicalRegister(output_number, name=current_op.result_names[0])
+        #     quantum_registers[current_op.result_names[0]] = creg
+
+        current_op = current_op.next_op
+
     return circuit
 
 
@@ -236,75 +602,3 @@ def metrics(circuit):
         "T Gate Depth": t_gate_depth,
         "Gate Distribution": gate_counts,
     }
-
-
-def main():
-    """!
-    @brief Main function to process MLIR files and analyze quantum circuits
-    @details Parses command line arguments, processes the MLIR file,
-             extracts circuit information, and displays metrics and circuit visualization
-    """
-    # parse command line arguments
-    parser = argparse.ArgumentParser(
-        description="Calculate metrics for a quantum MLIR file"
-    )
-    parser.add_argument("mlir_file", type=str, help="Path to the quantum MLIR file")
-    args = parser.parse_args()
-
-    mlir_path = Path(args.mlir_file)
-    if not mlir_path.exists():
-        print(f"Error: File {mlir_path} does not exist.")
-        sys.exit(1)
-
-    print(f"Analyzing quantum circuit in: {mlir_path}")
-
-    # parse the MLIR file
-    module = parse_mlir_file(mlir_path)
-
-    # extract function operation from module
-    funcOp = module.body.block._first_op
-
-    # get input arguments and first operation
-    input_args = funcOp.body.block._args
-    first_op = funcOp.body.block._first_op
-
-    # get circuit information
-    circuit_info = get_quantum_circuit_info(input_args, first_op)
-
-    # create Qiskit circuit
-    circuit = create_circuit(
-        first_op, circuit_info["qubit_number"], circuit_info["output_number"]
-    )
-
-    # calculate metrics
-    circuit_metrics = metrics(circuit)
-
-    # output results
-    print("\nQuantum Circuit Metrics:")
-    for key, value in circuit_metrics.items():
-        if key != "Gate Distribution":
-            print(f"{key}: {value}")
-
-    print("\nGate Distribution:")
-    for gate, count in circuit_metrics["Gate Distribution"].items():
-        print(f"  {gate}: {count}")
-
-    print("\nCircuit Information:")
-    print(f"Input qubits: {circuit_info['input_number']}")
-    print(f"Support qubits: {circuit_info['init_number']}")
-    print(f"Total qubits used: {circuit_info['qubit_number']}")
-    print(f"Output bits: {circuit_info['output_number']}")
-
-    # optionally draw the circuit
-    print("\nCircuit Visualization:")
-    print(circuit.draw(output="text"))
-
-    #TODO doesnt work
-    figure = circuit.draw("mpl")
-    plt.savefig("quantum_circuit.png")
-    print("Circuit saved to 'quantum_circuit.png'")
-    plt.show()  
-
-
-if __name__ == "__main__":
-    main()

@@ -23,7 +23,7 @@ from .frontend.parser import CParser
 from .frontend.ir_gen import QuantumIRGen
 
 # Local imports - backend
-from .backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
+from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
 
 #------------------------------------------------------------------------------
 # HELPER FUNCTIONS
@@ -89,6 +89,7 @@ def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
     # Draw the circuit
     print("\nCircuit Visualization:")
     print(circuit.draw(output="text"))
+    circuit.draw(filename="circuit.png", output="mpl")
 
 #------------------------------------------------------------------------------
 # MAIN FUNCTION
@@ -155,13 +156,14 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
             # extract circuit information
             input_args = funcOp.regions[0].blocks[0]._args
             first_op = funcOp.regions[0].blocks[0]._first_op
+            print(f"First operation: {first_op}")
             circuit_info = get_quantum_circuit_info(input_args, first_op)
 
             # create and analyze quantum circuit
             try:
                 circuit = create_circuit(
                     first_op,
-                    circuit_info["qubit_number"],
+                    # circuit_info["qubit_number"],
                     circuit_info["output_number"],
                 )
                 
