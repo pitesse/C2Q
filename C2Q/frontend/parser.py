@@ -840,7 +840,7 @@ class CParser(GenericParser[CTokenKind]):
         # Register function parameters in symbol table
         for param in proto.args:
             # All parameters are considered initialized
-            self.symbol_table.declare(param.name, param.var_type, initialized=True)
+            self.symbol_table.declare(param.name, param.type_name, initialized=True)
         
         block = self.parseBlock()
         

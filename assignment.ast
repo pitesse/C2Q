@@ -8,6 +8,7 @@ Module:
       Variable declaration: int b
         Initial value: 10
       Variable declaration: int c
+        Initial value: 1
       Return statement
         Return value: 0
     End of function body
