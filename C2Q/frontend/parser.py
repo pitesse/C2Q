@@ -402,13 +402,8 @@ class CParser(GenericParser[CTokenKind]):
             if not symbol:
                 self.raise_error(f"Use of undeclared variable '{name.text}'")
             
-            # Mark variable as used
-            self.symbol_table.mark_used(name.text)
-            
-            # Check if variable was initialized before use
-            if not symbol.initialized:
-                self.raise_error(f"Variable '{name.text}' is used before being initialized")
-                
+            # Don't mark as used or check initialization here since this might be an assignment
+            # That will be handled in parseBinOpRHS when we know if it's assignment or usage
             return VariableExprAST(loc(name), name.text, symbol.type)
         
         # This is a function call
@@ -439,6 +434,30 @@ class CParser(GenericParser[CTokenKind]):
         # For this simplified parser, we'll just allow the call
         # but you could add function prototype checking here
         return CallExprAST(loc(name), name.text, args)
+
+    def _check_variable_usage(self, expr):
+        """
+        @brief Recursively check variable usage in an expression tree.
+        
+        @param expr: Expression AST node to check
+        """
+        if isinstance(expr, VariableExprAST):
+            # Mark variable as used
+            self.symbol_table.mark_used(expr.name)
+            
+            # Check if variable was initialized before use
+            symbol = self.symbol_table.lookup(expr.name)
+            if symbol and not symbol.initialized:
+                self.raise_error(f"Variable '{expr.name}' is used before being initialized")
+        elif isinstance(expr, BinaryExprAST):
+            # Recursively check both sides
+            self._check_variable_usage(expr.lhs)
+            self._check_variable_usage(expr.rhs)
+        elif isinstance(expr, CallExprAST):
+            # Check all arguments
+            for arg in expr.args:
+                self._check_variable_usage(arg)
+        # NumberExprAST and other leaf nodes don't need checking
 
     def parsePrimary(self) -> ExprAST | None:
         """
@@ -561,7 +580,20 @@ class CParser(GenericParser[CTokenKind]):
                 current_token = self.getToken()
                 if current_token.text in ["+", "-", "*", "/", "%"]:
                     binOp = self.pop().text
+                    
+                    # For non-assignment operations, mark LHS as used and check initialization
+                    if isinstance(lhs, VariableExprAST):
+                        self.symbol_table.mark_used(lhs.name)
+                        symbol = self.symbol_table.lookup(lhs.name)
+                        if symbol and not symbol.initialized:
+                            self.raise_error(f"Variable '{lhs.name}' is used before being initialized")
                 else:
+                    # No operator found, this might be a standalone variable usage
+                    if isinstance(lhs, VariableExprAST):
+                        self.symbol_table.mark_used(lhs.name)
+                        symbol = self.symbol_table.lookup(lhs.name)
+                        if symbol and not symbol.initialized:
+                            self.raise_error(f"Variable '{lhs.name}' is used before being initialized")
                     return lhs  # not an operator we recognize
 
             # parse the primary expression after the binary operator
@@ -570,9 +602,15 @@ class CParser(GenericParser[CTokenKind]):
             if rhs is None:
                 self.raise_error("Expected expression to complete binary operator")
 
+            # For non-assignment operations, mark RHS variables as used and check initialization
+            if binOp != "=":
+                self._check_variable_usage(rhs)
+
             # For assignment, mark variable as initialized
             if binOp == "=" and isinstance(lhs, VariableExprAST):
                 self.symbol_table.mark_initialized(lhs.name)
+                # Also check that RHS variables are initialized
+                self._check_variable_usage(rhs)
                 
             # Type compatibility check could be added here
             # For now, we're assuming all types are compatible

@@ -1,0 +1,16 @@
+Module:
+  Function Definition:
+    Function signature: 'main' -> int
+    Parameters: []
+    Body:
+      Variable declaration: int a
+        Initial value: 3
+      Variable declaration: int b
+        Initial value: 2
+      Variable declaration: int c
+        Operation: +
+          Variable: a:int
+          Variable: b:int
+      Return statement
+        Variable: c:int
+    End of function body

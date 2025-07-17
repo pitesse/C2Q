@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from xdsl.dialects.builtin import IntegerType, StringAttr, VectorType, IntegerAttr
+from xdsl.dialects.builtin import IntegerType, StringAttr, VectorType, IntegerAttr, FloatAttr, Float64Type
 from xdsl.ir import Dialect, OpResult, SSAValue, Region, Attribute
 from xdsl.irdl import (
     IRDLOperation,
@@ -783,6 +783,159 @@ class OnQubitCCnotOp(IRDLOperation):
         )
 
 
+@irdl_op_definition
+class OnQubitHadamardOp(IRDLOperation):
+    """
+    @brief Operation to apply the Hadamard gate to a specific qubit in a register.
+    
+    This operation applies a Hadamard gate to a specific qubit within a vector register,
+    creating superposition: H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
+    """
+    
+    name = "quantum.OnQubit_hadamard"
+    register: Operand = operand_def(VectorType)
+    index: IntegerAttr = attr_def(IntegerAttr)
+    res: OpResult = result_def(VectorType)
+    
+    def __init__(self, register: SSAValue, index: int):
+        """
+        @brief Apply a Hadamard gate to a specific qubit in a vector.
+        
+        @param register: The vector containing the qubit
+        @param index: The index of the qubit to apply Hadamard to
+        """
+        if isinstance(register.type, VectorType):
+            size = register.type.get_shape()[0]
+            super().__init__(
+                result_types=[VectorType(IntegerType(1), [size])],
+                operands=[register],
+                attributes={
+                    "index": IntegerAttr(index, IntegerType(32)),
+                },
+            )
+        else:
+            raise TypeError("Expected VectorType for register parameter")
+    
+    @staticmethod
+    def from_value(register: SSAValue, index: int) -> "OnQubitHadamardOp":
+        """
+        @brief Factory method to create a OnQubitHadamardOp.
+        
+        @param register: The vector containing the qubit
+        @param index: The index of the qubit
+        @return A new OnQubitHadamardOp instance
+        """
+        return OnQubitHadamardOp(register, index)
+
+
+@irdl_op_definition
+class OnQubitControlledPhaseOp(IRDLOperation):
+    """
+    @brief Operation to apply a controlled phase rotation to qubits in registers.
+    
+    This operation applies a controlled phase rotation where the phase is applied
+    to the target qubit only if the control qubit is in state |1⟩.
+    """
+    
+    name = "quantum.OnQubit_controlled_phase"
+    control_register: Operand = operand_def(VectorType)
+    target_register: Operand = operand_def(VectorType)
+    control_index: IntegerAttr = attr_def(IntegerAttr)
+    target_index: IntegerAttr = attr_def(IntegerAttr)
+    phase: FloatAttr = attr_def(FloatAttr)
+    res: OpResult = result_def(VectorType)
+    
+    def __init__(self, control_register: SSAValue, control_index: int,
+                 target_register: SSAValue, target_index: int, phase: float):
+        """
+        @brief Apply a controlled phase rotation between specific qubits.
+        
+        @param control_register: The vector containing the control qubit
+        @param control_index: The index of the control qubit
+        @param target_register: The vector containing the target qubit
+        @param target_index: The index of the target qubit
+        @param phase: The phase angle in radians
+        """
+        if isinstance(control_register.type, VectorType) and isinstance(target_register.type, VectorType):
+            size = target_register.type.get_shape()[0]
+            super().__init__(
+                result_types=[VectorType(IntegerType(1), [size])],
+                operands=[control_register, target_register],
+                attributes={
+                    "control_index": IntegerAttr(control_index, IntegerType(32)),
+                    "target_index": IntegerAttr(target_index, IntegerType(32)),
+                    "phase": FloatAttr(phase, Float64Type()),
+                },
+            )
+        else:
+            raise TypeError("Expected VectorType for both register parameters")
+    
+    @staticmethod
+    def from_values(control_register: SSAValue, control_index: int,
+                   target_register: SSAValue, target_index: int, 
+                   phase: float) -> "OnQubitControlledPhaseOp":
+        """
+        @brief Factory method to create a OnQubitControlledPhaseOp.
+        
+        @param control_register: The vector containing the control qubit
+        @param control_index: The index of the control qubit
+        @param target_register: The vector containing the target qubit
+        @param target_index: The index of the target qubit
+        @param phase: The phase angle in radians
+        @return A new OnQubitControlledPhaseOp instance
+        """
+        return OnQubitControlledPhaseOp(control_register, control_index, 
+                                       target_register, target_index, phase)
+
+
+@irdl_op_definition
+class OnQubitSwapOp(IRDLOperation):
+    """
+    @brief Operation to swap two qubits within a register.
+    
+    This operation swaps the states of two qubits within the same vector register.
+    """
+    
+    name = "quantum.OnQubit_swap"
+    register: Operand = operand_def(VectorType)
+    qubit1_index: IntegerAttr = attr_def(IntegerAttr)
+    qubit2_index: IntegerAttr = attr_def(IntegerAttr)
+    res: OpResult = result_def(VectorType)
+    
+    def __init__(self, register: SSAValue, qubit1_index: int, qubit2_index: int):
+        """
+        @brief Swap two qubits within a vector register.
+        
+        @param register: The vector containing both qubits
+        @param qubit1_index: The index of the first qubit
+        @param qubit2_index: The index of the second qubit
+        """
+        if isinstance(register.type, VectorType):
+            size = register.type.get_shape()[0]
+            super().__init__(
+                result_types=[VectorType(IntegerType(1), [size])],
+                operands=[register],
+                attributes={
+                    "qubit1_index": IntegerAttr(qubit1_index, IntegerType(32)),
+                    "qubit2_index": IntegerAttr(qubit2_index, IntegerType(32)),
+                },
+            )
+        else:
+            raise TypeError("Expected VectorType for register parameter")
+    
+    @staticmethod
+    def from_values(register: SSAValue, qubit1_index: int, qubit2_index: int) -> "OnQubitSwapOp":
+        """
+        @brief Factory method to create a OnQubitSwapOp.
+        
+        @param register: The vector containing both qubits
+        @param qubit1_index: The index of the first qubit
+        @param qubit2_index: The index of the second qubit
+        @return A new OnQubitSwapOp instance
+        """
+        return OnQubitSwapOp(register, qubit1_index, qubit2_index)
+
+
 Quantum = Dialect(
     "quantum",
     [
@@ -801,6 +954,9 @@ Quantum = Dialect(
         OnQubitNotOp,
         OnQubitCNotOp,
         OnQubitCCnotOp,
+        OnQubitHadamardOp,
+        OnQubitControlledPhaseOp,
+        OnQubitSwapOp,
     ],
     [],
 )

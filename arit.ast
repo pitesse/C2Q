@@ -6,31 +6,31 @@ Module:
       Variable declaration: int c
       Variable declaration: int d
       Operation: =
-        Variable: a
+        Variable: a:int
         Operation: +
           Operation: +
-            Variable: a
+            Variable: a:int
             Right operand: 1
           Right operand: 1
       Operation: =
-        Variable: b
+        Variable: b:int
         Operation: +
-          Variable: b
+          Variable: b:int
           Right operand: 1
       Operation: =
-        Variable: c
+        Variable: c:int
         Operation: +
-          Variable: a
-          Variable: b
+          Variable: a:int
+          Variable: b:int
       Operation: =
-        Variable: d
+        Variable: d:int
         Operation: -
-          Variable: a
-          Variable: b
+          Variable: a:int
+          Variable: b:int
       Return statement
         Operation: +
-          Variable: a
-          Variable: b
+          Variable: a:int
+          Variable: b:int
     End of function body
   Function Definition:
     Function signature: 'main' -> int
@@ -43,8 +43,8 @@ Module:
       Variable declaration: int result
         Initial value: Function call: 'operations'
           Arguments:
-            Variable: a
-            Variable: b
+            Variable: a:int
+            Variable: b:int
       Return statement
         Return value: 0
     End of function body

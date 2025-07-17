@@ -24,7 +24,7 @@ from qiskit.visualization import circuit_drawer
 
 from xdsl.parser import Parser
 from xdsl.context import Context
-from xdsl.dialects.builtin import Builtin
+from xdsl.dialects.builtin import Builtin, IntegerAttr, IntegerType, FloatAttr, Float64Type
 
 from C2Q.dialects.quantum_dialect import Quantum
 
@@ -394,6 +394,81 @@ def apply_onqubit_ccnot(circuit, op):
         print("Warning: Invalid number of operands for OnQubit CCNOT operation")
 
 
+def apply_onqubit_hadamard(circuit, op):
+    """!
+    @brief Apply a Hadamard gate to a specific bit in a register
+    @param circuit Qiskit QuantumCircuit object
+    @param op OnQubitHadamardOp operation
+    """
+    if len(op.operands) == 1:
+        # Get the register and bit index
+        operand = op.operands[0]
+        bit_index = op.attributes.get("index", IntegerAttr(0, IntegerType(32))).value.data
+        
+        # Find the corresponding register
+        for qreg in circuit.qregs:
+            if hasattr(operand, "_name") and operand._name:
+                if operand._name.startswith(qreg.name.split('_')[0]):
+                    circuit.h(qreg[bit_index])
+                    break
+    else:
+        print(f"Warning: OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
+
+def apply_onqubit_controlled_phase(circuit, op):
+    """!
+    @brief Apply a controlled phase gate between specific bits
+    @param circuit Qiskit QuantumCircuit object
+    @param op OnQubitControlledPhaseOp operation
+    """
+    if len(op.operands) == 2:
+        # Get the control and target operands
+        control_operand = op.operands[0]
+        target_operand = op.operands[1]
+        
+        # Get indices and phase
+        control_index = op.attributes.get("control_index", IntegerAttr(0, IntegerType(32))).value.data
+        target_index = op.attributes.get("target_index", IntegerAttr(0, IntegerType(32))).value.data
+        phase = op.attributes.get("phase", FloatAttr(0.0, Float64Type())).value.data
+        
+        # Find the corresponding registers
+        control_reg = None
+        target_reg = None
+        
+        for qreg in circuit.qregs:
+            if hasattr(control_operand, "_name") and control_operand._name:
+                if control_operand._name.startswith(qreg.name.split('_')[0]):
+                    control_reg = qreg
+            if hasattr(target_operand, "_name") and target_operand._name:
+                if target_operand._name.startswith(qreg.name.split('_')[0]):
+                    target_reg = qreg
+        
+        if control_reg is not None and target_reg is not None:
+            # Apply controlled phase rotation
+            circuit.cp(phase, control_reg[control_index], target_reg[target_index])
+    else:
+        print(f"Warning: OnQubitControlledPhaseOp expects 2 operands, got {len(op.operands)}")
+
+def apply_onqubit_swap(circuit, op):
+    """!
+    @brief Apply a SWAP gate between specific bits in a register
+    @param circuit Qiskit QuantumCircuit object
+    @param op OnQubitSwapOp operation
+    """
+    if len(op.operands) == 1:
+        # Get the register and bit indices
+        operand = op.operands[0]
+        qubit1_index = op.attributes.get("qubit1_index", IntegerAttr(0, IntegerType(32))).value.data
+        qubit2_index = op.attributes.get("qubit2_index", IntegerAttr(0, IntegerType(32))).value.data
+        
+        # Find the corresponding register
+        for qreg in circuit.qregs:
+            if hasattr(operand, "_name") and operand._name:
+                if operand._name.startswith(qreg.name.split('_')[0]):
+                    circuit.swap(qreg[qubit1_index], qreg[qubit2_index])
+                    break
+    else:
+        print(f"Warning: OnQubitSwapOp expects 1 operand, got {len(op.operands)}")
+
 def apply_hadamard(circuit, op):
     """!
     @brief Apply a Hadamard gate to the circuit
@@ -501,6 +576,12 @@ def create_circuit(first_op, output_number):
             apply_ccnot(circuit, current_op)
         elif current_op.name == "quantum.OnQubit_ccnot":
             apply_onqubit_ccnot(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_hadamard":
+            apply_onqubit_hadamard(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_controlled_phase":
+            apply_onqubit_controlled_phase(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_swap":
+            apply_onqubit_swap(circuit, current_op)
         elif current_op.name == "quantum.h" and current_op.operands:
             apply_hadamard(circuit, current_op)
         elif current_op.name == "quantum.t" and current_op.operands:
