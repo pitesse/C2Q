@@ -253,38 +253,28 @@ class QuantumIRGen:
     def ir_gen_binary_expr(self, expr: BinaryExprAST):
         """
         @brief generate quantum operations for binary expressions with improved tracking.
-
+    
         @param expr: the binaryexprast node representing a binary operation
         @return the resulting quantum value
         """
-        # # handle assignment separately
-        # if expr.op == "=":
-        #     if isinstance(expr.lhs, VariableExprAST):
-        #         lhs_name = expr.lhs.name
-        # self.add_comment(f"// assignment to variable: {lhs_name}")
-        #         rhs = self.ir_gen_expr(expr.rhs)
-
-        #         # create a new scope for the updated variable
-        #         self.symbol_table = ScopedDict(parent=self.symbol_table)
-        #         self.symbol_table[lhs_name] = rhs
-        #         return rhs
-        #     else:
-        #         raise IRGenError("Left side of assignment must be a variable")
-
+        # Handle special case: 0 - constant (negative literal that wasn't caught by parser)
+        if (expr.op == "-" and 
+            isinstance(expr.lhs, NumberExprAST) and expr.lhs.val == 0 and
+            isinstance(expr.rhs, NumberExprAST)):
+            # This is a negative literal, handle it directly
+            negative_expr = NumberExprAST(expr.rhs.loc, -expr.rhs.val)
+            return self.ir_gen_number_expr(negative_expr)
+    
         # handle cases where lhs or rhs might be none
         if expr.lhs is None or expr.rhs is None:
-            # self.add_comment("// warning: null operand in binary operation")
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
-
+    
         # handle binary operations
         if expr.op == "+":
-            # self.add_comment(f"// perform quantum addition")
             return self.ir_gen_quantum_addition(expr.lhs, expr.rhs)
         elif expr.op == "-":
-            # self.add_comment(f"// perform quantum subtraction")
             return self.ir_gen_quantum_subtraction(expr.lhs, expr.rhs)
         else:
-            # self.add_comment(f"// unsupported binary operation: {expr.op}")
             return expr.lhs
 
     # ==== operations ====
@@ -368,7 +358,7 @@ class QuantumIRGen:
             result = self.apply_cnot_on_bits(z_reg, 0, result, bit_width-1)
     
         # Update the register version to track the changes
-        result = self.update_qubit_status(result)
+        # result = self.update_qubit_status(result)
     
         return result
 
@@ -458,7 +448,7 @@ class QuantumIRGen:
             result = self.flip_qubit(result, i)
     
         # Update the register version to track the changes
-        result = self.update_qubit_status(result)
+        # result = self.update_qubit_status(result)
     
         return result
 
@@ -541,15 +531,20 @@ class QuantumIRGen:
         # Create multi-qubit register
         register = self.ir_gen_init(expr)
     
-        # If value is non-zero, encode it using binary representation
+        # Handle both positive and negative numbers
         if expr.val != 0:
             value = int(expr.val)
+            
+            # For negative numbers, use two's complement representation
+            if value < 0:
+                # Convert to 32-bit two's complement
+                value = (1 << 32) + value  # This gives us the two's complement representation
+            
             binary_str = bin(value)[2:].zfill(32)[-32:]  # Zero-pad and take last 32 bits
     
             # Apply NOT gates to each qubit position where the binary digit is 1
             for i, bit in enumerate(reversed(binary_str)):  # LSB first
                 if bit == "1":
-                    # Use OnQubitNotOp directly
                     register = self.flip_qubit(register, i)
     
         return register

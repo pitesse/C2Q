@@ -443,12 +443,13 @@ class CParser(GenericParser[CTokenKind]):
     def parsePrimary(self) -> ExprAST | None:
         """
         @brief Parse a primary expression.
-
+    
         primary ::= identifierexpr
                 ::= numberexpr
                 ::= parenexpr
                 ::= tensorliteral
-
+                ::= unary_expr
+    
         @return ExprAST representing the parsed expression or None if end of block
         """
         current = self._current_token
@@ -460,24 +461,35 @@ class CParser(GenericParser[CTokenKind]):
             return self.parseParenExpr()
         elif current.text == "[":
             return self.parseTensorLiteralExpr()
+        elif current.text == "-":
+            # Handle unary minus (negative numbers)
+            minus_token = self.pop_pattern("-")
+            # Check if this is followed by a number (negative literal)
+            if self.check(CTokenKind.NUMBER):
+                number_token = self.pop_token(CTokenKind.NUMBER)
+                # Create a negative number directly
+                return NumberExprAST(loc(minus_token), -float(number_token.span.text))
+            else:
+                # Parse the expression after the minus sign for other cases
+                expr = self.parsePrimaryNotNone()
+                # Create a binary expression with 0 - expr 
+                zero_expr = NumberExprAST(loc(minus_token), 0.0)
+                return BinaryExprAST(loc(minus_token), "-", zero_expr, expr)
+        elif current.text == "+":
+            # Handle unary plus (for completeness)
+            plus_token = self.pop_pattern("+")
+            # Parse the expression after the plus sign and return it as-is
+            return self.parsePrimaryNotNone()
         elif current.text == ";":
             return None
         elif current.text == "}":
             return None
         else:
             self.raise_error("Expected expression or one of `;`, `}`")
-
+    
     def parsePrimaryNotNone(self) -> ExprAST:
         """
         @brief Parse a primary expression, requiring a valid expression.
-
-        primary ::= identifierexpr
-                ::= numberexpr
-                ::= parenexpr
-                ::= tensorliteral
-
-        @return ExprAST representing the parsed expression
-        @throws ParseError if no valid expression is found
         """
         current = self._current_token
         if current.kind == CTokenKind.IDENTIFIER:
@@ -488,6 +500,25 @@ class CParser(GenericParser[CTokenKind]):
             return self.parseParenExpr()
         elif current.text == "[":
             return self.parseTensorLiteralExpr()
+        elif current.text == "-":
+            # Handle unary minus (negative numbers)
+            minus_token = self.pop_pattern("-")
+            # Check if this is followed by a number (negative literal)
+            if self.check(CTokenKind.NUMBER):
+                number_token = self.pop_token(CTokenKind.NUMBER)
+                # Create a negative number directly
+                return NumberExprAST(loc(minus_token), -float(number_token.span.text))
+            else:
+                # Parse the expression after the minus sign for other cases
+                expr = self.parsePrimaryNotNone()
+                # Create a binary expression with 0 - expr 
+                zero_expr = NumberExprAST(loc(minus_token), 0.0)
+                return BinaryExprAST(loc(minus_token), "-", zero_expr, expr)
+        elif current.text == "+":
+            # Handle unary plus (for completeness)
+            plus_token = self.pop_pattern("+")
+            # Parse the expression after the plus sign and return it as-is
+            return self.parsePrimaryNotNone()
         else:
             self.raise_error("Expected expression")
 
