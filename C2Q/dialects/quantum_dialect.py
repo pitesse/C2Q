@@ -1,6 +1,5 @@
 """
-@file quantum_dialect.py
-@brief Quantum operation dialect implementation for the C to Quantum compiler.
+Quantum Operation Dialect Implementation
 
 This module defines a set of quantum operations for use in the C to Quantum
 compiler's intermediate representation (IR). It provides a collection of
@@ -10,6 +9,13 @@ CNOT, CCNOT, Hadamard, and T gates.
 
 The operations are defined using xDSL's IR definition language (IRDL) and
 are registered as part of the "quantum" dialect.
+
+Key Features:
+- Single-qubit operations (NOT, Hadamard, T, T-dagger)
+- Multi-qubit operations (CNOT, CCNOT)
+- On-qubit operations for direct bit manipulation
+- Controlled phase operations
+- Register initialization and measurement
 """
 
 from __future__ import annotations
@@ -29,16 +35,19 @@ from xdsl.irdl import (
 )
 
 
+# ============================================================================
+# BASIC QUANTUM OPERATIONS
+# ============================================================================
+
+
 @irdl_op_definition
 class InitOp(IRDLOperation):
     """
-    @brief Operation to initialize a qubit or a vector of qubits to zero.
+    Operation to initialize a qubit or a vector of qubits to zero.
 
     This operation creates a new qubit or vector of qubits, initializing
     them to the |0⟩ state, which is the standard initial state for
     quantum computation.
-
-    @see MeasureOp
     """
 
     name = "quantum.init"
@@ -47,10 +56,13 @@ class InitOp(IRDLOperation):
 
     def __init__(self, values):
         """
-        @brief Initialize a qubit or vector of qubits to zero.
-
-        @param values: An IntegerType for a single qubit or a VectorType for multiple qubits
-        @throws TypeError if values is not an IntegerType or VectorType of IntegerType
+        Initialize a qubit or vector of qubits to zero.
+        
+        Args:
+            values: An IntegerType for a single qubit or a VectorType for multiple qubits
+            
+        Raises:
+            TypeError: If values is not an IntegerType or VectorType of IntegerType
         """
         # Determine if values is a single IntegerType or a VectorType of IntegerType
         result_types = []
@@ -83,10 +95,13 @@ class InitOp(IRDLOperation):
     @staticmethod
     def from_value(value) -> InitOp:
         """
-        @brief Factory method to create an InitOp from a value.
+        Factory method to create an InitOp from a value.
 
-        @param value: The value to initialize qubits from
-        @return A new InitOp instance
+        Args:
+            value: The value to initialize qubits from
+            
+        Returns:
+            A new InitOp instance
         """
         return InitOp(value)
 
@@ -94,13 +109,10 @@ class InitOp(IRDLOperation):
 @irdl_op_definition
 class NotOp(IRDLOperation):
     """
-    @brief Operation to apply the NOT gate (X gate) to a qubit or vector of qubits.
+    Operation to apply the NOT gate (X gate) to a qubit or vector of qubits.
 
     The NOT gate flips the state of a qubit, changing |0⟩ to |1⟩ and vice versa.
     It is one of the fundamental single-qubit gates in quantum computing.
-
-    @see CNotOp
-    @see CCNotOp
     """
 
     name = "quantum.not"
@@ -132,25 +144,30 @@ class NotOp(IRDLOperation):
     @staticmethod
     def from_value(value: SSAValue) -> NotOp:
         """
-        @brief Factory method to create a NotOp from a value.
+        Factory method to create a NotOp from a value.
 
-        @param value: The target qubit or vector of qubits
-        @return A new NotOp instance
+        Args:
+            value: The target qubit or vector of qubits
+            
+        Returns:
+            A new NotOp instance
         """
         return NotOp(value)
+
+
+# ============================================================================
+# MULTI-QUBIT OPERATIONS
+# ============================================================================
 
 
 @irdl_op_definition
 class CNotOp(IRDLOperation):
     """
-    @brief Operation to apply the CNOT gate (Controlled-NOT) to qubits.
+    Operation to apply the CNOT gate (Controlled-NOT) to qubits.
 
     The CNOT gate is a two-qubit operation where the state of the target qubit
     is flipped if the control qubit is in the |1⟩ state. It is fundamental for
     creating entanglement between qubits.
-
-    @see NotOp
-    @see CCNotOp
     """
 
     name = "quantum.cnot"
@@ -591,10 +608,15 @@ class InsertBitOp(IRDLOperation):
         return InsertBitOp(vector, value, index)
 
 
+# ============================================================================
+# ON-QUBIT OPERATIONS (Direct Bit Manipulation)
+# ============================================================================
+
+
 @irdl_op_definition
 class OnQubitNotOp(IRDLOperation):
     """
-    @brief Operation to apply the NOT gate OnQubitly to an indexed bit in a register.
+    Operation to apply the NOT gate directly to an indexed bit in a register.
 
     This operation applies a NOT gate to a specific bit within a vector register,
     avoiding the need for separate extract and insert operations.
@@ -960,3 +982,11 @@ Quantum = Dialect(
     ],
     [],
 )
+
+
+# ============================================================================
+# DIALECT REGISTRATION
+# ============================================================================
+
+# The Quantum dialect is automatically registered when this module is imported
+# and provides all quantum operations for the C-to-Quantum compiler's IR generation.

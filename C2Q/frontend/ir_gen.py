@@ -1,14 +1,19 @@
 """
 @file ir_gen.py
-@brief ir generator that converts c ast to quantum ir.
+@brief IR Generator for C AST to Quantum IR conversion.
 
-this module implements the ir generation phase of the c to quantum compiler.
-it takes an abstract syntax tree (ast) produced by the parser and generates
-corresponding quantum ir operations using the quantum dialect.
+This module implements the IR generation phase of the C-to-Quantum compiler.
+It takes an Abstract Syntax Tree (AST) produced by the parser and generates
+corresponding quantum IR operations using the quantum dialect.
 
-the generator supports basic c constructs such as variable declarations,
-assignments, arithmetic operations, function calls, and return statements,
-and maps them to appropriate quantum operations.
+The generator supports basic C constructs including:
+- Variable declarations and assignments
+- Arithmetic operations (addition, subtraction, multiplication) 
+- Function calls and return statements
+- Quantum register management and operations
+
+All operations are mapped to appropriate quantum gate sequences using
+Draper's QFT-based arithmetic algorithms.
 """
 
 from __future__ import annotations
@@ -53,84 +58,100 @@ from ..dialects.quantum_dialect import (
 
 class IRGenError(Exception):
     """
-    @brief exception raised for errors during ir generation.
+    Exception raised for errors during IR generation.
 
-    this exception is raised when the ir generator encounters an issue that
-    prevents it from generating valid quantum ir, such as unsupported expressions
-    or undefined variables.
+    This exception is raised when the IR generator encounters an issue that
+    prevents it from generating valid quantum IR, such as:
+    - Unsupported expressions or operations
+    - Undefined variables or functions
+    - Type mismatches or invalid register operations
     """
-
     pass
 
 
 class QuantumIRGen:
     """
-    @brief ir generator that converts c ast to quantum ir.
+    IR Generator for C AST to Quantum IR conversion.
 
-    this class is responsible for transforming the c abstract syntax tree (ast)
-    into quantum intermediate representation (ir) using quantum operations.
-    it traverses the ast recursively and generates equivalent quantum operations
-    for each c language construct.
+    This class transforms C Abstract Syntax Trees into quantum intermediate 
+    representation using quantum gate operations. It implements Draper's 
+    QFT-based algorithms for arithmetic operations.
 
-    the class maintains a symbol table to keep track of variables and their
-    corresponding quantum registers during compilation.
+    Key Features:
+    - Variable declarations mapped to quantum register initialization
+    - Arithmetic operations using QFT-based quantum algorithms
+    - Symbol table management for variable scoping
+    - Register naming conventions (qN_M format)
 
-    @see moduleast
-    @see functionast
-    @see quantum
+    Attributes:
+        module: MLIR module containing all generated operations
+        builder: Helper for creating IR with insertion point management
+        symbol_table: Maps variable names to quantum registers in current scope
+        n_qubit: Number of qubits used in current generation
+        n_args: Number of function arguments processed
+        function_map: Maps function names to their AST representations
     """
 
     module: ModuleOp
-    """a "module" matches a system verilog source file: containing a list of assignements, functions 
-    and processes."""
+    """MLIR module containing quantum operations and functions."""
 
     builder: Builder
-    """the builder is a helper class to create ir inside a function. the builder
-    is stateful, in particular it keeps an "insertion point": this is where
-    the next operations will be introduced."""
+    """
+    Builder for creating IR operations with stateful insertion point.
+    The insertion point determines where new operations are added.
+    """
 
     symbol_table: ScopedDict[str, SSAValue] | None = None
-    """the symbol table maps a variable name to a value in the current scope.
-    entering a function creates a new scope, and the function arguments are
-    added to the mapping. when the processing of a function is terminated, the
-    scope is destroyed and the mappings created in this scope are dropped."""
+    """
+    Symbol table mapping variable names to quantum register values.
+    Creates new scopes for functions and maintains proper variable visibility.
+    """
 
-    n_qubit: int = 0  # n_qubits that used when generating the first ir
-    n_args: int = 0  # n_args taken as input
+    n_qubit: int = 0
+    """Number of qubits used when generating initial IR."""
+    
+    function_map: dict[str, FunctionAST] = {}
+    """Maps function names to their AST representations for inlining."""
 
     def __init__(self):
         """
-        @brief initialize the quantum ir generator.
+        Initialize the Quantum IR Generator.
 
-        creates a new context, loads the quantum dialect, initializes the module,
-        builder, and symbol table for ir generation.
+        Sets up the XDSL context, loads the quantum dialect, creates the
+        MLIR module, and initializes the builder and symbol table.
         """
         self.context = Context()
-        # load the quantum dialect
         self.context.load_dialect(Quantum)
 
-        # create a module
         self.module = ModuleOp([])
         self.builder = Builder(InsertPoint.at_end(self.module.body.blocks[0]))
         self.function_map = {}
 
-    # ==== module ====
+    # ============================================================================
+    # MODULE GENERATION
+    # ============================================================================
 
     def ir_gen_module(self, module_ast: ModuleAST) -> ModuleOp:
         """
-        @brief generate quantum ir from c ast module with main as entry point.
+        Generate quantum IR from C AST module with main as entry point.
 
-        finds the main function and inlines any function calls within it.
+        Processes all functions in the module, building a function map for
+        inlining, then generates IR for the main function.
 
-        @param module_ast: the moduleast node representing the c module
-        @return the generated moduleop containing quantum ir
+        Args:
+            module_ast: The ModuleAST node representing the C module
+
+        Returns:
+            ModuleOp: The generated MLIR module containing quantum IR
+
+        Raises:
+            IRGenError: If main function is not found
         """
-        # create function map for lookup during inlining
-
+        # Build function map for inlining support
         for func_ast in module_ast.funcs:
             self.function_map[func_ast.proto.name] = func_ast
 
-        # find and process main function
+        # Find and process main function
         main_func = next((f for f in module_ast.funcs if f.proto.name == "main"), None)
         if main_func:
             self.ir_gen_main_function(main_func)
@@ -143,12 +164,17 @@ class QuantumIRGen:
 
     def ir_gen_main_function(self, main_func: FunctionAST) -> FuncOp:
         """
-        @brief generate ir for the main function, finding and unrolling function calls.
+        Generate IR for the main function with function call inlining.
 
-        parses operations inside main and when it finds a function call,
-        retrieves that function from the ast and unrolls it using ir_func_call.
+        Creates the main function scope, processes parameters, and generates
+        IR for all expressions in the function body. Function calls are
+        automatically inlined during processing.
 
-        @param main_func: the functionast node representing the main function
+        Args:
+            main_func: The FunctionAST node representing the main function
+
+        Returns:
+            FuncOp: The generated quantum function operation
         """
         # self.add_comment("// begin main function")
 
@@ -182,61 +208,69 @@ class QuantumIRGen:
 
     def ir_gen_func_call(self, func_ast: FunctionAST, args: list[ExprAST]):
         """
-        @brief generate ir for a function call by inlining the function body.
+        Generate IR for a function call by inlining the function body.
 
-        this method retrieves the function's ast and generates ir for its body,
-        substituting the arguments with the provided values.
+        Creates a new scope for the function call, substitutes parameters
+        with provided arguments, and generates IR for the function body.
 
-        @param func_ast: the functionast node representing the function to be called
-        @param args: the list of arguments passed to the function
+        Args:
+            func_ast: The FunctionAST node representing the function to be called
+            args: List of arguments passed to the function
         """
-        # TODO handle function return value
-        # self.add_comment(f"// function call: {func_ast.proto.name}")
-
-        # create a new scope for the function call
+        # Create a new scope for the function call
         self.symbol_table = ScopedDict(parent=self.symbol_table)
 
-        # process function parameters and arguments
+        # Process function parameters and arguments
         for param, arg in zip(func_ast.proto.args, args):
             qubit = self.ir_gen_expr(arg)
             self.symbol_table[param.name] = qubit
 
-        # process function body
+        # Process function body
         for expr in func_ast.body:
             self.ir_gen_expr(expr)
 
     def ir_gen_call_expr(self, expr: CallExprAST):
         """
-        @brief generate ir for a function call.
+        Generate IR for a function call expression.
 
-        evaluates the function arguments and combines them using quantum operations.
-        this is a simplified implementation that doesn't handle actual function calls.
+        Looks up the function in the function map and inlines it by calling
+        ir_gen_func_call with the provided arguments.
 
-        @param expr: the callexprast node representing a function call
-        @return the resulting quantum value
+        Args:
+            expr: The CallExprAST node representing a function call
+
+        Raises:
+            IRGenError: If the called function is not found
         """
         called_func = next((f for f in self.function_map if f == expr.callee), None)
 
         if called_func is None:
             raise IRGenError(f"Function {expr.callee} not found")
         else:
-            # self.add_comment(f"// function call: {expr.callee}")
-
-            # unroll the function call
+            # Inline the function call
             func_ast = self.function_map[expr.callee]
             self.ir_gen_func_call(func_ast, expr.args)
 
-    # ==== ast parsing handler ====
+    # ============================================================================
+    # EXPRESSION GENERATION
+    # ============================================================================
 
     def ir_gen_expr(self, expr: ExprAST):
         """
-        @brief generate ir for a c expression.
+        Generate IR for a C expression using pattern matching dispatch.
 
-        this method dispatches to the appropriate method based on the expression type.
+        Dispatches to the appropriate method based on the expression type.
+        Supports binary operations, literals, variable declarations, returns,
+        function calls, and variable references.
 
-        @param expr: the exprast node representing a c expression
-        @return the resulting quantum value (usually a qubit reference)
-        @throws irgenerror if the expression type is unsupported
+        Args:
+            expr: The ExprAST node representing a C expression
+
+        Returns:
+            The resulting quantum value (usually a qubit reference)
+
+        Raises:
+            IRGenError: If the expression type is unsupported
         """
         if isinstance(expr, BinaryExprAST):
             return self.ir_gen_binary_expr(expr)
@@ -253,15 +287,24 @@ class QuantumIRGen:
         else:
             raise IRGenError(f"Unsupported expression type: {type(expr)}")
 
-    # TODO
     def ir_gen_binary_expr(self, expr: BinaryExprAST):
         """
-        @brief generate quantum operations for binary expressions with improved tracking.
-    
-        @param expr: the binaryexprast node representing a binary operation
-        @return the resulting quantum value
+        Generate quantum operations for binary expressions.
+
+        Handles arithmetic operations (+, -, *) using Draper QFT algorithms
+        and assignment operations (=). Special handling for negative literals
+        that appear as (0 - constant) expressions.
+
+        Args:
+            expr: The BinaryExprAST node representing a binary operation
+
+        Returns:
+            The resulting quantum register value
+
+        Raises:
+            IRGenError: If assignment target is not a variable or operation is unsupported
         """
-        # Handle special case: 0 - constant (negative literal that wasn't caught by parser)
+        # Handle special case: 0 - constant (negative literal from parser)
         if (expr.op == "-" and 
             isinstance(expr.lhs, NumberExprAST) and expr.lhs.val == 0 and
             isinstance(expr.rhs, NumberExprAST)):
@@ -269,11 +312,11 @@ class QuantumIRGen:
             negative_expr = NumberExprAST(expr.rhs.loc, -expr.rhs.val)
             return self.ir_gen_number_expr(negative_expr)
     
-        # handle cases where lhs or rhs might be none
+        # Handle cases where operands might be None
         if expr.lhs is None or expr.rhs is None:
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
     
-        # handle binary operations
+        # Handle binary operations
         if expr.op == "+":
             return self.draper_quantum_addition(expr.lhs, expr.rhs)
         elif expr.op == "-":
@@ -281,10 +324,9 @@ class QuantumIRGen:
         elif expr.op == "*":
             return self.draper_quantum_multiplication(expr.lhs, expr.rhs)
         elif expr.op == "=":
-            # Handle assignment: a = expression
-            # The LHS should be a variable, and we need to evaluate RHS and store in LHS register
+            # Handle assignment: variable = expression
             if not isinstance(expr.lhs, VariableExprAST):
-                raise IRGenError("Left side of assignment must be a variable")
+                raise IRGenError("Assignment target must be a variable")
             
             var_name = expr.lhs.name
             
@@ -293,7 +335,7 @@ class QuantumIRGen:
                 isinstance(expr.rhs.lhs, VariableExprAST) and 
                 expr.rhs.lhs.name == var_name):
                 
-                # This is a self-assignment: evaluate normally (creates new register)
+                # Self-assignment: evaluate normally (creates new register)
                 # Then update symbol table to point to the new register
                 rhs_value = self.ir_gen_expr(expr.rhs)
             else:
@@ -308,19 +350,25 @@ class QuantumIRGen:
             # Return the assigned value
             return rhs_value
         else:
-            return expr.lhs
+            raise IRGenError(f"Unsupported binary operation: {expr.op}")
 
-    # ==== operations ====
+    # ============================================================================
+    # QUANTUM OPERATIONS
+    # ============================================================================
 
     def quantum_fourier_transform(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
-        @brief Apply Quantum Fourier Transform to a register.
+        Apply Quantum Fourier Transform to a register.
         
-        Implements the QFT algorithm using Hadamard gates and controlled phase rotations.
+        Implements the QFT algorithm using Hadamard gates and controlled phase
+        rotations with the formula: phase = 2π/2^(j-i+1).
         
-        @param register: The quantum register to transform
-        @param n_qubits: Number of qubits in the register
-        @return: The transformed register
+        Args:
+            register: The quantum register to transform
+            n_qubits: Number of qubits in the register
+            
+        Returns:
+            The transformed register
         """
         result = register
         
@@ -345,13 +393,18 @@ class QuantumIRGen:
 
     def inverse_quantum_fourier_transform(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
-        @brief Apply Inverse Quantum Fourier Transform to a register.
+        Apply Inverse Quantum Fourier Transform to a register.
         
-        Implements the inverse QFT algorithm by reversing the QFT operations.
+        Implements the inverse QFT algorithm by reversing the QFT operations:
+        first reversing qubit order, then applying inverse controlled phase
+        rotations with negative angles: -2π/2^(j-i+1).
         
-        @param register: The quantum register to transform
-        @param n_qubits: Number of qubits in the register
-        @return: The transformed register
+        Args:
+            register: The quantum register to transform
+            n_qubits: Number of qubits in the register
+            
+        Returns:
+            The transformed register
         """
         result = register
         
@@ -607,21 +660,23 @@ class QuantumIRGen:
 
     def draper_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue = None) -> SSAValue:
         """
-        @brief Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
+        Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
         
-        Implements quantum subtraction using Draper's algorithm by applying negative
-        phase rotations in the frequency domain.
+        Implements quantum subtraction (target - addend) using Draper's algorithm
+        by applying negative phase rotations in the frequency domain.
         
         Algorithm:
         1. Apply QFT to target register
-        2. Apply controlled phase rotations with negative angles: for each bit i in A,
-           apply phase rotation -2π/2^(j-i+1) to each bit j ≥ i in target
-        3. Apply inverse QFT to target register
+        2. Apply controlled phase rotations with negative angles for subtraction
+        3. Apply inverse QFT to get final result
         
-        @param a_expr: First operand expression (minuend)
-        @param b_expr: Second operand expression (subtrahend) 
-        @param target_reg: Optional target register to store the result. If None, creates new register.
-        @return: The resulting register representing B - A
+        Args:
+            a_expr: Left operand expression (minuend)
+            b_expr: Right operand expression (subtrahend)
+            target_reg: Optional target register for in-place operation
+            
+        Returns:
+            The resulting quantum register containing the difference
         """
         import math
         
@@ -683,7 +738,7 @@ class QuantumIRGen:
     #TODO make this work with qft and shift and add
     def draper_quantum_multiplication(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
         """
-        @brief Generate quantum circuit for multiplication using Draper's QFT-based shift-and-add.
+        Generate quantum circuit for multiplication using Draper's QFT-based shift-and-add.
         
         IMPORTANT LIMITATION: This implementation has critical simplifications that make it
         incorrect for general quantum multiplication. It should be considered an educational
@@ -694,19 +749,12 @@ class QuantumIRGen:
         2. Doubly-controlled gates simplified to singly-controlled 
         3. Results are incorrect for cases requiring proper conditional logic
         
-        Correct Algorithm (what this attempts to implement):
-        1. Initialize result register
-        2. For each bit i in multiplier B:
-           a. Create shifted version of A (A << i)  ✓ CORRECT
-           b. If B[i] = 1, add shifted A to result  ❌ ALWAYS ADDS (INCORRECT)
-        3. Return result
-        
-        Current behavior: Adds ALL shifted values regardless of multiplier bits.
-        This makes it equivalent to computing A * (2^n - 1) instead of A * B.
-        
-        @param a_expr: First operand expression (multiplicand)  
-        @param b_expr: Second operand expression (multiplier)
-        @return: The resulting register (incorrect for general multiplication)
+        Args:
+            a_expr: First operand expression
+            b_expr: Second operand expression
+            
+        Returns:
+            The resulting quantum register (note: may be incorrect due to limitations)
         """
         import math
         
@@ -756,21 +804,24 @@ class QuantumIRGen:
     def controlled_draper_addition(self, control_reg: SSAValue, control_bit: int,
                                   target_reg: SSAValue, addend_reg: SSAValue) -> SSAValue:
         """
-        @brief Controlled Draper QFT addition: if control_bit = 1, then target += addend.
+        Controlled Draper QFT addition: if control_bit = 1, then target += addend.
         
-        This implements conditional quantum addition using the full Draper algorithm
-        with proper carry propagation via QFT.
+        Implements conditional quantum addition using the full Draper algorithm
+        with proper carry propagation via QFT in the frequency domain.
         
         Algorithm:
         1. Apply QFT to target register
         2. Apply controlled phase rotations based on addend bits
         3. Apply inverse QFT to get the final sum
         
-        @param control_reg: Register containing the control bit
-        @param control_bit: Index of the control bit  
-        @param target_reg: Register to add to (accumulator)
-        @param addend_reg: Register to add (shifted multiplicand)
-        @return: Updated target register containing target + addend (if control = 1)
+        Args:
+            control_reg: Register containing the control bit
+            control_bit: Index of the control bit  
+            target_reg: Register to add to (accumulator)
+            addend_reg: Register to add (shifted multiplicand)
+            
+        Returns:
+            Updated target register containing target + addend (if control = 1)
         """
         import math
         
@@ -966,15 +1017,18 @@ class QuantumIRGen:
 
     def ir_gen_variable_expr(self, expr: VariableExprAST) -> SSAValue:
         """
-        @brief Generate IR for a variable reference.
+        Generate IR for a variable reference.
 
         Looks up the variable in the symbol table and returns its SSA value.
+        Creates a new quantum register if the variable is not found.
 
-        @param expr: the VariableExprAST node representing a variable reference
-        @return the SSA value associated with the variable
+        Args:
+            expr: The VariableExprAST node representing a variable reference
+            
+        Returns:
+            The SSA value associated with the variable
         """
         var_name = expr.name
-        # self.add_comment(f"// variable reference: {var_name}")
 
         if var_name in self.symbol_table:
             return self.symbol_table[var_name]
@@ -1045,20 +1099,19 @@ class QuantumIRGen:
 
     def ir_gen_var_decl_expr(self, expr: VarDeclExprAST) -> SSAValue:
         """
-        @brief generate ir for a variable declaration with proper qubit tracking.
+        Generate IR for a variable declaration with proper qubit tracking.
 
-        creates a new qubit register with the qx_y naming convention where:
-        - x represents the qubit number (position)
-        - y represents the status number tracking write operations
+        Creates a new quantum register with appropriate bit width based on the
+        initializer value. Maintains SSA form by tracking qubit state changes
+        and applies NOT gates to initialize the register to the correct value.
 
-        maintains ssa (static single assignment) form by tracking qubit state changes.
-
-        @param expr: the vardeclexprast node representing a variable declaration
-        @return the quantum value associated with the new variable
+        Args:
+            expr: The VarDeclExprAST node representing a variable declaration
+            
+        Returns:
+            The SSA value representing the new quantum register
         """
-        # self.add_comment(f"// declare variable: {expr.name}")
-
-        # variable will be initialized with an expression or default to zero
+        # Variable will be initialized with an expression or default to zero
         if expr.expr is not None:
             # self.add_comment(f"// initialize {expr.name} with expression")
 
@@ -1143,37 +1196,47 @@ class QuantumIRGen:
 
     def ir_gen_return_expr(self, expr: ReturnExprAST) -> SSAValue:
         """
-        @brief generate ir for a return statement with improved return value handling.
+        Generate IR for a return statement with improved return value handling.
 
-        @param expr: the returnexprast node representing a return statement
-        @return the quantum value to be returned
+        Processes the return expression and creates appropriate quantum operations.
+        For void returns, creates a default quantum register.
+
+        Args:
+            expr: The ReturnExprAST node representing a return statement
+            
+        Returns:
+            The quantum value to be returned
         """
         # TODO use mesureop to get the return value?
         if expr.expr is not None:
-            # self.add_comment(f"// process return value expression")
+            # Process return value expression
             return_value = self.ir_gen_expr(expr.expr)
 
             if return_value is None:
-                # self.add_comment("// warning: return expression evaluated to none")
+                # Warning: return expression evaluated to None
                 return_value = self.builder.insert(
                     InitOp.from_value(IntegerType(1))
                 ).res
 
             return return_value
         else:
-            # for void returns
-            # self.add_comment("// void return (default to 0)")
+            # For void returns, default to 0
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
-    # ==== helper ====
+    # ============================================================================
+    # HELPER FUNCTIONS
+    # ============================================================================
 
     def flip_qubit(self, register: SSAValue, index: int) -> SSAValue:
         """
         Flip a specific qubit in a multi-qubit register using a direct NOT operation.
 
-        @param register: The multi-qubit register to modify
-        @param index: The index of the qubit to flip (0 is LSB)
-        @return: The updated register with the flipped bit
+        Args:
+            register: The multi-qubit register to modify
+            index: The index of the qubit to flip (0 is LSB)
+            
+        Returns:
+            The updated register with the flipped bit
         """
         if not isinstance(register.type, VectorType):
             # If it's already a single qubit, apply NOT directly

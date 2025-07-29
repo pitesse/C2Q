@@ -1,11 +1,15 @@
-"""!
-@file run_qasm.py
-@brief MLIR Quantum Circuit Metrics Calculator
-@details This script analyzes a quantum MLIR file and calculates various metrics
-         about the quantum circuit it represents, such as depth, width, gate count,
-         and T-gate specific metrics.
-@example
-python quantum_metrics.py path/to/quantum_ir.mlir
+"""
+MLIR Quantum Circuit Metrics Calculator
+
+This module analyzes quantum MLIR files and calculates various metrics
+about the quantum circuits they represent, including:
+- Circuit depth, width, and gate count
+- T-gate specific metrics
+- Quantum circuit visualization
+- Circuit conversion to Qiskit format
+
+Example:
+    python run_qasm.py path/to/quantum_ir.mlir
 """
 
 import sys
@@ -28,14 +32,20 @@ from xdsl.dialects.builtin import Builtin, IntegerAttr, IntegerType, FloatAttr, 
 
 from C2Q.dialects.quantum_dialect import Quantum
 
-######### functions #########
+# ============================================================================
+# MLIR PARSING FUNCTIONS
+# ============================================================================
 
 
 def parse_mlir_file(file_path):
-    """!
-    @brief Parse an MLIR file into IR objects
-    @param file_path Path to the MLIR file
-    @return Module object containing the parsed IR
+    """
+    Parse an MLIR file into IR objects.
+    
+    Args:
+        file_path: Path to the MLIR file
+        
+    Returns:
+        Module object containing the parsed IR
     """
     with open(file_path, "r") as f:
         mlir_content = f.read()
@@ -52,14 +62,20 @@ def parse_mlir_file(file_path):
     return module
 
 
-######## functions for creating Qiskit circuit from IR operations #####
+# ============================================================================
+# QISKIT CIRCUIT CREATION FUNCTIONS
+# ============================================================================
 
 
 def create_quantum_register(op):
-    """!
-    @brief Create a Qiskit QuantumRegister from an IR operation
-    @param op IR operation representing a quantum register
-    @return Qiskit QuantumRegister object
+    """
+    Create a Qiskit QuantumRegister from an IR operation.
+    
+    Args:
+        op: IR operation representing a quantum register
+        
+    Returns:
+        Qiskit QuantumRegister object
     """
     result = op.results[0]
     if hasattr(result, "_name") and result._name:
@@ -82,10 +98,12 @@ def create_quantum_register(op):
 
 
 def apply_not(circuit, op):
-    """!
-    @brief Apply a NOT gate to the circuit
-    @param circuit Qiskit QuantumCircuit object
-    @param op IR operation representing the NOT gate
+    """
+    Apply a NOT gate to the circuit.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: IR operation representing the NOT gate
     """
     if len(op.operands) == 1:
         qubit = op.operands[0]
@@ -108,10 +126,12 @@ def apply_not(circuit, op):
 
 
 def apply_onqubit_not(circuit, op):
-    """!
-    @brief Apply a direct NOT gate to a specific bit in a register
-    @param circuit Qiskit QuantumCircuit object
-    @param op OnQubitNotOp operation
+    """
+    Apply a direct NOT gate to a specific bit in a register.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitNotOp operation
     """
     if len(op.operands) == 1:
         # Get the vector register
@@ -143,10 +163,12 @@ def apply_onqubit_not(circuit, op):
 
 
 def apply_onqubit_cnot(circuit, op):
-    """!
-    @brief Apply a direct CNOT gate between bits in two registers
-    @param circuit Qiskit QuantumCircuit object
-    @param op OnQubitCNotOp operation
+    """
+    Apply a direct CNOT gate between bits in two registers.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitCNotOp operation
     """
     if len(op.operands) == 2:
         # Get the control and target vectors
@@ -205,10 +227,12 @@ def apply_onqubit_cnot(circuit, op):
 
 
 def apply_cnot(circuit, op):
-    """!
-    @brief Apply a CNOT gate to the circuit
-    @param circuit Qiskit QuantumCircuit object
-    @param op IR operation representing the CNOT gate
+    """
+    Apply a CNOT gate to the circuit.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: IR operation representing the CNOT gate
     """
     if len(op.operands) == 2:
         control_qubit = op.operands[0]
@@ -244,10 +268,12 @@ def apply_cnot(circuit, op):
 
 
 def apply_ccnot(circuit, op):
-    """!
-    @brief Apply a CCNOT gate to the circuit
-    @param circuit Qiskit QuantumCircuit object
-    @param op IR operation representing the CCNOT gate
+    """
+    Apply a CCNOT gate to the circuit.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: IR operation representing the CCNOT gate
     """
     if len(op.operands) == 3:
         control_qubit1 = op.operands[0]
@@ -315,11 +341,18 @@ def apply_ccnot(circuit, op):
         print("Warning: Invalid number of operands for CCNOT operation")
 
 
+# ============================================================================
+# ADVANCED QUANTUM GATE OPERATIONS
+# ============================================================================
+
+
 def apply_onqubit_ccnot(circuit, op):
-    """!
-    @brief Apply a direct CCNOT gate between bits in three registers
-    @param circuit Qiskit QuantumCircuit object
-    @param op OnQubitCCnotOp operation
+    """
+    Apply a direct CCNOT gate between bits in three registers.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitCCnotOp operation
     """
     if len(op.operands) == 3:
         # Get the vectors
@@ -395,10 +428,12 @@ def apply_onqubit_ccnot(circuit, op):
 
 
 def apply_onqubit_hadamard(circuit, op):
-    """!
-    @brief Apply a Hadamard gate to a specific bit in a register
-    @param circuit Qiskit QuantumCircuit object
-    @param op OnQubitHadamardOp operation
+    """
+    Apply a Hadamard gate to a specific bit in a register.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitHadamardOp operation
     """
     if len(op.operands) == 1:
         # Get the register and bit index
@@ -415,10 +450,12 @@ def apply_onqubit_hadamard(circuit, op):
         print(f"Warning: OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
 
 def apply_onqubit_controlled_phase(circuit, op):
-    """!
-    @brief Apply a controlled phase gate between specific bits
-    @param circuit Qiskit QuantumCircuit object
-    @param op OnQubitControlledPhaseOp operation
+    """
+    Apply a controlled phase gate between specific bits.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitControlledPhaseOp operation
     """
     if len(op.operands) == 2:
         # Get the control and target operands
@@ -602,12 +639,21 @@ def create_circuit(first_op, output_number):
     return circuit
 
 
+# ============================================================================
+# CIRCUIT ANALYSIS AND METRICS
+# ============================================================================
+
+
 def get_quantum_circuit_info(input_args, first_op):
-    """!
-    @brief Extract basic information about the quantum circuit
-    @param input_args List of input arguments from the function operation
-    @param first_op First operation in the IR sequence
-    @return Dictionary containing qubit counts and circuit structure information
+    """
+    Extract basic information about the quantum circuit.
+    
+    Args:
+        input_args: List of input arguments from the function operation
+        first_op: First operation in the IR sequence
+        
+    Returns:
+        Dictionary containing qubit counts and circuit structure information
     """
     # scroll through the IR tree to count the number of (qu)bits numbers
     input_number = len(input_args)
@@ -645,22 +691,25 @@ def get_quantum_circuit_info(input_args, first_op):
 
 
 def metrics(circuit):
-    """!
-    @brief Calculate various metrics for a quantum circuit
-    @param circuit QuantumCircuit object to analyze
-    @return Dictionary of circuit metrics
-    @details The returned metrics include:
-             - Depth: Overall circuit depth
-             - Width: Number of qubits
-             - Gate Count: Total number of gates
-             - T Gate Count: Number of T and T-dagger gates
-             - T Gate Depth: Depth considering only T and T-dagger gates
-             - Gate Distribution: Count of gates by type
     """
-    # circuit depth
+    Calculate various metrics for a quantum circuit.
+    
+    The returned metrics include:
+    - Depth: Overall circuit depth
+    - Width: Number of qubits
+    - Gate count: Total number of gates
+    - T-gate specific metrics
+    
+    Args:
+        circuit: QuantumCircuit object to analyze
+        
+    Returns:
+        Dictionary of circuit metrics
+    """
+    # Circuit depth
     depth = circuit.depth()
 
-    # circuit width (number of qubits)
+    # Circuit width (number of qubits)
     width = circuit.num_qubits
 
     # gate count (total number of gates)
