@@ -286,13 +286,21 @@ class QuantumIRGen:
             if not isinstance(expr.lhs, VariableExprAST):
                 raise IRGenError("Left side of assignment must be a variable")
             
-            # Evaluate the RHS expression
-            rhs_value = self.ir_gen_expr(expr.rhs)
-            
-            # Update the symbol table with the new value for the LHS variable
             var_name = expr.lhs.name
             
-            # Delete the old variable from the current scope and set the new value
+            # Check if this is a self-assignment like a = a + b
+            if (isinstance(expr.rhs, BinaryExprAST) and 
+                isinstance(expr.rhs.lhs, VariableExprAST) and 
+                expr.rhs.lhs.name == var_name):
+                
+                # This is a self-assignment: evaluate normally (creates new register)
+                # Then update symbol table to point to the new register
+                rhs_value = self.ir_gen_expr(expr.rhs)
+            else:
+                # Regular assignment: evaluate RHS and store result
+                rhs_value = self.ir_gen_expr(expr.rhs)
+            
+            # Update the symbol table with the new value for the LHS variable
             if var_name in self.symbol_table._local_scope:
                 del self.symbol_table._local_scope[var_name]
             self.symbol_table[var_name] = rhs_value
@@ -392,11 +400,11 @@ class QuantumIRGen:
         """
         Apply CNOT gate between specific bits of two registers
         """
-        from C2Q.dialects.quantum_dialect import OnQubitCNOTOp
+        from C2Q.dialects.quantum_dialect import OnQubitCNotOp
         
         # Apply CNOT gate directly on register bits
         cnot_result = self.builder.insert(
-            OnQubitCNOTOp.from_values(
+            OnQubitCNotOp.from_values(
                 control_reg, control_bit,
                 target_reg, target_bit
             )
@@ -524,17 +532,20 @@ class QuantumIRGen:
         
         return result
 
-    def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
+    def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue = None) -> SSAValue:
         """
         Draper quantum addition using QFT approach - CORRECT IMPLEMENTATION
         
         Algorithm:
-        1. Apply QFT to register B
+        1. Apply QFT to target register
         2. Apply controlled phase rotations: for each bit i in A, if A[i] = 1,
-           apply phase rotation 2π/2^(j-i+1) to each bit j ≥ i in B
-        3. Apply inverse QFT to register B
+           apply phase rotation 2π/2^(j-i+1) to each bit j ≥ i in target
+        3. Apply inverse QFT to get the final result
         
-        The result is stored in register B: |A⟩|B⟩ → |A⟩|A+B⟩
+        @param a_expr: First operand expression
+        @param b_expr: Second operand expression  
+        @param target_reg: Optional target register to store the result. If None, creates new register.
+        @return: The resulting register containing A + B
         """
         import math
         
@@ -555,23 +566,37 @@ class QuantumIRGen:
 
         # Work with appropriate bit width
         bit_width = 8  # Use 8 bits for testing (was 32)
+
+        # Determine target register for the addition
+        if target_reg is None:
+            # Create a new register and copy B into it
+            target = self.ir_gen_init(None)
+            # Copy B into the target register
+            for i in range(bit_width):
+                target = self.apply_cnot_on_bits(b, i, target, i)
+        else:
+            # Use the provided target register, but still need to copy B into it
+            target = target_reg
+            # Copy B into the target register
+            for i in range(bit_width):
+                target = self.apply_cnot_on_bits(b, i, target, i)
         
-        # Step 1: Apply QFT to register B
-        result = self.apply_qft(b, bit_width)
+        # Step 1: Apply QFT to target register
+        result = self.apply_qft(target, bit_width)
         
         # Step 2: Apply Draper's controlled phase additions
-        # For each bit i in register A, and each bit j in register B where j >= i:
-        # If A[i] = 1, apply phase rotation 2π/2^(j-i+1) to B[j]
+        # For each bit i in register A, and each bit j in target where j >= i:
+        # If A[i] = 1, apply phase rotation 2π/2^(j-i+1) to target[j]
         for i in range(bit_width):
             for j in range(i, bit_width):
                 # Phase angle: 2π/2^(j-i+1)
                 # This is the key formula for Draper's algorithm
                 phase_angle = 2 * math.pi / (2 ** (j - i + 1))
                 
-                # Apply controlled phase rotation: A[i] controls B[j]
+                # Apply controlled phase rotation: A[i] controls target[j]
                 result = self.apply_controlled_phase_rotation(
                     a, i,        # Control: bit i of register A
-                    result, j,   # Target: bit j of register B (after QFT)
+                    result, j,   # Target: bit j of target register (after QFT)
                     phase_angle
                 )
         
@@ -580,7 +605,7 @@ class QuantumIRGen:
         
         return result
 
-    def draper_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
+    def draper_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue = None) -> SSAValue:
         """
         @brief Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
         
@@ -588,16 +613,15 @@ class QuantumIRGen:
         phase rotations in the frequency domain.
         
         Algorithm:
-        1. Apply QFT to register B
+        1. Apply QFT to target register
         2. Apply controlled phase rotations with negative angles: for each bit i in A,
-           apply phase rotation -2π/2^(j-i+1) to each bit j ≥ i in B
-        3. Apply inverse QFT to register B
-        
-        The result is stored in register B: |A⟩|B⟩ → |A⟩|B-A⟩
+           apply phase rotation -2π/2^(j-i+1) to each bit j ≥ i in target
+        3. Apply inverse QFT to target register
         
         @param a_expr: First operand expression (minuend)
-        @param b_expr: Second operand expression (subtrahend)
-        @return: The resulting register representing the difference
+        @param b_expr: Second operand expression (subtrahend) 
+        @param target_reg: Optional target register to store the result. If None, creates new register.
+        @return: The resulting register representing B - A
         """
         import math
         
@@ -617,23 +641,37 @@ class QuantumIRGen:
                 b = b_temp
 
         bit_width = 8  # For 8-bit integers (testing)
+
+        # Determine target register for the subtraction
+        if target_reg is None:
+            # Create a new register and copy B into it
+            target = self.ir_gen_init(None)
+            # Copy B into the target register
+            for i in range(bit_width):
+                target = self.apply_cnot_on_bits(b, i, target, i)
+        else:
+            # Use the provided target register, but still need to copy B into it
+            target = target_reg
+            # Copy B into the target register
+            for i in range(bit_width):
+                target = self.apply_cnot_on_bits(b, i, target, i)
         
-        # Step 1: Apply QFT to register B
-        result = self.apply_qft(b, bit_width)
+        # Step 1: Apply QFT to target register
+        result = self.apply_qft(target, bit_width)
         
         # Step 2: Apply Draper's controlled phase subtractions (negative phases)
-        # For each bit i in register A, and each bit j in register B where j >= i:
-        # If A[i] = 1, apply phase rotation -2π/2^(j-i+1) to B[j]
+        # For each bit i in register A, and each bit j in target where j >= i:
+        # If A[i] = 1, apply phase rotation -2π/2^(j-i+1) to target[j]
         for i in range(bit_width):
             for j in range(i, bit_width):
                 # Negative phase angle: -2π/2^(j-i+1)
                 # This is the key formula for Draper's subtraction algorithm
                 phase_angle = -2 * math.pi / (2 ** (j - i + 1))
                 
-                # Apply controlled phase rotation: A[i] controls B[j]
+                # Apply controlled phase rotation: A[i] controls target[j]
                 result = self.apply_controlled_phase_rotation(
                     a, i,        # Control: bit i of register A
-                    result, j,   # Target: bit j of register B (after QFT)
+                    result, j,   # Target: bit j of target register (after QFT)
                     phase_angle
                 )
         
@@ -642,6 +680,7 @@ class QuantumIRGen:
         
         return result
 
+    #TODO make this work with qft and shift and add
     def draper_quantum_multiplication(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
         """
         @brief Generate quantum circuit for multiplication using Draper's QFT-based shift-and-add.
@@ -1049,13 +1088,30 @@ class QuantumIRGen:
             # handle binary expressions
             elif isinstance(expr.expr, BinaryExprAST):
                 # self.add_comment(f"// initializing with binary expression")
-                # evaluate the binary expression first
-                expr_result = self.ir_gen_expr(expr.expr)
+                
+                # For declarations with binary expressions like int c = a + b,
+                # we need to ensure the result is stored in a new register for variable c
+                
+                # Create a new register for this variable
+                target_reg = self.ir_gen_init(None)
+                
+                # Use the target register for arithmetic operations
+                if expr.expr.op == "+":
+                    expr_result = self.draper_quantum_addition(expr.expr.lhs, expr.expr.rhs, target_reg)
+                elif expr.expr.op == "-":
+                    expr_result = self.draper_quantum_subtraction(expr.expr.lhs, expr.expr.rhs, target_reg)
+                else:
+                    # For other operations, evaluate normally and copy to target
+                    temp_result = self.ir_gen_expr(expr.expr)
+                    if temp_result is None:
+                        raise IRGenError("Binary expression evaluation failed")
+                    
+                    # Copy result to the target register
+                    bit_width = 8
+                    for i in range(bit_width):
+                        target_reg = self.apply_cnot_on_bits(temp_result, i, target_reg, i)
+                    expr_result = target_reg
 
-                if expr_result is None:
-                    raise IRGenError("Binary expression evaluation failed")
-
-                # no need to create a new qubit - use the result directly
                 qubit = expr_result
 
             # handle other expression types
