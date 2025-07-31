@@ -6,7 +6,7 @@ from xdsl.traits import IsolatedFromAbove
 
 from dataclasses import dataclass
 
-from dialects.quantum_dialect import FuncOp, MeasureOp, InitOp
+from ...dialects.quantum_dialect import FuncOp, MeasureOp, InitOp
 
                             ##### SUPPORT FUNCTION #####
 

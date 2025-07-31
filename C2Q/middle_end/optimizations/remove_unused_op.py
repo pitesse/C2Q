@@ -2,7 +2,7 @@ from xdsl.ir import Operation
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.dialects.builtin import ModuleOp
 
-from dialects.quantum_dialect import FuncOp, MeasureOp
+from ...dialects.quantum_dialect import FuncOp, MeasureOp
 
 # Check if the operation is not used in the following part of the program.
 def is_trivially_dead(op: Operation) -> bool:

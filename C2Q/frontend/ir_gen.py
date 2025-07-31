@@ -587,7 +587,7 @@ class QuantumIRGen:
 
     def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue = None) -> SSAValue:
         """
-        Draper quantum addition using QFT approach - CORRECT IMPLEMENTATION
+        Draper quantum addition using QFT approach 
         
         Algorithm:
         1. Apply QFT to target register

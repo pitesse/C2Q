@@ -2,7 +2,7 @@ from xdsl.ir import Operation
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.builder import Builder
 from xdsl.rewriter import Rewriter
-from dialects.quantum_dialect import CNotOp,FuncOp,InitOp
+from ...dialects.quantum_dialect import CNotOp,FuncOp,InitOp
 from xdsl.dialects.builtin import ModuleOp
 
 

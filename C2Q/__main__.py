@@ -22,6 +22,9 @@ from xdsl.printer import Printer
 from .frontend.parser import CParser
 from .frontend.ir_gen import QuantumIRGen
 
+# Local imports - middle-end optimizations  
+from .middle_end.optimizations import optimize_quantum_circuit
+
 # Local imports - backend
 from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
 
@@ -40,10 +43,24 @@ def parse_c_to_ast(path: Path):
     
     return ast
 
-def generate_quantum_ir(ast, print_generic: bool):
-    """Generate Quantum IR from AST"""
+def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True):
+    """Generate Quantum IR from AST with optional optimizations"""
     ir_gen = QuantumIRGen()
     module_op = ir_gen.ir_gen_module(ast)
+    
+    # Apply optimization passes if requested
+    if optimize:
+        print("🔧 Starting Integrated Quantum Circuit Optimization...")
+        
+        # Apply comprehensive optimization pipeline
+        module_op = optimize_quantum_circuit(
+            module_op, 
+            optimization_level="default",
+            analysis_only=False,
+            verbose=True
+        )
+        
+        print("✅ Optimization pipeline completed")
     
     # create a StringIO buffer to capture output
     ir_buffer = StringIO()
@@ -94,7 +111,7 @@ def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
 #------------------------------------------------------------------------------
 # MAIN FUNCTION
 #------------------------------------------------------------------------------
-def main(path: Path, emit: str, ir: bool, print_generic: bool):
+def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = True):
     """!
     @brief Main compilation function that processes input files and generates quantum IR.
     
@@ -132,7 +149,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool):
                 return
 
             # generate Quantum IR
-            module_op, mlir = generate_quantum_ir(ast, print_generic)
+            module_op, mlir = generate_quantum_ir(ast, print_generic, optimize)
             
             # save IR to file
             save_ir_to_file(path, mlir)
@@ -205,7 +222,9 @@ if __name__ == "__main__":
                        help="Print the generated IR to console")
     parser.add_argument("--print-op-generic", dest="print_generic", action="store_true",
                        help="Print operations in generic format")
+    parser.add_argument("--no-optimize", dest="no_optimize", action="store_true",
+                       help="Disable quantum circuit optimizations")
     
     # Parse arguments and run main function
     args = parser.parse_args()
-    main(args.source, args.emit, args.ir, args.print_generic)
+    main(args.source, args.emit, args.ir, args.print_generic, not args.no_optimize)

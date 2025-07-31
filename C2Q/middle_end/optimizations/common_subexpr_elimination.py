@@ -5,7 +5,7 @@ from xdsl.builder import Builder
 from xdsl.rewriter import Rewriter
 from xdsl.traits import IsolatedFromAbove
 from dataclasses import dataclass
-from dialects.quantum_dialect import FuncOp, MeasureOp, InitOp, CCNotOp, CNotOp
+from ...dialects.quantum_dialect import FuncOp, MeasureOp, InitOp, CCNotOp, CNotOp
 
 import re
                             ##### SUPPORT FUNCTIONS #####

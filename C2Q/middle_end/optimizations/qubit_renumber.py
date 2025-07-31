@@ -2,7 +2,7 @@ from xdsl.ir import Operation
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.dialects.builtin import ModuleOp
 
-from dialects.quantum_dialect import FuncOp, InitOp
+from ...dialects.quantum_dialect import FuncOp, InitOp
 
 # Class to drive the removal of unused operations in the main program.
 class QubitRenumber(RewritePattern):

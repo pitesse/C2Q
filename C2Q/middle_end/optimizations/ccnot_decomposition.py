@@ -4,7 +4,7 @@ from xdsl.builder import Builder
 from xdsl.rewriter import Rewriter
 from xdsl.dialects.builtin import ModuleOp
 
-from dialects.quantum_dialect import HadamardOp, TGateOp,TDaggerGateOp, CNotOp, MeasureOp,InitOp,FuncOp
+from ...dialects.quantum_dialect import HadamardOp, TGateOp,TDaggerGateOp, CNotOp, MeasureOp,InitOp,FuncOp
 
 # pattern rewriting pass to transform CCNOT operations in a sequence of CNOT, Hadamard and T-gate operations
 # in order to use existing metrics for the evaluation of the circuit performances.
