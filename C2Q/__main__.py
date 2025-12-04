@@ -37,8 +37,11 @@ def parse_c_to_ast(path: Path):
         parser = CParser(path, f.read())
         ast = parser.parseModule()
     
+    # Determine output path
+    output_path = get_output_path(path, ".ast")
+    
     # Save the AST to disk
-    with open(path.with_suffix(".ast"), "w") as ast_file:
+    with open(output_path, "w") as ast_file:
         ast_file.write(ast.dump())
     
     return ast
@@ -69,9 +72,28 @@ def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True):
     
     return module_op, ir_buffer.getvalue()
 
+def get_output_path(input_path: Path, suffix: str) -> Path:
+    """
+    Determine output path for generated files.
+    If input is in tests/inputs/, output to tests/outputs/.
+    Otherwise, output to same directory as input.
+    """
+    input_path_str = str(input_path.resolve())
+    
+    # Check if input is in tests/inputs/
+    if "tests/inputs" in input_path_str or "tests\\inputs" in input_path_str:
+        # Replace tests/inputs with tests/outputs
+        output_dir = Path(input_path_str.replace("tests/inputs", "tests/outputs").replace("tests\\inputs", "tests\\outputs")).parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir / (input_path.stem + suffix)
+    else:
+        # Output to same directory as input
+        return input_path.with_suffix(suffix)
+
 def save_ir_to_file(path: Path, mlir: str):
     """Save IR to file"""
-    with open(path.with_suffix(".mlir"), "w") as ir_file:
+    output_path = get_output_path(path, ".mlir")
+    with open(output_path, "w") as ir_file:
         ir_file.write(mlir)
 
 def print_banner():
