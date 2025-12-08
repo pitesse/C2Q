@@ -152,7 +152,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
     @param emit Target compilation format (e.g., "ast", "ir")
     @param ir Flag to indicate whether to print the IR
     @param print_generic Flag to indicate whether to print in generic format
-    @return None
+    @return The created QuantumCircuit object, or None if not created
     
     @exception FileNotFoundError If the specified input file doesn't exist
     @exception Exception Various exceptions may be raised during circuit creation/analysis
@@ -168,7 +168,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
             # if only AST output is requested, print and return
             if emit == "ast":
                 print(ast.dump())
-                return
+                return None
 
             # generate Quantum IR
             module_op, mlir = generate_quantum_ir(ast, print_generic, optimize)
@@ -190,7 +190,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
 
             if funcOp is None:
                 print("Error: No quantum.func operation found in the module")
-                return
+                return None
 
             # extract circuit information
             input_args = funcOp.regions[0].blocks[0]._args
@@ -212,12 +212,16 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
                 # display results
                 display_circuit_metrics(circuit_metrics, circuit_info, circuit)
                 
+                return circuit
+                
             except Exception as e:
                 print(f"Error creating or analyzing circuit: {e}")
                 print("This may be due to the structure of the quantum operations in the IR.")
+                return None
 
         case _:
             print(f"Unknown file format {path}")
+            return None
 
 #------------------------------------------------------------------------------
 # ENTRY POINT
@@ -246,7 +250,31 @@ if __name__ == "__main__":
                        help="Print operations in generic format")
     parser.add_argument("--no-optimize", dest="no_optimize", action="store_true",
                        help="Disable quantum circuit optimizations")
+    parser.add_argument("--validate", dest="validate", type=int, metavar="EXPECTED",
+                       help="Validate circuit output against expected integer result")
     
     # Parse arguments and run main function
     args = parser.parse_args()
-    main(args.source, args.emit, args.ir, args.print_generic, not args.no_optimize)
+    
+    # Force optimizations off when validating (optimizations currently have bugs)
+    optimize = not args.no_optimize
+    if args.validate is not None:
+        optimize = False
+        if not args.no_optimize:
+            print("⚠️  Optimizations disabled for validation (optimization passes have known bugs)")
+    
+    # Run compilation to get the circuit
+    circuit = main(args.source, args.emit, args.ir, args.print_generic, optimize)
+    
+    # If validation requested, validate the circuit we just created
+    if args.validate is not None and circuit is not None:
+        from C2Q.backend.validate import validate_circuit
+        
+        print("\n" + "="*60)
+        print("🔬 VALIDATION")
+        print("="*60)
+        
+        passed = validate_circuit(circuit, args.validate, verbose=True)
+        
+        import sys
+        sys.exit(0 if passed else 1)

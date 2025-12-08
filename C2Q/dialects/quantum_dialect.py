@@ -51,7 +51,7 @@ class InitOp(IRDLOperation):
     """
 
     name = "quantum.init"
-    value: IntegerType = attr_def(TypeVar("AttributeInvT", bound=Attribute))
+    value: IntegerType = attr_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, values):
@@ -77,13 +77,13 @@ class InitOp(IRDLOperation):
                 VectorType(
                     values.get_element_type(),
                     [
-                        values.get_shape()[0],
+                        values.shape.data[0],  # type: ignore
                     ],
                 )
             ]
             attributes = {
                 "type": values,
-                "value": IntegerAttr(0, IntegerType(values.get_shape()[0])),
+                "value": IntegerAttr(0, IntegerType(values.shape.data[0])),  # type: ignore
             }
         else:
             raise TypeError(
@@ -116,7 +116,7 @@ class NotOp(IRDLOperation):
     """
 
     name = "quantum.not"
-    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
+    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
@@ -128,7 +128,7 @@ class NotOp(IRDLOperation):
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
         else:  # VectorType
-            size = target.type.get_shape()[0]
+            size = target.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -171,8 +171,8 @@ class CNotOp(IRDLOperation):
     """
 
     name = "quantum.cnot"
-    control: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
-    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
+    control: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore  # type: ignore
+    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, control: SSAValue, target: SSAValue):
@@ -187,7 +187,7 @@ class CNotOp(IRDLOperation):
         ):
             super().__init__(result_types=[IntegerType(1)], operands=[control, target])
         else:  # VectorType
-            size = control.type.get_shape()[0]
+            size = control.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -226,9 +226,9 @@ class CCNotOp(IRDLOperation):
     """
 
     name = "quantum.ccnot"
-    control1: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
-    control2: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
-    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
+    control1: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore
+    control2: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore
+    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, control1: SSAValue, control2: SSAValue, target: SSAValue):
@@ -248,7 +248,7 @@ class CCNotOp(IRDLOperation):
                 result_types=[IntegerType(1)], operands=[control1, control2, target]
             )
         else:  # VectorType
-            size = control1.type.get_shape()[0]
+            size = control1.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -299,7 +299,7 @@ class MeasureOp(IRDLOperation):
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
         else:  # VectorType
-            size = target.type.get_shape()[0]
+            size = target.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -346,7 +346,8 @@ class FuncOp(IRDLOperation):
         @param region: The region containing the function body operations
         """
         attributes: dict[str, Attribute] = {"func_name": StringAttr(name)}
-        return super().__init__(attributes=attributes, regions=[region])
+        regions_list = [region] if region is not Region.DEFAULT else []
+        return super().__init__(attributes=attributes, regions=regions_list)  # type: ignore
 
 
 @irdl_op_definition
@@ -361,20 +362,20 @@ class TGateOp(IRDLOperation):
     @see TDaggerGateOp
     """
 
-    name = "quantum.t"
-    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
+    name = "quantum.not"
+    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
         """
-        @brief Apply a T gate to a target qubit or vector of qubits.
+        @brief Apply a NOT gate to a target qubit or vector of qubits.
 
-        @param target: The qubit or vector of qubits to apply the T gate to
+        @param target: The qubit or vector of qubits to apply the NOT gate to
         """
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
         else:  # VectorType
-            size = target.type.get_shape()[0]
+            size = target.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -411,7 +412,7 @@ class TDaggerGateOp(IRDLOperation):
     """
 
     name = "quantum.tdagger"
-    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
+    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
@@ -423,7 +424,7 @@ class TDaggerGateOp(IRDLOperation):
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
         else:  # VectorType
-            size = target.type.get_shape()[0]
+            size = target.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -458,7 +459,7 @@ class HadamardOp(IRDLOperation):
     """
 
     name = "quantum.h"
-    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))
+    target: Operand = operand_def(TypeVar("AttributeInvT", bound=Attribute))  # type: ignore
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
@@ -470,7 +471,7 @@ class HadamardOp(IRDLOperation):
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
         else:  # VectorType
-            size = target.type.get_shape()[0]
+            size = target.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[
                     VectorType(
@@ -586,7 +587,7 @@ class InsertBitOp(IRDLOperation):
         @param index: The bit position to insert at
         """
         if isinstance(vector.type, VectorType):
-            size = vector.type.get_shape()[0]
+            size = vector.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[vector, value],
@@ -635,7 +636,7 @@ class OnQubitNotOp(IRDLOperation):
         @param bit_index: The index of the bit to apply the NOT gate to
         """
         if isinstance(vector.type, VectorType):
-            size = vector.type.get_shape()[0]
+            size = vector.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[vector],
@@ -690,7 +691,7 @@ class OnQubitCNotOp(IRDLOperation):
         if isinstance(control_vector.type, VectorType) and isinstance(
             target_vector.type, VectorType
         ):
-            size = target_vector.type.get_shape()[0]
+            size = target_vector.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[control_vector, target_vector],
@@ -763,7 +764,7 @@ class OnQubitCCnotOp(IRDLOperation):
             and isinstance(control2_vector.type, VectorType)
             and isinstance(target_vector.type, VectorType)
         ):
-            size = target_vector.type.get_shape()[0]
+            size = target_vector.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[control1_vector, control2_vector, target_vector],
@@ -827,7 +828,7 @@ class OnQubitHadamardOp(IRDLOperation):
         @param index: The index of the qubit to apply Hadamard to
         """
         if isinstance(register.type, VectorType):
-            size = register.type.get_shape()[0]
+            size = register.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[register],
@@ -879,7 +880,7 @@ class OnQubitControlledPhaseOp(IRDLOperation):
         @param phase: The phase angle in radians
         """
         if isinstance(control_register.type, VectorType) and isinstance(target_register.type, VectorType):
-            size = target_register.type.get_shape()[0]
+            size = target_register.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[control_register, target_register],
@@ -933,7 +934,7 @@ class OnQubitSwapOp(IRDLOperation):
         @param qubit2_index: The index of the second qubit
         """
         if isinstance(register.type, VectorType):
-            size = register.type.get_shape()[0]
+            size = register.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
                 operands=[register],

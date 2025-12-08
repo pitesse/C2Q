@@ -11,6 +11,22 @@ def is_trivially_dead(op: Operation) -> bool:
     if isinstance(op, ModuleOp) or isinstance(op, FuncOp) or isinstance(op, MeasureOp):
         return False
     
+    # Check if this is the last operation in a FuncOp (implicit return value)
+    if op.parent is not None:
+        # op.parent is the Block
+        # op.parent.parent is the Region  
+        # op.parent.parent.parent is the FuncOp
+        region = op.parent.parent
+        if region and hasattr(region, 'parent'):
+            func_op = region.parent
+            if isinstance(func_op, FuncOp):
+                # Get the block containing this operation
+                block = op.parent
+                ops_list = list(block.ops)
+                if ops_list and ops_list[-1] is op:
+                    # This is the last operation in the function - it's the return value
+                    return False
+    
     # if the result of the operation is never used then it is dead
     return not op.res.uses
 

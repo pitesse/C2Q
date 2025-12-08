@@ -99,6 +99,26 @@ python -m C2Q tests/inputs/test_mult_2x3.c
 
 Generated outputs (AST, MLIR, circuit diagrams) are saved to `tests/outputs/`.
 
+### Circuit Validation
+
+The compiler includes a validation framework to verify circuit correctness through quantum simulation:
+
+```bash
+# Validate circuit output against expected result
+python -m C2Q tests/inputs/test_return_3.c --validate 3
+
+# Validate without optimizations
+python -m C2Q tests/inputs/test_add_simple.c --validate 8 --no-optimize
+```
+
+The validation framework:
+- Simulates the generated quantum circuit using Qiskit Aer
+- Uses matrix product state (MPS) method for efficient simulation
+- Validates the exact circuit that was created and visualized
+- Reports measurement statistics and correctness
+
+This ensures the compiled quantum circuit produces results matching the classical C program's behavior.
+
 ## Supported C Features
 
 Currently supported:
@@ -188,12 +208,80 @@ The compiler is functional with basic arithmetic operations. See `TODO.md` for t
 # Activate environment
 source .venv/bin/activate
 
-# Run individual test
+# Compile and visualize circuit
 python -m C2Q tests/inputs/test_add_new.c
+
+# Compile with validation (verifies correctness)
+python -m C2Q tests/inputs/test_return_3.c --validate 3
+
+# Validate without optimizations
+python -m C2Q tests/inputs/test_add_simple.c --validate 8 --no-optimize
 
 # Run optimization demos
 python demos/optimization_demo.py
 ```
+
+### Validation Framework
+
+The validation module (`C2Q/backend/validate.py`) provides simulation-based correctness verification:
+
+**Key Features:**
+- **Direct Circuit Testing**: Validates the exact circuit created and visualized, avoiding regeneration inconsistencies
+- **Efficient Simulation**: Uses matrix product state (MPS) method for scalable quantum simulation
+- **Measurement Analysis**: Reports detailed measurement statistics and bitstring distributions
+- **Integration**: Accessible via `--validate` flag during compilation
+
+**Example:**
+```bash
+python -m C2Q tests/inputs/test_return_5.c --validate 5
+```
+
+This simulates the compiled circuit and verifies the output matches the expected value (5 in this case).
+
+## Simulation Backend
+
+### Why Matrix Product State (MPS)?
+
+C2Q uses Qiskit's **Matrix Product State (MPS) simulator** for quantum circuit validation. This is essential for handling realistic quantum arithmetic circuits:
+
+**Memory Requirements Comparison:**
+
+| Circuit Size | Statevector | MPS |
+|--------------|-------------|-----|
+| 24 qubits (3 registers) | 256 MB | ~50-100 MB |
+| 32 qubits (4 registers) | 64 GB | ~100-200 MB |
+| 64 qubits (8 registers) | 280 PB | ~1-2 GB |
+
+**Why MPS Works for Quantum Arithmetic:**
+
+1. **Low Entanglement**: QFT-based arithmetic has limited, structured entanglement
+2. **Locality**: Quantum operations are mostly nearest-neighbor
+3. **Sequential Processing**: Bits are processed incrementally, not globally
+
+**Accuracy Guarantees:**
+
+Qiskit's MPS implementation is **EXACT** (not approximate) when:
+- Bond dimension is unlimited (default: `None`)
+- Truncation threshold is very small (default: `1e-16`)
+
+For quantum arithmetic circuits, these defaults ensure **exact simulation** without the exponential memory cost of statevector methods.
+
+**Validation Framework:**
+
+```python
+# validate.py provides two modes:
+python -m C2Q.backend.validate test.c expected_result  # Correctness check
+python -m C2Q.backend.validate test.c expected_result --compare  # With optimization comparison
+```
+
+The validation framework:
+- Compiles C code to quantum circuit
+- Simulates using MPS (handles 24+ qubits easily)
+- Extracts result from measurement counts
+- Verifies against expected classical result
+- Reports gate count, depth, and optimization impact
+
+See `test_mps_accuracy.py` for empirical validation of MPS correctness.
 
 ### Documentation
 

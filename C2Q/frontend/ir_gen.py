@@ -28,13 +28,13 @@ from xdsl.dialects.builtin import (
     IntegerAttr,
     StringAttr,
 )
-from xdsl.builder import Builder, InsertPoint
+from xdsl.builder import Builder
+from xdsl.rewriter import InsertPoint
 from xdsl.utils.scoped_dict import ScopedDict
 
 
 from .c_ast import *
 from ..dialects.quantum_dialect import (
-    Quantum,
     InitOp,
     NotOp,
     CNotOp,
@@ -54,6 +54,9 @@ from ..dialects.quantum_dialect import (
     OnQubitControlledPhaseOp,
     OnQubitSwapOp,
 )
+
+# Import Quantum dialect separately to avoid registration issues
+from ..dialects import quantum_dialect
 
 
 class IRGenError(Exception):
@@ -121,7 +124,12 @@ class QuantumIRGen:
         MLIR module, and initializes the builder and symbol table.
         """
         self.context = Context()
-        self.context.load_dialect(Quantum)
+        # Load dialect, handling case where it's already loaded
+        try:
+            self.context.load_dialect(quantum_dialect.Quantum)
+        except Exception:
+            # Dialect already loaded, continue
+            pass
 
         self.module = ModuleOp([])
         self.builder = Builder(InsertPoint.at_end(self.module.body.blocks[0]))
@@ -197,7 +205,8 @@ class QuantumIRGen:
         for arg in func_op.regions[0].blocks[0]._args:
             # self.add_comment(f"// initialize main parameter: {arg.name}")
             qubit = self.builder.insert(InitOp.from_value(IntegerType(1)))
-            self.symbol_table[arg._name] = qubit.res
+            if self.symbol_table is not None and arg._name is not None:
+                self.symbol_table[arg._name] = qubit.res
 
         # process main function body
         result = None
@@ -205,6 +214,7 @@ class QuantumIRGen:
             self.ir_gen_expr(expr)
 
         # self.add_comment("// end main function")
+        return func_op
 
     def ir_gen_func_call(self, func_ast: FunctionAST, args: list[ExprAST]):
         """
@@ -223,7 +233,8 @@ class QuantumIRGen:
         # Process function parameters and arguments
         for param, arg in zip(func_ast.proto.args, args):
             qubit = self.ir_gen_expr(arg)
-            self.symbol_table[param.name] = qubit
+            if self.symbol_table is not None and qubit is not None:
+                self.symbol_table[param.name] = qubit
 
         # Process function body
         for expr in func_ast.body:
@@ -343,9 +354,10 @@ class QuantumIRGen:
                 rhs_value = self.ir_gen_expr(expr.rhs)
             
             # Update the symbol table with the new value for the LHS variable
-            if var_name in self.symbol_table._local_scope:
-                del self.symbol_table._local_scope[var_name]
-            self.symbol_table[var_name] = rhs_value
+            if self.symbol_table is not None and rhs_value is not None:
+                if var_name in self.symbol_table._local_scope:
+                    del self.symbol_table._local_scope[var_name]
+                self.symbol_table[var_name] = rhs_value
             
             # Return the assigned value
             return rhs_value
@@ -355,78 +367,6 @@ class QuantumIRGen:
     # ============================================================================
     # QUANTUM OPERATIONS
     # ============================================================================
-
-    def quantum_fourier_transform(self, register: SSAValue, n_qubits: int) -> SSAValue:
-        """
-        Apply Quantum Fourier Transform to a register.
-        
-        Implements the QFT algorithm using Hadamard gates and controlled phase
-        rotations with the formula: phase = 2π/2^(j-i+1).
-        
-        Args:
-            register: The quantum register to transform
-            n_qubits: Number of qubits in the register
-            
-        Returns:
-            The transformed register
-        """
-        result = register
-        
-        for i in range(n_qubits):
-            # Apply Hadamard gate to qubit i
-            result = OnQubitHadamardOp.from_value(result, i).res
-            
-            # Apply controlled phase rotations
-            for j in range(i + 1, n_qubits):
-                # Phase angle: 2π/2^(j-i+1) - correct QFT formula
-                k = j - i + 1
-                phase_angle = 2 * math.pi / (2 ** k)
-                result = OnQubitControlledPhaseOp.from_values(
-                    result, j, result, i, phase_angle
-                ).res
-        
-        # Reverse the order of qubits (swap operation)
-        for i in range(n_qubits // 2):
-            result = OnQubitSwapOp.from_values(result, i, n_qubits - 1 - i).res
-        
-        return result
-
-    def inverse_quantum_fourier_transform(self, register: SSAValue, n_qubits: int) -> SSAValue:
-        """
-        Apply Inverse Quantum Fourier Transform to a register.
-        
-        Implements the inverse QFT algorithm by reversing the QFT operations:
-        first reversing qubit order, then applying inverse controlled phase
-        rotations with negative angles: -2π/2^(j-i+1).
-        
-        Args:
-            register: The quantum register to transform
-            n_qubits: Number of qubits in the register
-            
-        Returns:
-            The transformed register
-        """
-        result = register
-        
-        # Reverse the order of qubits first
-        for i in range(n_qubits // 2):
-            result = OnQubitSwapOp.from_values(result, i, n_qubits - 1 - i).res
-        
-        # Apply inverse controlled phase rotations and Hadamard gates
-        for i in range(n_qubits - 1, -1, -1):
-            # Apply inverse controlled phase rotations
-            for j in range(n_qubits - 1, i, -1):
-                # Negative phase angle: -2π/2^(j-i+1) - correct inverse QFT formula
-                k = j - i + 1
-                phase_angle = -2 * math.pi / (2 ** k)
-                result = OnQubitControlledPhaseOp.from_values(
-                    result, j, result, i, phase_angle
-                ).res
-            
-            # Apply Hadamard gate to qubit i
-            result = OnQubitHadamardOp.from_value(result, i).res
-        
-        return result
 
     def apply_hadamard_gate(self, register: SSAValue, qubit_index: int) -> SSAValue:
         """
@@ -448,31 +388,6 @@ class QuantumIRGen:
                 result._name = f"q{register_num}_{version_num}"
         
         return result
-
-    def apply_cnot_on_bits(self, control_reg: SSAValue, control_bit: int, target_reg: SSAValue, target_bit: int) -> SSAValue:
-        """
-        Apply CNOT gate between specific bits of two registers
-        """
-        from C2Q.dialects.quantum_dialect import OnQubitCNotOp
-        
-        # Apply CNOT gate directly on register bits
-        cnot_result = self.builder.insert(
-            OnQubitCNotOp.from_values(
-                control_reg, control_bit,
-                target_reg, target_bit
-            )
-        )
-        
-        # Return the updated target register
-        return cnot_result.res
-    
-    def update_register_at_bit(self, register: SSAValue, bit_index: int, new_qubit: SSAValue) -> SSAValue:
-        """
-        Update a specific bit in a quantum register
-        """
-        # For now, we'll return the register as-is since we don't have a proper update mechanism
-        # This is a simplification - in a real implementation, we'd need to properly update the register
-        return register
 
     def apply_controlled_phase_rotation(self, control_register: SSAValue, control_index: int,
                                        target_register: SSAValue, target_index: int, 
@@ -538,6 +453,10 @@ class QuantumIRGen:
         """
         Apply Quantum Fourier Transform to a register
         QFT transforms |x⟩ → (1/√2ⁿ) Σ e^(2πixk/2ⁿ) |k⟩
+        
+        NOTE: This implements QFT with do_swaps=False (matching Qiskit's Draper adder).
+        The bit order is implicitly reversed but no SWAP gates are applied.
+        This leaves the qubits in reversed order, which is expected by the Draper algorithm.
         """
         import math
         
@@ -555,8 +474,8 @@ class QuantumIRGen:
                 phase_angle = 2 * math.pi / (2 ** k)
                 result = self.apply_controlled_phase_rotation(result, j, result, i, phase_angle)
         
-        # Reverse the order of qubits (swap bits)
-        result = self.reverse_qubit_order(result, n_qubits)
+        # NO SWAP GATES - matching Qiskit's do_swaps=False behavior
+        # The qubits remain in reversed order (implicit reversal)
         
         return result
 
@@ -564,15 +483,16 @@ class QuantumIRGen:
         """
         Apply inverse Quantum Fourier Transform
         This is the adjoint of QFT
+        
+        NOTE: Input register is expected to be in REVERSED order from QFT.
+        IQFT will process it and return it in normal order (no SWAP needed at start).
         """
         import math
         
         result = register
         
-        # Reverse the order of qubits first
-        result = self.reverse_qubit_order(result, n_qubits)
-        
         # Apply inverse QFT (reverse the QFT steps)
+        # The register is already in reversed order from QFT, so we work on it directly
         for i in range(n_qubits - 1, -1, -1):
             # Apply inverse controlled phase rotations
             for j in range(n_qubits - 1, i, -1):
@@ -585,7 +505,7 @@ class QuantumIRGen:
         
         return result
 
-    def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue = None) -> SSAValue:
+    def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None) -> SSAValue:
         """
         Draper quantum addition using QFT approach 
         
@@ -605,6 +525,10 @@ class QuantumIRGen:
         # Evaluate expressions to get quantum registers
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
+        
+        # Ensure we have valid operands
+        if a is None or b is None:
+            raise IRGenError("Failed to generate quantum register for addition operands")
         
         # Handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
@@ -658,7 +582,7 @@ class QuantumIRGen:
         
         return result
 
-    def draper_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue = None) -> SSAValue:
+    def draper_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None) -> SSAValue:
         """
         Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
         
@@ -683,6 +607,10 @@ class QuantumIRGen:
         # Evaluate expressions to get the quantum registers
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
+        
+        # Ensure we have valid operands
+        if a is None or b is None:
+            raise IRGenError("Failed to generate quantum register for subtraction operands")
         
         # Handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
@@ -762,6 +690,10 @@ class QuantumIRGen:
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
         
+        # Ensure we have valid operands
+        if a is None or b is None:
+            raise IRGenError("Failed to generate quantum register for multiplication operands")
+        
         # Handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
             if not isinstance(a.type, VectorType):
@@ -826,14 +758,15 @@ class QuantumIRGen:
         import math
         
         # Get register width
+        result_width: int
         if isinstance(target_reg.type, VectorType):
             shape_attr = target_reg.type.shape
             if hasattr(shape_attr, 'data') and len(shape_attr.data) > 0:
                 result_width_attr = shape_attr.data[0]
                 if hasattr(result_width_attr, 'data'):
-                    result_width = result_width_attr.data
+                    result_width = int(result_width_attr.data)
                 else:
-                    result_width = int(result_width_attr)
+                    result_width = 8
             else:
                 result_width = 8
         else:
@@ -955,15 +888,16 @@ class QuantumIRGen:
         # WARNING: The following code always adds, making multiplication incorrect
         
         # Get the width of the result register
+        result_width: int
         if isinstance(target_reg.type, VectorType):
             # Extract width from VectorType shape
             shape_attr = target_reg.type.shape
             if hasattr(shape_attr, 'data') and len(shape_attr.data) > 0:
                 result_width_attr = shape_attr.data[0]
                 if hasattr(result_width_attr, 'data'):
-                    result_width = result_width_attr.data
+                    result_width = int(result_width_attr.data)
                 else:
-                    result_width = int(result_width_attr)
+                    result_width = 16  # Default fallback
             else:
                 result_width = 16  # Default fallback
         else:
@@ -1030,12 +964,12 @@ class QuantumIRGen:
         """
         var_name = expr.name
 
-        if var_name in self.symbol_table:
+        if self.symbol_table is not None and var_name in self.symbol_table:
             return self.symbol_table[var_name]
         else:
             raise IRGenError(f"Referenced undefined variable: {var_name}")
 
-    def ir_gen_init(self, expr: NumberExprAST = None) -> SSAValue:
+    def ir_gen_init(self, expr: NumberExprAST | None = None) -> SSAValue:
         """
         Initialize a new multi-qubit register for integer representation.
 
@@ -1125,7 +1059,7 @@ class QuantumIRGen:
             # Replace this section in ir_gen_var_decl_expr:
             elif isinstance(expr.expr, VariableExprAST):
                 var_name = expr.expr.name
-                if var_name in self.symbol_table:
+                if self.symbol_table is not None and var_name in self.symbol_table:
                     source = self.symbol_table[var_name]
                     # initialize target qubit
                     qubit = self.ir_gen_init(None)
@@ -1185,12 +1119,13 @@ class QuantumIRGen:
 
         # register in symbol table
         # create a new scope if needed, preserving parent scope accessibility
-        if expr.name in self.symbol_table._local_scope:
+        if self.symbol_table is not None and expr.name in self.symbol_table._local_scope:
             # variable already exists in current scope, create a new nested scope
             self.symbol_table = ScopedDict(parent=self.symbol_table)
 
         # add the variable to the symbol table
-        self.symbol_table[expr.name] = qubit
+        if self.symbol_table is not None:
+            self.symbol_table[expr.name] = qubit
 
         return qubit
 
