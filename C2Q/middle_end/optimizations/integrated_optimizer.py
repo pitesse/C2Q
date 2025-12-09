@@ -299,14 +299,13 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
     
     else:  # "default"
         # Balanced optimization approach
-        # NOTE: RemoveUnusedOperations (dead code elimination) is DISABLED because
-        # it incorrectly identifies quantum operations as unused and removes them,
-        # breaking Draper multiplication circuits. This needs to be fixed before
-        # re-enabling. See: draper_optimizer.py bug investigation.
+        # NOTE: RemoveUnusedOperations now uses quantum-safe logic that preserves
+        # multi-qubit gates (CNOT, controlled-phase, etc.) which can cause phase
+        # kickback effects on control qubits even if their target results are unused.
         return IntegratedQuantumOptimizer(
             enable_decomposition=True,
             enable_cse=False,  # Disabled for now due to potential compatibility issues
-            enable_dead_code=False,  # DISABLED - incorrectly removes operations in multiplication
+            enable_dead_code=True,  # Safe quantum-aware dead code elimination
             enable_renumbering=True,
             enable_in_place=True,
             enable_draper_opt=True,

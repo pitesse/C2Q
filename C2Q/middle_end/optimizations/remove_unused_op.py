@@ -27,6 +27,20 @@ def is_trivially_dead(op: Operation) -> bool:
                     # This is the last operation in the function - it's the return value
                     return False
     
+    # QUANTUM-SAFE CHECK: Multi-qubit gates can have side effects via phase kickback
+    # or entanglement, even if their target result appears unused.
+    # Do NOT remove operations with multiple operands (e.g., CNOT, controlled-phase, SWAP)
+    if len(op.operands) > 1:
+        return False
+    
+    # Additional safety check: operation name patterns that indicate multi-qubit gates
+    if hasattr(op, 'name'):
+        op_name = str(op.name).lower()
+        unsafe_patterns = ['cnot', 'controlled', 'ccnot', 'swap', 'phase']
+        if any(pattern in op_name for pattern in unsafe_patterns):
+            return False
+    
+    # Safe to remove: single-qubit gates (Not, Hadamard, Pauli) with unused results
     # if the result of the operation is never used then it is dead
     return not op.res.uses
 
