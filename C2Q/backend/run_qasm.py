@@ -449,6 +449,29 @@ def apply_onqubit_hadamard(circuit, op):
     else:
         print(f"Warning: OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
 
+def apply_onqubit_phase(circuit, op):
+    """
+    Apply a phase gate to a specific bit in a register.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitPhaseOp operation
+    """
+    if len(op.operands) == 1:
+        # Get the register, bit index, and phase
+        operand = op.operands[0]
+        bit_index = op.attributes.get("index", IntegerAttr(0, IntegerType(32))).value.data
+        phase = op.attributes.get("phase", FloatAttr(0.0, Float64Type())).value.data
+        
+        # Find the corresponding register
+        for qreg in circuit.qregs:
+            if hasattr(operand, "_name") and operand._name:
+                if operand._name.startswith(qreg.name.split('_')[0]):
+                    circuit.p(phase, qreg[bit_index])
+                    break
+    else:
+        print(f"Warning: OnQubitPhaseOp expects 1 operand, got {len(op.operands)}")
+
 def apply_onqubit_controlled_phase(circuit, op):
     """
     Apply a controlled phase gate between specific bits.
@@ -615,6 +638,8 @@ def create_circuit(first_op, output_number):
             apply_onqubit_ccnot(circuit, current_op)
         elif current_op.name == "quantum.OnQubit_hadamard":
             apply_onqubit_hadamard(circuit, current_op)
+        elif current_op.name == "quantum.OnQubit_phase":
+            apply_onqubit_phase(circuit, current_op)
         elif current_op.name == "quantum.OnQubit_controlled_phase":
             apply_onqubit_controlled_phase(circuit, current_op)
         elif current_op.name == "quantum.OnQubit_swap":

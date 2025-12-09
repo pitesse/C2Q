@@ -852,6 +852,55 @@ class OnQubitHadamardOp(IRDLOperation):
 
 
 @irdl_op_definition
+class OnQubitPhaseOp(IRDLOperation):
+    """
+    @brief Operation to apply a phase gate to a specific qubit in a register.
+    
+    This operation applies a phase rotation to a specific qubit within a vector register.
+    Phase gate: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩
+    """
+    
+    name = "quantum.OnQubit_phase"
+    register: Operand = operand_def(VectorType)
+    index: IntegerAttr = attr_def(IntegerAttr)
+    phase: FloatAttr = attr_def(FloatAttr)
+    res: OpResult = result_def(VectorType)
+    
+    def __init__(self, register: SSAValue, index: int, phase: float):
+        """
+        @brief Apply a phase gate to a specific qubit in a vector.
+        
+        @param register: The vector containing the qubit
+        @param index: The index of the qubit to apply phase to
+        @param phase: The phase angle in radians
+        """
+        if isinstance(register.type, VectorType):
+            size = register.type.shape.data[0]  # type: ignore
+            super().__init__(
+                result_types=[VectorType(IntegerType(1), [size])],
+                operands=[register],
+                attributes={
+                    "index": IntegerAttr(index, IntegerType(32)),
+                    "phase": FloatAttr(phase, Float64Type()),
+                },
+            )
+        else:
+            raise TypeError("Expected VectorType for register parameter")
+    
+    @staticmethod
+    def from_value(register: SSAValue, index: int, phase: float) -> "OnQubitPhaseOp":
+        """
+        @brief Factory method to create a OnQubitPhaseOp.
+        
+        @param register: The vector containing the qubit
+        @param index: The index of the qubit
+        @param phase: The phase angle in radians
+        @return A new OnQubitPhaseOp instance
+        """
+        return OnQubitPhaseOp(register, index, phase)
+
+
+@irdl_op_definition
 class OnQubitControlledPhaseOp(IRDLOperation):
     """
     @brief Operation to apply a controlled phase rotation to qubits in registers.

@@ -436,6 +436,27 @@ class QuantumIRGen:
         
         return result
 
+    def apply_phase_gate(self, register: SSAValue, qubit_index: int, phase: float) -> SSAValue:
+        """
+        Apply a phase gate to a specific qubit in a register.
+        Phase gate: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩
+        """
+        from C2Q.dialects.quantum_dialect import OnQubitPhaseOp
+        
+        result = self.builder.insert(
+            OnQubitPhaseOp.from_value(register, qubit_index, phase)
+        ).res
+        
+        # Update naming convention
+        if register._name:
+            parts = register._name.split('_')
+            if len(parts) == 2:
+                register_num = parts[0].lstrip('q')
+                version_num = int(parts[1]) + 1
+                result._name = f"q{register_num}_{version_num}"
+        
+        return result
+
     def reverse_qubit_order(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
         Reverse the order of qubits in the register using SWAP operations
@@ -451,7 +472,10 @@ class QuantumIRGen:
 
     def apply_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
-        Apply Quantum Fourier Transform to a register
+        Apply Quantum Fourier Transform to a register.
+        Matches Qiskit's standard implementation (MSB -> LSB).
+        
+        Ref: qiskit.library.QFT(do_swaps=False)
         QFT transforms |x⟩ → (1/√2ⁿ) Σ e^(2πixk/2ⁿ) |k⟩
         
         NOTE: This implements QFT with do_swaps=False (matching Qiskit's Draper adder).
@@ -462,27 +486,30 @@ class QuantumIRGen:
         
         result = register
         
-        # QFT algorithm: work from most significant to least significant bit
-        for i in range(n_qubits):
-            # Apply Hadamard gate to qubit i
+        # QFT processes from most significant qubit down to 0 (MSB -> LSB)
+        for i in reversed(range(n_qubits)):
+            # 1. Apply Hadamard to the current qubit
             result = self.apply_hadamard_gate(result, i)
             
-            # Apply controlled phase rotations
-            for j in range(i + 1, n_qubits):
-                # Controlled R_k gate where k = j - i + 1
-                k = j - i + 1
+            # 2. Apply controlled rotations from all LOWER qubits (j < i)
+            # targeting the current qubit (i)
+            for j in reversed(range(i)):
+                # The distance between qubits determines the phase denominator
+                # k = 1 implies π/2, k = 2 implies π/4, etc.
+                k = i - j + 1
                 phase_angle = 2 * math.pi / (2 ** k)
+                
+                # Control is j, Target is i (the one we just applied H to)
                 result = self.apply_controlled_phase_rotation(result, j, result, i, phase_angle)
         
-        # NO SWAP GATES - matching Qiskit's do_swaps=False behavior
-        # The qubits remain in reversed order (implicit reversal)
-        
+        # We do NOT swap qubits at the end, consistent with Draper's requirement
+        # for "do_swaps=False". The output state is effectively bit-reversed.
         return result
 
     def apply_inverse_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
-        Apply inverse Quantum Fourier Transform
-        This is the adjoint of QFT
+        Apply Inverse Quantum Fourier Transform.
+        Un-does the operations of QFT in exact reverse order.
         
         NOTE: Input register is expected to be in REVERSED order from QFT.
         IQFT will process it and return it in normal order (no SWAP needed at start).
@@ -491,16 +518,18 @@ class QuantumIRGen:
         
         result = register
         
-        # Apply inverse QFT (reverse the QFT steps)
-        # The register is already in reversed order from QFT, so we work on it directly
-        for i in range(n_qubits - 1, -1, -1):
-            # Apply inverse controlled phase rotations
-            for j in range(n_qubits - 1, i, -1):
-                k = j - i + 1
-                phase_angle = -2 * math.pi / (2 ** k)  # Negative phase for inverse
+        # IQFT processes from 0 up to n-1 (Reverse of QFT's n-1 -> 0)
+        for i in range(n_qubits):
+            # 1. Apply inverse controlled rotations first (Reverse of QFT order)
+            # Controlled by lower qubits j < i
+            for j in range(i):
+                k = i - j + 1
+                phase_angle = -2 * math.pi / (2 ** k)  # Negative phase
+                
+                # Control is j, Target is i
                 result = self.apply_controlled_phase_rotation(result, j, result, i, phase_angle)
             
-            # Apply Hadamard gate to qubit i
+            # 2. Apply Hadamard to the current qubit
             result = self.apply_hadamard_gate(result, i)
         
         return result
@@ -522,9 +551,23 @@ class QuantumIRGen:
         """
         import math
         
+        # DEBUG: Print what we're adding
+        print(f"🔍 DEBUG Draper Addition:")
+        print(f"   a_expr: {a_expr}")
+        print(f"   b_expr: {b_expr}")
+        
         # Evaluate expressions to get quantum registers
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
+        
+        print(f"   a register: {a}")
+        print(f"   b register: {b}")
+        print(f"   a type: {a.type if a else None}")
+        print(f"   b type: {b.type if b else None}")
+        if hasattr(a, '_name'):
+            print(f"   a name: {a._name}")
+        if hasattr(b, '_name'):
+            print(f"   b name: {b._name}")
         
         # Ensure we have valid operands
         if a is None or b is None:
@@ -532,35 +575,55 @@ class QuantumIRGen:
         
         # Handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
+            print(f"   Converting single qubits to registers...")
             if not isinstance(a.type, VectorType):
                 a_temp = self.ir_gen_init(None)
                 a_temp = self.apply_cnot_on_bits(a, 0, a_temp, 0)
                 a = a_temp
+                print(f"   a converted to: {a}")
             if not isinstance(b.type, VectorType):
                 b_temp = self.ir_gen_init(None)
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
+                print(f"   b converted to: {b}")
 
         # Work with appropriate bit width
-        bit_width = 8  # Use 8 bits for testing (was 32)
+        bit_width = 8
+        print(f"   bit_width: {bit_width}")
+
+        # # CRITICAL: Apply phase gates to input register FIRST (required by Draper QFT adder)
+        # # This must be done BEFORE copying b to target
+        # # This prepares the input in the correct phase basis for QFT addition
+        # print(f"   Applying phase preparation to input register a...")
+        # for i in range(bit_width):
+        #     a = self.apply_phase_gate(a, i, math.pi / 2)
+        # print(f"   Phase preparation complete")
 
         # Determine target register for the addition
         if target_reg is None:
+            print(f"   Creating new target register and copying b into it...")
             # Create a new register and copy B into it
             target = self.ir_gen_init(None)
+            print(f"   target after init: {target}")
             # Copy B into the target register
             for i in range(bit_width):
                 target = self.apply_cnot_on_bits(b, i, target, i)
+            print(f"   target after copying b: {target}")
         else:
+            print(f"   Using provided target register...")
             # Use the provided target register, but still need to copy B into it
             target = target_reg
             # Copy B into the target register
             for i in range(bit_width):
                 target = self.apply_cnot_on_bits(b, i, target, i)
+            print(f"   target after copying b: {target}")
         
+        print(f"   About to apply QFT to target...")
         # Step 1: Apply QFT to target register
         result = self.apply_qft(target, bit_width)
+        print(f"   result after QFT: {result}")
         
+        print(f"   Applying Draper phase rotations...")
         # Step 2: Apply Draper's controlled phase additions
         # For each bit i in register A, and each bit j in target where j >= i:
         # If A[i] = 1, apply phase rotation 2π/2^(j-i+1) to target[j]
@@ -622,9 +685,9 @@ class QuantumIRGen:
                 b_temp = self.ir_gen_init(None)
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
-
-        bit_width = 8  # For 8-bit integers (testing)
-
+        
+        bit_width = 8
+        
         # Determine target register for the subtraction
         if target_reg is None:
             # Create a new register and copy B into it
@@ -980,7 +1043,7 @@ class QuantumIRGen:
         @param expr: Optional expression for context (typically a NumberExprAST)
         @return: SSA value representing the multi-qubit register
         """
-        bit_width = 8  # Use 8 bits for testing (reduces operation count significantly)
+        bit_width = 8
 
         # Get base register number
         register_num = self.n_qubit // bit_width
@@ -1011,7 +1074,7 @@ class QuantumIRGen:
         # Handle both positive and negative numbers
         if expr.val != 0:
             value = int(expr.val)
-            bit_width = 8  # Match the bit width used in ir_gen_init
+            bit_width = 8  # Must match bit width in ir_gen_init
             
             # For negative numbers, use two's complement representation
             if value < 0:
@@ -1065,7 +1128,7 @@ class QuantumIRGen:
                     qubit = self.ir_gen_init(None)
                     # Use direct copy instead of CNotOp
                     # For each bit in the register
-                    bit_width = 8  # Match the bit width used in ir_gen_init
+                    bit_width = 8  # Must match ir_gen_init
                     for i in range(bit_width):
                         qubit = self.apply_cnot_on_bits(source, i, qubit, i)
                     return qubit
@@ -1094,7 +1157,7 @@ class QuantumIRGen:
                         raise IRGenError("Binary expression evaluation failed")
                     
                     # Copy result to the target register
-                    bit_width = 8
+                    bit_width = 8  # Must match ir_gen_init
                     for i in range(bit_width):
                         target_reg = self.apply_cnot_on_bits(temp_result, i, target_reg, i)
                     expr_result = target_reg
