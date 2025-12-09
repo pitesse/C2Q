@@ -252,6 +252,10 @@ if __name__ == "__main__":
                        help="Disable quantum circuit optimizations")
     parser.add_argument("--validate", dest="validate", type=int, metavar="EXPECTED",
                        help="Validate circuit output against expected integer result")
+    parser.add_argument("--signed", dest="signed", action="store_true",
+                       help="Interpret validation result as signed two's complement (for subtraction)")
+    parser.add_argument("--result-width", dest="result_width", type=int, default=8, metavar="BITS",
+                       help="Number of bits in result register (default: 8, use 16 for multiplication)")
     
     # Parse arguments and run main function
     args = parser.parse_args()
@@ -274,7 +278,13 @@ if __name__ == "__main__":
         print("🔬 VALIDATION")
         print("="*60)
         
-        passed = validate_circuit(circuit, args.validate, verbose=True)
+        passed = validate_circuit(
+            circuit, 
+            args.validate, 
+            verbose=True,
+            signed=args.signed,
+            result_width=args.result_width
+        )
         
         import sys
         sys.exit(0 if passed else 1)

@@ -13,7 +13,7 @@ from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 
 
-def validate_circuit(circuit: QuantumCircuit, expected_result: int, verbose: bool = True) -> bool:
+def validate_circuit(circuit: QuantumCircuit, expected_result: int, verbose: bool = True, signed: bool = False, result_width: int = 8) -> bool:
     """
     Validate a quantum circuit by simulating it and checking the result.
     
@@ -24,6 +24,8 @@ def validate_circuit(circuit: QuantumCircuit, expected_result: int, verbose: boo
         circuit: The Qiskit QuantumCircuit to validate (already created)
         expected_result: Expected integer result
         verbose: Whether to print detailed output
+        signed: Whether to interpret result as signed two's complement (default: False)
+        result_width: Number of bits in the result register (default: 8)
         
     Returns:
         True if validation passes, False otherwise
@@ -37,7 +39,7 @@ def validate_circuit(circuit: QuantumCircuit, expected_result: int, verbose: boo
         counts = simulate_circuit(circuit, shots=1024)
         
         # Extract result
-        actual_result = extract_result_value(counts, num_qubits=8)
+        actual_result = extract_result_value(counts, target_width=result_width, signed=signed)
         
         if verbose:
             print(f"\n📊 Results:")
@@ -104,24 +106,26 @@ def simulate_circuit(circuit: QuantumCircuit, shots: int = 1024) -> Dict[str, in
         return result.get_counts()
 
 
-def extract_result_value(counts: Dict[str, int], num_qubits: int = 8) -> Optional[int]:
+def extract_result_value(counts: Dict[str, int], target_width: int = 8, signed: bool = False) -> Optional[int]:
     """
     Extract integer value from quantum measurement results.
     
     Interprets Qiskit measurement bitstrings according to qubit ordering conventions:
     - Bitstring format: \"qN...q2 q1 q0\" (leftmost is MSB, rightmost is LSB)
-    - For single register: entire bitstring represents the value
-    - For multiple registers: rightmost num_qubits bits represent first register
+    - Result register is always in the LEFTMOST target_width bits
+      (since Qiskit orders as q_last...q_first, and result is created last)
     
-    Example: 
-        Measurement \"00000011\" represents value 3 (bits 0 and 1 set)
-        
     Args:
         counts: Measurement results from simulation
-        num_qubits: Number of qubits per register (default: 8)
+        target_width: Number of bits in the result register (default: 8)
+        signed: If True, interpret as two's complement signed integer (default: False)
         
     Returns:
         Integer value extracted from most common measurement outcome
+        
+    Example:
+        For unsigned: '00000011' -> 3
+        For signed 8-bit: '11111111' -> -1 (not 255)
     """
     if not counts:
         return None
@@ -133,31 +137,28 @@ def extract_result_value(counts: Dict[str, int], num_qubits: int = 8) -> Optiona
     bitstring = most_common.replace(' ', '')
     
     print(f"\n🔍 DEBUG: Full bitstring: {bitstring} (length: {len(bitstring)})")
-    print(f"🔍 DEBUG: First 8 bits:  {bitstring[:8]}")
-    print(f"🔍 DEBUG: Middle 8 bits: {bitstring[8:16]}")
-    print(f"🔍 DEBUG: Last 8 bits:   {bitstring[16:24]}")
     
-    # Extract relevant bits
-    # In Qiskit, the measurement bitstring is "qN...q1q0" where rightmost = q0
-    # The bitstring format: [last_register][middle_register][first_register]
-    # For our case: [q2_result][q1_b][q0_a]
-    # We want the RIGHTMOST register (first one created = q0? or q2?)
+    # Extract the leftmost target_width bits (result register is created last)
+    result_bits = bitstring[:target_width]
     
-    # Let's try different interpretations:
-    leftmost_8 = bitstring[:num_qubits]
-    middle_8 = bitstring[num_qubits:2*num_qubits] if len(bitstring) >= 2*num_qubits else ""
-    rightmost_8 = bitstring[-num_qubits:] if len(bitstring) > num_qubits else bitstring
+    print(f"🔍 DEBUG: Result bits ({target_width}-bit): {result_bits}")
     
-    print(f"🔍 DEBUG: Leftmost 8  = {leftmost_8} -> int = {int(leftmost_8, 2)}")
-    if middle_8:
-        print(f"🔍 DEBUG: Middle 8    = {middle_8} -> int = {int(middle_8, 2)}")
-    print(f"🔍 DEBUG: Rightmost 8 = {rightmost_8} -> int = {int(rightmost_8, 2)}")
+    # Convert to integer
+    unsigned_value = int(result_bits, 2)
     
-    # The result register is the leftmost (last created register q2)
-    # With do_swaps=False in QFT, there are NO explicit SWAP gates
-    # So we read the bits in normal order (NO reversal needed)
-    result_bits = leftmost_8
-    
-    print(f"🔍 DEBUG: Using leftmost (no reversal): {result_bits} = {int(result_bits, 2)}")
-    
-    return int(result_bits, 2)
+    # Handle signed two's complement if requested
+    if signed:
+        # Check if the sign bit (MSB) is set
+        sign_bit = int(result_bits[0])
+        if sign_bit == 1:
+            # Negative number: compute two's complement
+            # Formula: value - 2^n where n is the bit width
+            signed_value = unsigned_value - (1 << target_width)
+            print(f"🔍 DEBUG: Unsigned = {unsigned_value}, Signed (two's complement) = {signed_value}")
+            return signed_value
+        else:
+            print(f"🔍 DEBUG: Unsigned = {unsigned_value}, Signed = {unsigned_value} (positive)")
+            return unsigned_value
+    else:
+        print(f"🔍 DEBUG: Unsigned value = {unsigned_value}")
+        return unsigned_value

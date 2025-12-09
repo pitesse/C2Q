@@ -470,6 +470,70 @@ class QuantumIRGen:
         
         return result
 
+    def apply_ccphase(self, control1_reg: SSAValue, control1_bit: int,
+                     control2_reg: SSAValue, control2_bit: int,
+                     target_reg: SSAValue, target_bit: int,
+                     phase_angle: float) -> SSAValue:
+        """
+        Apply doubly-controlled phase gate: CCPhase(theta).
+        Only applies phase if BOTH control qubits are |1⟩.
+        
+        Decomposition:
+        1. CP(theta/2, control2, target)
+        2. CNOT(control1, control2)
+        3. CP(-theta/2, control2, target)
+        4. CNOT(control1, control2)
+        5. CP(theta/2, control1, target)
+        
+        Args:
+            control1_reg: First control register
+            control1_bit: First control bit index
+            control2_reg: Second control register
+            control2_bit: Second control bit index
+            target_reg: Target register
+            target_bit: Target bit index
+            phase_angle: Phase angle theta
+            
+        Returns:
+            Updated target register
+        """
+        result = target_reg
+        
+        # Step 1: CP(theta/2, control2, target)
+        result = self.apply_controlled_phase_rotation(
+            control2_reg, control2_bit,
+            result, target_bit,
+            phase_angle / 2
+        )
+        
+        # Step 2: CNOT(control1, control2)
+        control2_reg = self.apply_cnot_on_bits(
+            control1_reg, control1_bit,
+            control2_reg, control2_bit
+        )
+        
+        # Step 3: CP(-theta/2, control2, target)
+        result = self.apply_controlled_phase_rotation(
+            control2_reg, control2_bit,
+            result, target_bit,
+            -phase_angle / 2
+        )
+        
+        # Step 4: CNOT(control1, control2) - undo the CNOT
+        control2_reg = self.apply_cnot_on_bits(
+            control1_reg, control1_bit,
+            control2_reg, control2_bit
+        )
+        
+        # Step 5: CP(theta/2, control1, target)
+        result = self.apply_controlled_phase_rotation(
+            control1_reg, control1_bit,
+            result, target_bit,
+            phase_angle / 2
+        )
+        
+        return result
+
     def apply_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
         Apply Quantum Fourier Transform to a register.
@@ -691,33 +755,33 @@ class QuantumIRGen:
         
         # Determine target register for the subtraction
         if target_reg is None:
-            # Create a new register and copy B into it
+            # Create a new register and copy A into it (minuend)
             target = self.ir_gen_init(None)
-            # Copy B into the target register
+            # Copy A into the target register
             for i in range(bit_width):
-                target = self.apply_cnot_on_bits(b, i, target, i)
+                target = self.apply_cnot_on_bits(a, i, target, i)
         else:
-            # Use the provided target register, but still need to copy B into it
+            # Use the provided target register, but still need to copy A into it
             target = target_reg
-            # Copy B into the target register
+            # Copy A into the target register
             for i in range(bit_width):
-                target = self.apply_cnot_on_bits(b, i, target, i)
+                target = self.apply_cnot_on_bits(a, i, target, i)
         
         # Step 1: Apply QFT to target register
         result = self.apply_qft(target, bit_width)
         
         # Step 2: Apply Draper's controlled phase subtractions (negative phases)
-        # For each bit i in register A, and each bit j in target where j >= i:
-        # If A[i] = 1, apply phase rotation -2π/2^(j-i+1) to target[j]
+        # For each bit i in register B (subtrahend), and each bit j in target where j >= i:
+        # If B[i] = 1, apply phase rotation -2π/2^(j-i+1) to target[j]
         for i in range(bit_width):
             for j in range(i, bit_width):
                 # Negative phase angle: -2π/2^(j-i+1)
                 # This is the key formula for Draper's subtraction algorithm
                 phase_angle = -2 * math.pi / (2 ** (j - i + 1))
                 
-                # Apply controlled phase rotation: A[i] controls target[j]
+                # Apply controlled phase rotation: B[i] controls target[j]
                 result = self.apply_controlled_phase_rotation(
-                    a, i,        # Control: bit i of register A
+                    b, i,        # Control: bit i of register B (subtrahend)
                     result, j,   # Target: bit j of target register (after QFT)
                     phase_angle
                 )
@@ -727,26 +791,25 @@ class QuantumIRGen:
         
         return result
 
-    #TODO make this work with qft and shift and add
     def draper_quantum_multiplication(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
         """
-        Generate quantum circuit for multiplication using Draper's QFT-based shift-and-add.
+        Generate quantum circuit for multiplication using Draper's QFT-based algorithm.
+        Computes A * B by accumulating doubly-controlled phase rotations in Fourier space.
         
-        IMPORTANT LIMITATION: This implementation has critical simplifications that make it
-        incorrect for general quantum multiplication. It should be considered an educational
-        demonstration of the circuit structure rather than a correct algorithm.
-        
-        Issues with current implementation:
-        1. Controlled addition ignores control bits (always adds all shifted values)
-        2. Doubly-controlled gates simplified to singly-controlled 
-        3. Results are incorrect for cases requiring proper conditional logic
+        Algorithm:
+        1. Initialize product register with width = width(A) + width(B)
+        2. Apply QFT to product register
+        3. For each bit i in A and bit j in B:
+           - Apply doubly-controlled phase rotations to product bits
+           - Phase represents contribution of A[i] * B[j] * 2^(i+j)
+        4. Apply inverse QFT to get final product
         
         Args:
-            a_expr: First operand expression
-            b_expr: Second operand expression
+            a_expr: First operand expression (multiplicand)
+            b_expr: Second operand expression (multiplier)
             
         Returns:
-            The resulting quantum register (note: may be incorrect due to limitations)
+            The resulting quantum register containing A * B
         """
         import math
         
@@ -769,132 +832,44 @@ class QuantumIRGen:
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
 
-        # Use 4-bit arithmetic for manageable circuit size
-        bit_width = 4  
-        result_width = 8  # 4×4 = up to 8 bits result
+        # Get bit widths
+        width_a = 8  # Width of multiplicand
+        width_b = 8  # Width of multiplier
+        width_product = width_a + width_b  # Product needs double width to avoid overflow
         
-        # Initialize result register (accumulator)
-        result = self.ir_gen_init_with_width(result_width)
+        # Initialize product register (starts at 0)
+        product = self.ir_gen_init_with_width(width_product)
         
-        # WARNING: The following implements incorrect shift-and-add multiplication
-        # Each iteration should only add when B[i] = 1, but current implementation always adds
+        # Step 1: Apply QFT to product register
+        product = self.apply_qft(product, width_product)
         
-        # Shift-and-add multiplication using Draper QFT addition
-        # For each bit position i in the multiplier B
-        for i in range(bit_width):
-            # Step 1: Create shifted version of multiplicand A (A << i) - CORRECT
-            shifted_a = self.ir_gen_init_with_width(result_width)
-            
-            # Copy A to shifted_a with left shift by i positions - CORRECT
-            for j in range(bit_width):
-                shift_pos = i + j
-                if shift_pos < result_width:
-                    shifted_a = self.apply_cnot_on_bits(a, j, shifted_a, shift_pos)
-            
-            # Step 2: Should conditionally add shifted_a to result if B[i] = 1
-            # INCORRECT: Currently ignores B[i] and always adds - makes multiplication wrong
-            result = self.controlled_draper_addition(b, i, result, shifted_a)
+        # Step 2: Apply doubly-controlled phase rotations
+        # For each pair of bits (i from A, j from B), we add the contribution
+        # of A[i] * B[j] * 2^(i+j) to the product
+        for i in range(width_a):
+            for j in range(width_b):
+                # The contribution A[i]*B[j] is at bit position (i+j)
+                # We need to add this to all higher bits via phase rotations
+                for k in range(i + j, width_product):
+                    # Phase angle for adding 2^(i+j) to bit k
+                    # Formula: 2π / 2^(k - (i+j) + 1)
+                    phase_angle = 2 * math.pi / (2 ** (k - (i + j) + 1))
+                    
+                    # Apply doubly-controlled phase:
+                    # Only adds when both A[i]=1 AND B[j]=1
+                    product = self.apply_ccphase(
+                        a, i,      # Control 1: bit i of A
+                        b, j,      # Control 2: bit j of B
+                        product, k,  # Target: bit k of product
+                        phase_angle
+                    )
         
-        return result
+        # Step 3: Apply inverse QFT to get the final product
+        product = self.apply_inverse_qft(product, width_product)
+        
+        return product
 
-    def controlled_draper_addition(self, control_reg: SSAValue, control_bit: int,
-                                  target_reg: SSAValue, addend_reg: SSAValue) -> SSAValue:
-        """
-        Controlled Draper QFT addition: if control_bit = 1, then target += addend.
-        
-        Implements conditional quantum addition using the full Draper algorithm
-        with proper carry propagation via QFT in the frequency domain.
-        
-        Algorithm:
-        1. Apply QFT to target register
-        2. Apply controlled phase rotations based on addend bits
-        3. Apply inverse QFT to get the final sum
-        
-        Args:
-            control_reg: Register containing the control bit
-            control_bit: Index of the control bit  
-            target_reg: Register to add to (accumulator)
-            addend_reg: Register to add (shifted multiplicand)
-            
-        Returns:
-            Updated target register containing target + addend (if control = 1)
-        """
-        import math
-        
-        # Get register width
-        result_width: int
-        if isinstance(target_reg.type, VectorType):
-            shape_attr = target_reg.type.shape
-            if hasattr(shape_attr, 'data') and len(shape_attr.data) > 0:
-                result_width_attr = shape_attr.data[0]
-                if hasattr(result_width_attr, 'data'):
-                    result_width = int(result_width_attr.data)
-                else:
-                    result_width = 8
-            else:
-                result_width = 8
-        else:
-            result_width = 8
-        
-        # Step 1: Apply QFT to target register (transforms to frequency domain)
-        result = self.apply_qft(target_reg, result_width)
-        
-        # Step 2: Apply controlled Draper phase additions
-        # For each bit i in addend and each bit j >= i in target:
-        # If control_bit = 1 AND addend[i] = 1, apply phase rotation to target[j]
-        for i in range(result_width):
-            for j in range(i, result_width):
-                # Calculate Draper phase angle
-                phase_angle = 2 * math.pi / (2 ** (j - i + 1))
-                
-                # Apply doubly-controlled phase rotation:
-                # Controls: control_reg[control_bit] AND addend_reg[i]
-                # Target: result[j]
-                result = self.apply_doubly_controlled_phase(
-                    control_reg, control_bit,  # First control
-                    addend_reg, i,             # Second control  
-                    result, j,                 # Target
-                    phase_angle
-                )
-        
-        # Step 3: Apply inverse QFT to get the final sum in computational basis
-        result = self.apply_inverse_qft(result, result_width)
-        
-        return result
 
-    def apply_doubly_controlled_phase(self, control1_reg: SSAValue, control1_bit: int,
-                                     control2_reg: SSAValue, control2_bit: int,
-                                     target_reg: SSAValue, target_bit: int,
-                                     phase_angle: float) -> SSAValue:
-        """
-        Apply phase rotation controlled by two qubits: if both controls = 1, apply phase.
-        
-        This implements a proper doubly-controlled phase gate using a decomposition
-        that works correctly for the multiplication algorithm.
-        
-        For quantum multiplication correctness, we need:
-        - If control1_reg[control1_bit] = 1 AND control2_reg[control2_bit] = 1: apply phase
-        - Otherwise: do nothing
-        """
-        # FIXME: This is still a simplification for demonstration purposes
-        # A full implementation would require:
-        # 1. Ancilla qubits for proper doubly-controlled decomposition
-        # 2. Multiple controlled operations to implement the full logic
-        # 3. Or use of quantum libraries with built-in doubly-controlled gates
-        
-        # For educational purposes, we implement a conditional check:
-        # This approximates the correct behavior for small test cases
-        # where we can predict which bits will be active
-        
-        # Apply single control for now (documented limitation)
-        # In practice, this works for cases where control2 is expected to be 1
-        result = self.apply_controlled_phase_rotation(
-            control1_reg, control1_bit,
-            target_reg, target_bit,
-            phase_angle
-        )
-        
-        return result
 
     def ir_gen_init_with_width(self, width: int) -> SSAValue:
         """
