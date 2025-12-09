@@ -20,7 +20,6 @@ builtin.module {
     %q2_11 = "quantum.OnQubit_controlled_phase"(%q2_10, %q2_10) {control_index = 5 : i32, target_index = 7 : i32, phase = 0.78539816339744828 : f64} : (vector<8xi1>, vector<8xi1>) -> vector<8xi1>
     %q2_12 = "quantum.OnQubit_controlled_phase"(%q2_11, %q2_11) {control_index = 4 : i32, target_index = 7 : i32, phase = 0.39269908169872414 : f64} : (vector<8xi1>, vector<8xi1>) -> vector<8xi1>
     %q2_13 = "quantum.OnQubit_controlled_phase"(%q2_12, %q2_12) {control_index = 3 : i32, target_index = 7 : i32, phase = 0.19634954084936207 : f64} : (vector<8xi1>, vector<8xi1>) -> vector<8xi1>
-    %q2_14 = "quantum.OnQubit_controlled_phase"(%q2_13, %q2_13) {control_index = 2 : i32, target_index = 7 : i32, phase = 0.098174770424681035 : f64} : (vector<8xi1>, vector<8xi1>) -> vector<8xi1>
     %q2_15 = "quantum.OnQubit_controlled_phase"(%q2_14, %q2_14) {control_index = 1 : i32, target_index = 7 : i32, phase = 0.049087385212340517 : f64} : (vector<8xi1>, vector<8xi1>) -> vector<8xi1>
     %q2_16 = "quantum.OnQubit_controlled_phase"(%q2_15, %q2_15) {control_index = 0 : i32, target_index = 7 : i32, phase = 0.024543692606170259 : f64} : (vector<8xi1>, vector<8xi1>) -> vector<8xi1>
     %q2_17 = "quantum.OnQubit_hadamard"(%q2_16) {index = 6 : i32} : (vector<8xi1>) -> vector<8xi1>

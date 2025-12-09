@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from C2Q.frontend.parser import CParser
 from C2Q.frontend.ir_gen import QuantumIRGen
 from C2Q.middle_end.optimizations import optimize_quantum_circuit
-from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit, metrics
+from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit
 
 
 @dataclass
@@ -75,16 +75,22 @@ TEST_SUITE = [
         "path": "tests/inputs/test_assignment.c",
         "description": "Multiple assignment operations"
     },
+    {
+        "name": "Optimization Showcase",
+        "path": "tests/inputs/test_optimization_showcase.c",
+        "description": "Dead code, redundant ops, aggressive phase optimization"
+    },
 ]
 
 
-def compile_to_mlir(source_path: Path, optimization_level: str = "none") -> ModuleOp:
+def compile_to_mlir(source_path: Path, optimization_level: str = "none", precision_threshold: float = 1e-6) -> ModuleOp:
     """
     Compile C source to MLIR with specified optimization level.
     
     Args:
         source_path: Path to C source file
         optimization_level: "none" (no optimization) or "default" (full optimization)
+        precision_threshold: Phase precision threshold for approximate QFT (default: 1e-6, aggressive: 0.1)
         
     Returns:
         MLIR ModuleOp
@@ -104,7 +110,8 @@ def compile_to_mlir(source_path: Path, optimization_level: str = "none") -> Modu
             module_op,
             optimization_level=optimization_level,
             analysis_only=False,
-            verbose=False  # Suppress output for benchmarking
+            verbose=False,  # Suppress output for benchmarking
+            precision_threshold=precision_threshold
         )
     
     return module_op
@@ -152,11 +159,8 @@ def extract_qiskit_metrics(module: ModuleOp) -> Dict[str, int]:
     circuit_info = get_quantum_circuit_info(input_args, first_op)
     circuit = create_circuit(first_op, circuit_info["output_number"])
     
-    # Extract metrics
-    circuit_metrics = metrics(circuit)
-    
-    # Count specific gate types
-    gate_counts = circuit_metrics.get("gate_counts", {})
+    # Count specific gate types using circuit.count_ops()
+    gate_counts = circuit.count_ops()
     
     return {
         "total_gates": len(circuit),
@@ -208,9 +212,11 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
         **baseline_qiskit_metrics
     )
     
-    # Run optimized (default optimization level)
-    print("    Running optimized (default)...")
-    optimized_module = compile_to_mlir(source_path, optimization_level="default")
+    # Run optimized (default optimization level with aggressive phase precision)
+    print("    Running optimized (aggressive threshold=0.1)...")
+    # π/32 ≈ 0.098, so threshold=0.1 eliminates rotations smaller than π/16
+    # This creates an Approximate QFT, a standard quantum optimization technique
+    optimized_module = compile_to_mlir(source_path, optimization_level="default", precision_threshold=0.1)
     optimized_mlir_metrics = extract_mlir_metrics(optimized_module)
     optimized_qiskit_metrics = extract_qiskit_metrics(optimized_module)
     

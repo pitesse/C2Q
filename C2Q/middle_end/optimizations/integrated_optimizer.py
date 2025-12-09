@@ -252,12 +252,13 @@ class IntegratedQuantumOptimizer:
             print(f"Total quantum operations analyzed: {total_ops}")
 
 
-def create_optimizer_pipeline(optimization_level: str = "default") -> IntegratedQuantumOptimizer:
+def create_optimizer_pipeline(optimization_level: str = "default", precision_threshold: float = 1e-6) -> IntegratedQuantumOptimizer:
     """
     Create preconfigured optimization pipeline.
     
     Args:
         optimization_level: "conservative", "default", "aggressive", or "analysis_only"
+        precision_threshold: Phase precision threshold for Draper optimization (default: 1e-6)
         
     Returns:
         Configured IntegratedQuantumOptimizer instance
@@ -271,7 +272,7 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
             enable_renumbering=True,
             enable_in_place=False,
             enable_draper_opt=False,
-            precision_threshold=1e-3
+            precision_threshold=max(precision_threshold, 1e-3)  # Conservative minimum
         )
     
     elif optimization_level == "aggressive":
@@ -283,7 +284,7 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
             enable_renumbering=True,
             enable_in_place=True,
             enable_draper_opt=True,
-            precision_threshold=1e-6
+            precision_threshold=precision_threshold  # Use provided threshold
         )
     
     elif optimization_level == "analysis_only":
@@ -309,14 +310,15 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
             enable_renumbering=True,
             enable_in_place=True,
             enable_draper_opt=True,
-            precision_threshold=1e-6
+            precision_threshold=precision_threshold  # Use provided threshold
         )
 
 
 def optimize_quantum_circuit(module: ModuleOp, 
                            optimization_level: str = "default",
                            analysis_only: bool = False,
-                           verbose: bool = True) -> ModuleOp:
+                           verbose: bool = True,
+                           precision_threshold: float = 1e-6) -> ModuleOp:
     """
     Convenience function to optimize quantum circuits.
     
@@ -325,9 +327,10 @@ def optimize_quantum_circuit(module: ModuleOp,
         optimization_level: Level of optimization to apply
         analysis_only: Only perform analysis without modifications
         verbose: Print optimization progress
+        precision_threshold: Phase precision threshold for Draper optimization
         
     Returns:
         Optimized MLIR module
     """
-    optimizer = create_optimizer_pipeline(optimization_level)
+    optimizer = create_optimizer_pipeline(optimization_level, precision_threshold=precision_threshold)
     return optimizer.optimize_circuit(module, analysis_only, verbose)

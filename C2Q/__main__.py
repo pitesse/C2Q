@@ -46,7 +46,7 @@ def parse_c_to_ast(path: Path):
     
     return ast
 
-def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True):
+def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True, precision: float = 1e-4):
     """Generate Quantum IR from AST with optional optimizations"""
     ir_gen = QuantumIRGen()
     module_op = ir_gen.ir_gen_module(ast)
@@ -60,7 +60,8 @@ def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True):
             module_op, 
             optimization_level="default",
             analysis_only=False,
-            verbose=True
+            verbose=True,
+            precision_threshold=precision
         )
         
         print("✅ Optimization pipeline completed")
@@ -133,7 +134,7 @@ def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
 #------------------------------------------------------------------------------
 # MAIN FUNCTION
 #------------------------------------------------------------------------------
-def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = True):
+def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = True, precision: float = 1e-4):
     """!
     @brief Main compilation function that processes input files and generates quantum IR.
     
@@ -171,7 +172,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
                 return None
 
             # generate Quantum IR
-            module_op, mlir = generate_quantum_ir(ast, print_generic, optimize)
+            module_op, mlir = generate_quantum_ir(ast, print_generic, optimize, precision)
             
             # save IR to file
             save_ir_to_file(path, mlir)
@@ -258,6 +259,8 @@ if __name__ == "__main__":
                        help="Interpret validation result as signed two's complement (for subtraction)")
     parser.add_argument("--result-width", dest="result_width", type=int, default=8, metavar="BITS",
                        help="Number of bits in result register (default: 8, use 16 for multiplication)")
+    parser.add_argument("--precision", dest="precision", type=float, default=1e-4,
+                       help="Phase precision threshold for optimization (default: 1e-4)")
     
     # Parse arguments and run main function
     args = parser.parse_args()
@@ -273,7 +276,7 @@ if __name__ == "__main__":
         print("✅ Validating OPTIMIZED circuit (--force-optimize enabled)")
     
     # Run compilation to get the circuit
-    circuit = main(args.source, args.emit, args.ir, args.print_generic, optimize)
+    circuit = main(args.source, args.emit, args.ir, args.print_generic, optimize, args.precision)
     
     # If validation requested, validate the circuit we just created
     if args.validate is not None and circuit is not None:
