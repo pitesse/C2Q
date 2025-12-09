@@ -1,0 +1,5 @@
+Test Name,Base MLIR Ops,Opt MLIR Ops,MLIR Reduction %,Base Gates,Opt Gates,Gate Reduction %,Base Depth,Opt Depth,Depth Reduction %,Base Qubits,Opt Qubits,Base CNOTs,Opt CNOTs,CNOT Reduction %,Base Hadamards,Opt Hadamards,Base SWAPs,Opt SWAPs,Base Phase Gates,Opt Phase Gates
+Add (8-bit),125,125,0.0,120,120,0.0,39,39,0.0,24,24,0,0,0.0,0,0,0,0,0,0
+Sub (8-bit),124,124,0.0,119,119,0.0,39,39,0.0,24,24,0,0,0.0,0,0,0,0,0,0
+Mult (Small 2×3),3169,3169,0.0,3163,3163,0.0,2051,2051,0.0,40,40,0,0,0.0,0,0,0,0,0,0
+Assignment,243,242,0.4,236,235,0.4,55,54,1.8,40,40,0,0,0.0,0,0,0,0,0,0
