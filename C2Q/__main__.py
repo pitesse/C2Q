@@ -250,6 +250,8 @@ if __name__ == "__main__":
                        help="Print operations in generic format")
     parser.add_argument("--no-optimize", dest="no_optimize", action="store_true",
                        help="Disable quantum circuit optimizations")
+    parser.add_argument("--force-optimize", dest="force_optimize", action="store_true",
+                       help="Force optimizations even during validation (use to test optimized circuits)")
     parser.add_argument("--validate", dest="validate", type=int, metavar="EXPECTED",
                        help="Validate circuit output against expected integer result")
     parser.add_argument("--signed", dest="signed", action="store_true",
@@ -260,12 +262,15 @@ if __name__ == "__main__":
     # Parse arguments and run main function
     args = parser.parse_args()
     
-    # Force optimizations off when validating (optimizations currently have bugs)
+    # Determine optimization setting
     optimize = not args.no_optimize
-    if args.validate is not None:
+    if args.validate is not None and not args.force_optimize:
         optimize = False
         if not args.no_optimize:
-            print("⚠️  Optimizations disabled for validation (optimization passes have known bugs)")
+            print("⚠️  Optimizations disabled for validation (use --force-optimize to test optimized circuits)")
+    elif args.validate is not None and args.force_optimize:
+        optimize = True
+        print("✅ Validating OPTIMIZED circuit (--force-optimize enabled)")
     
     # Run compilation to get the circuit
     circuit = main(args.source, args.emit, args.ir, args.print_generic, optimize)

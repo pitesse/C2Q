@@ -291,7 +291,20 @@ class QuantumOptimizer:
     def _get_phase_angle(self, op: Operation) -> float:
         """Extract phase angle from controlled phase operation."""
         try:
-            return float(op.attributes.get("phase", 0.0))
+            attr = op.attributes.get("phase")
+            if attr is None:
+                return 0.0
+            # Try different XDSL attribute access patterns
+            if hasattr(attr, 'value'):
+                if hasattr(attr.value, 'data'):
+                    return float(attr.value.data)
+                return float(attr.value)
+            elif hasattr(attr, 'data'):
+                return float(attr.data)
+            elif hasattr(attr, 'parameters') and len(attr.parameters) > 0:
+                return float(attr.parameters[0].data)
+            else:
+                return float(attr)
         except:
             return 0.0
     

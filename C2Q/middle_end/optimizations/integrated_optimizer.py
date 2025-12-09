@@ -19,6 +19,7 @@ from .remove_unused_op import RemoveUnusedOperations
 from .ccnot_decomposition import CCnot_decomposition
 from .qubit_renumber import QubitRenumber
 from .in_placing import InPlacing
+from .draper_optimizer import DraperOptimizer
 # Hermitian transformation uses ModulePass, need different integration approach
 # from .hermitian_gates_transformation import HermitianGatesElimination
 # from .common_subexpr_elimination import CommonSubexprElimination
@@ -41,6 +42,7 @@ class IntegratedQuantumOptimizer:
                  enable_dead_code: bool = True,
                  enable_renumbering: bool = True,
                  enable_in_place: bool = True,
+                 enable_draper_opt: bool = True,
                  precision_threshold: float = 1e-6):
         """
         Initialize the integrated optimizer.
@@ -51,6 +53,7 @@ class IntegratedQuantumOptimizer:
             enable_dead_code: Enable removal of unused operations
             enable_renumbering: Enable qubit renumbering optimization
             enable_in_place: Enable in-place computation optimization
+            enable_draper_opt: Enable Draper QFT arithmetic optimizations
             precision_threshold: Threshold for phase precision optimization
         """
         self.enable_decomposition = enable_decomposition
@@ -58,6 +61,7 @@ class IntegratedQuantumOptimizer:
         self.enable_dead_code = enable_dead_code
         self.enable_renumbering = enable_renumbering
         self.enable_in_place = enable_in_place
+        self.enable_draper_opt = enable_draper_opt
         self.precision_threshold = precision_threshold
         
         # Initialize analyzer for insights
@@ -138,6 +142,19 @@ class IntegratedQuantumOptimizer:
         """
         rewriter = Rewriter()
         patterns = []
+        
+        # Apply Draper-specific optimizations first (before pattern rewrites)
+        if self.enable_draper_opt:
+            if verbose:
+                print("  🔄 Applying Draper QFT optimizations...")
+            try:
+                draper_opt = DraperOptimizer(precision_threshold=self.precision_threshold)
+                module = draper_opt.optimize_draper_circuit(module)
+                if verbose:
+                    print("  ✅ Applied: Draper QFT optimizations")
+            except Exception as e:
+                if verbose:
+                    print(f"  ⚠️  Draper optimization failed: {e}")
         
         # Build optimization pipeline based on enabled passes
         if self.enable_dead_code:
@@ -253,6 +270,7 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
             enable_dead_code=True,
             enable_renumbering=True,
             enable_in_place=False,
+            enable_draper_opt=False,
             precision_threshold=1e-3
         )
     
@@ -264,6 +282,7 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
             enable_dead_code=True,
             enable_renumbering=True,
             enable_in_place=True,
+            enable_draper_opt=True,
             precision_threshold=1e-6
         )
     
@@ -274,17 +293,23 @@ def create_optimizer_pipeline(optimization_level: str = "default") -> Integrated
             enable_cse=False,
             enable_dead_code=False,
             enable_renumbering=False,
-            enable_in_place=False
+            enable_in_place=False,
+            enable_draper_opt=False
         )
     
     else:  # "default"
         # Balanced optimization approach
+        # NOTE: RemoveUnusedOperations (dead code elimination) is DISABLED because
+        # it incorrectly identifies quantum operations as unused and removes them,
+        # breaking Draper multiplication circuits. This needs to be fixed before
+        # re-enabling. See: draper_optimizer.py bug investigation.
         return IntegratedQuantumOptimizer(
             enable_decomposition=True,
             enable_cse=False,  # Disabled for now due to potential compatibility issues
-            enable_dead_code=True,
+            enable_dead_code=False,  # DISABLED - incorrectly removes operations in multiplication
             enable_renumbering=True,
             enable_in_place=True,
+            enable_draper_opt=True,
             precision_threshold=1e-6
         )
 

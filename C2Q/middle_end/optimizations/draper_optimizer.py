@@ -96,6 +96,7 @@ class DraperOptimizer:
         
         # Look for patterns where higher-order bits are never set
         bit_usage = self._analyze_bit_usage(module)
+        # Default to 7 (full 8-bit) if no bits found (e.g., dynamic inputs)
         max_significant_bit = max(bit_usage) if bit_usage else 7
         
         # If we're only using lower bits, we can eliminate higher-order QFT operations
@@ -103,6 +104,8 @@ class DraperOptimizer:
             eliminated = self._eliminate_unused_qft_operations(module, max_significant_bit + 1)
             self.stats.depth_reduction += eliminated
             print(f"    Reduced QFT depth to {max_significant_bit + 1} bits")
+        else:
+            print(f"    All bits ({max_significant_bit + 1}) in use, no QFT depth reduction possible")
     
     def _eliminate_redundant_swaps(self, module: ModuleOp) -> None:
         """
@@ -157,7 +160,20 @@ class DraperOptimizer:
     def _extract_phase(self, op: Operation) -> float:
         """Extract phase angle from controlled phase operation."""
         try:
-            return float(op.attributes.get("phase", 0.0))
+            attr = op.attributes.get("phase")
+            if attr is None:
+                return 0.0
+            # Try different XDSL attribute access patterns
+            if hasattr(attr, 'value'):
+                if hasattr(attr.value, 'data'):
+                    return float(attr.value.data)
+                return float(attr.value)
+            elif hasattr(attr, 'data'):
+                return float(attr.data)
+            elif hasattr(attr, 'parameters') and len(attr.parameters) > 0:
+                return float(attr.parameters[0].data)
+            else:
+                return float(attr)
         except:
             return 0.0
     
@@ -165,18 +181,37 @@ class DraperOptimizer:
         """
         Analyze which bit positions are actually used in the circuit.
         
-        This is a heuristic analysis - ideally you'd want full static analysis
-        of the input values to determine maximum bit requirements.
+        A bit is considered "used" if it appears in ANY quantum operation's
+        index, target_index, or control_index attributes. This ensures we
+        don't remove QFT operations for bits that participate in Fourier-domain
+        arithmetic (like controlled phase rotations in multiplication).
         """
         used_bits = set()
         
-        # Look for NOT operations that set bits (indicates bit usage)
+        # Iterate through ALL quantum operations
         for op in module.walk():
-            if op.name == "quantum.OnQubit_not":
+            if hasattr(op, 'name') and hasattr(op, 'attributes'):
                 try:
-                    bit_index = op.attributes.get("index", 0)
-                    used_bits.add(int(bit_index))
+                    # Check all relevant index attributes
+                    for attr_name in ['index', 'target_index', 'control_index']:
+                        attr = op.attributes.get(attr_name)
+                        if attr is not None:
+                            # Extract the integer value using multiple access patterns
+                            val = None
+                            if hasattr(attr, 'value'):
+                                if hasattr(attr.value, 'data'):
+                                    val = int(attr.value.data)
+                                else:
+                                    val = int(attr.value)
+                            elif hasattr(attr, 'data'):
+                                val = int(attr.data)
+                            else:
+                                val = int(attr)
+                            
+                            if val is not None:
+                                used_bits.add(val)
                 except:
+                    # If we can't extract the index, skip this operation
                     pass
                     
         return used_bits
@@ -209,14 +244,37 @@ class DraperOptimizer:
         """Check if operation works on bits >= max_bits."""
         try:
             if hasattr(op, 'attributes'):
-                index = op.attributes.get("index")
-                if index is not None and int(index) >= max_bits:
-                    return True
+                # Check index attribute
+                attr = op.attributes.get("index")
+                if attr is not None:
+                    val = None
+                    if hasattr(attr, 'value'):
+                        if hasattr(attr.value, 'data'):
+                            val = int(attr.value.data)
+                        else:
+                            val = int(attr.value)
+                    elif hasattr(attr, 'data'):
+                        val = int(attr.data)
+                    else:
+                        val = int(attr)
+                    if val is not None and val >= max_bits:
+                        return True
                     
                 # Also check target_index for controlled operations
-                target_index = op.attributes.get("target_index")
-                if target_index is not None and int(target_index) >= max_bits:
-                    return True
+                target_attr = op.attributes.get("target_index")
+                if target_attr is not None:
+                    val = None
+                    if hasattr(target_attr, 'value'):
+                        if hasattr(target_attr.value, 'data'):
+                            val = int(target_attr.value.data)
+                        else:
+                            val = int(target_attr.value)
+                    elif hasattr(target_attr, 'data'):
+                        val = int(target_attr.data)
+                    else:
+                        val = int(target_attr)
+                    if val is not None and val >= max_bits:
+                        return True
                     
         except:
             pass
