@@ -380,7 +380,7 @@ class QuantumIRGen:
         ).res
         
         # Update naming convention
-        if register._name:
+        if hasattr(register, '_name') and register._name:
             parts = register._name.split('_')
             if len(parts) == 2:
                 register_num = parts[0].lstrip('q')
@@ -407,7 +407,7 @@ class QuantumIRGen:
         ).res
         
         # Update naming convention
-        if target_register._name:
+        if hasattr(target_register, '_name') and target_register._name:
             parts = target_register._name.split('_')
             if len(parts) == 2:
                 register_num = parts[0].lstrip('q')
@@ -427,7 +427,7 @@ class QuantumIRGen:
         ).res
         
         # Update naming convention
-        if register._name:
+        if hasattr(register, '_name') and register._name:
             parts = register._name.split('_')
             if len(parts) == 2:
                 register_num = parts[0].lstrip('q')
@@ -448,7 +448,7 @@ class QuantumIRGen:
         ).res
         
         # Update naming convention
-        if register._name:
+        if hasattr(register, '_name') and register._name:
             parts = register._name.split('_')
             if len(parts) == 2:
                 register_num = parts[0].lstrip('q')
@@ -551,41 +551,42 @@ class QuantumIRGen:
         """
         import math
         
-        # DEBUG: Print what we're adding
-        print(f"🔍 DEBUG Draper Addition:")
-        print(f"   a_expr: {a_expr}")
-        print(f"   b_expr: {b_expr}")
+        # # DEBUG: Print what we're adding
+        # print(f"🔍 DEBUG Draper Addition:")
+        # print(f"   a_expr: {a_expr}")
+        # print(f"   b_expr: {b_expr}")
         
         # Evaluate expressions to get quantum registers
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
         
-        print(f"   a register: {a}")
-        print(f"   b register: {b}")
-        print(f"   a type: {a.type if a else None}")
-        print(f"   b type: {b.type if b else None}")
-        if hasattr(a, '_name'):
-            print(f"   a name: {a._name}")
-        if hasattr(b, '_name'):
-            print(f"   b name: {b._name}")
+        # print(f"   a register: {a}")
+        # print(f"   b register: {b}")
         
         # Ensure we have valid operands
         if a is None or b is None:
             raise IRGenError("Failed to generate quantum register for addition operands")
         
+        # print(f"   a type: {a.type}")
+        # print(f"   b type: {b.type}")
+        # if hasattr(a, '_name'):
+        #     print(f"   a name: {a._name}")
+        # if hasattr(b, '_name'):
+        #     print(f"   b name: {b._name}")
+        
         # Handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
-            print(f"   Converting single qubits to registers...")
+            # print(f"   Converting single qubits to registers...")
             if not isinstance(a.type, VectorType):
                 a_temp = self.ir_gen_init(None)
                 a_temp = self.apply_cnot_on_bits(a, 0, a_temp, 0)
                 a = a_temp
-                print(f"   a converted to: {a}")
+                # print(f"   a converted to: {a}")
             if not isinstance(b.type, VectorType):
                 b_temp = self.ir_gen_init(None)
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
-                print(f"   b converted to: {b}")
+                # print(f"   b converted to: {b}")
 
         # Work with appropriate bit width
         bit_width = 8
@@ -1246,7 +1247,7 @@ class QuantumIRGen:
         ).res
 
         # Maintain the naming convention
-        if register._name:
+        if hasattr(register, '_name') and register._name:
             parts = register._name.split("_")
             if len(parts) == 2:
                 register_num = parts[0].lstrip("q")
@@ -1276,7 +1277,7 @@ class QuantumIRGen:
         ).res
         
         # Maintain the naming convention
-        if target_register._name:
+        if hasattr(target_register, '_name') and target_register._name:
             parts = target_register._name.split('_')
             if len(parts) == 2:
                 register_num = parts[0].lstrip('q')
@@ -1309,7 +1310,7 @@ class QuantumIRGen:
         ).res
         
         # Maintain the naming convention
-        if target_register._name:
+        if hasattr(target_register, '_name') and target_register._name:
             parts = target_register._name.split('_')
             if len(parts) == 2:
                 register_num = parts[0].lstrip('q')
