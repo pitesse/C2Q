@@ -10,6 +10,7 @@ Usage:
     python demos/validate_optimization.py tests/inputs/test_add_1plus1.c --expected 2
 """
 
+
 import argparse
 import subprocess
 import sys
