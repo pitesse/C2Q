@@ -26,6 +26,7 @@ from C2Q.frontend.parser import CParser
 from C2Q.frontend.ir_gen import QuantumIRGen
 from C2Q.middle_end.optimizations import optimize_quantum_circuit
 from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit
+from C2Q.backend.validate import validate_circuit
 
 
 @dataclass
@@ -41,6 +42,7 @@ class BenchmarkResult:
     hadamard_count: int
     swap_count: int
     phase_gates: int
+    validation_passed: bool = True
     
     def improvement_percentage(self, baseline: 'BenchmarkResult', metric: str) -> float:
         """Calculate percentage improvement over baseline for a given metric."""
@@ -58,27 +60,44 @@ TEST_SUITE = [
     {
         "name": "Add (8-bit)",
         "path": "tests/inputs/test_add_new.c",
-        "description": "Addition: a=3, b=5, c=a+b"
+        "description": "Addition: a=3, b=5, c=a+b",
+        "expected_result": 8,
+        "result_width": 8
     },
     {
         "name": "Sub (8-bit)",
         "path": "tests/inputs/test_sub_new.c",
-        "description": "Subtraction using Draper QFT"
+        "description": "Subtraction using Draper QFT",
+        "expected_result": 5,
+        "result_width": 8
     },
     {
         "name": "Mult (Small 2×3)",
         "path": "tests/inputs/test_mult_2x3.c",
-        "description": "Multiplication: 2×3 using repeated addition"
+        "description": "Multiplication: 2×3 using repeated addition",
+        "expected_result": 6,
+        "result_width": 16
     },
     {
         "name": "Assignment",
         "path": "tests/inputs/test_assignment.c",
-        "description": "Multiple assignment operations"
+        "description": "Multiple assignment operations",
+        "expected_result": 0,
+        "result_width": 8
     },
     {
         "name": "Optimization Showcase",
         "path": "tests/inputs/test_optimization_showcase.c",
-        "description": "Dead code, redundant ops, aggressive phase optimization"
+        "description": "Multiplication 5×3 with dead code, redundant ops, aggressive phase optimization",
+        "expected_result": 15,
+        "result_width": 16
+    },
+    {
+        "name": "Stress Test (Loop)",
+        "path": "tests/inputs/test_stress_opt.c",
+        "description": "Unrolled loop + cancelling ops - iterative optimization showcase",
+        "expected_result": 4,
+        "result_width": 8
     },
 ]
 
@@ -220,11 +239,71 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     optimized_mlir_metrics = extract_mlir_metrics(optimized_module)
     optimized_qiskit_metrics = extract_qiskit_metrics(optimized_module)
     
+    # VALIDATION: Verify optimized circuit produces correct result
+    validation_passed = True
+    
+    if "expected_result" in test_case:
+        import time
+        val_start = time.time()
+        print("    Validating optimized circuit...")
+        try:
+            # Extract circuit from optimized module
+            funcOp = None
+            for op in optimized_module.body.block.ops:
+                if op.name == "quantum.func":
+                    funcOp = op
+                    break
+            
+            if funcOp:
+                input_args = funcOp.regions[0].blocks[0]._args
+                first_op = funcOp.regions[0].blocks[0]._first_op
+                circuit_info = get_quantum_circuit_info(input_args, first_op)
+                circuit = create_circuit(first_op, circuit_info["output_number"])
+                
+                # SANITY CHECK: Verify circuit is valid before simulation
+                if circuit.num_qubits == 0 or len(circuit.data) == 0:
+                    print(f"    ❌ ERROR: Generated circuit for {test_name} is EMPTY/INVALID!")
+                    validation_passed = False
+                else:
+                    print(f"    🔍 Checking circuit: {len(circuit.data)} ops, {circuit.num_qubits} qubits")
+                    
+                    # CIRCUIT FINGERPRINT
+                    print(f"    🔍 CIRCUIT FINGERPRINT for {test_name}:")
+                    print(f"       - Qubits: {circuit.num_qubits}")
+                    print(f"       - Depth: {circuit.depth()}")
+                    print(f"       - Total Ops: {len(circuit.data)}")
+                    print(f"       - Ops Breakdown: {circuit.count_ops()}")
+                    
+                    # Use standardized validation function (same logic as CLI)
+                    result_width = test_case.get("result_width", 8)
+                    is_signed = "Sub" in test_name
+                    expected_result = test_case["expected_result"]
+                    
+                    validation_passed = validate_circuit(
+                        circuit=circuit,
+                        expected_result=expected_result,
+                        verbose=False,  # Keep output clean
+                        signed=is_signed,
+                        result_width=result_width
+                    )
+                    
+                    val_time = time.time() - val_start
+                    print(f"    ⏱️  Validation took {val_time:.2f}s")
+            else:
+                print("    ⚠️  No quantum.func found for validation")
+                validation_passed = False
+        except Exception as e:
+            print(f"    ⚠️  Validation error: {e}")
+            import traceback
+            traceback.print_exc()
+            validation_passed = False
+    
     optimized_result = BenchmarkResult(
         test_name=test_name,
         optimization_level="default",
         **optimized_mlir_metrics,
-        **optimized_qiskit_metrics
+        **optimized_qiskit_metrics,
+        validation_passed=validation_passed
     )
     
     # Save artifacts
@@ -298,7 +377,15 @@ def print_comparison_table(results: List[Tuple[BenchmarkResult, BenchmarkResult]
     print()
     
     for baseline, optimized in results:
-        print(f"Test: {baseline.test_name}")
+        # Add validation status indicator
+        validation_indicator = ""
+        if hasattr(optimized, 'validation_passed'):
+            if optimized.validation_passed:
+                validation_indicator = " ✅"
+            else:
+                validation_indicator = " ❌ FAILED"
+        
+        print(f"Test: {baseline.test_name}{validation_indicator}")
         print("-" * 100)
         
         metrics = [
@@ -404,8 +491,16 @@ def run_all_benchmarks() -> List[Tuple[BenchmarkResult, BenchmarkResult]]:
     # Print comparison table
     print_comparison_table(results)
     
+    # Count validation results
+    total_tests = len(results)
+    validated_tests = sum(1 for _, opt in results if hasattr(opt, 'validation_passed') and opt.validation_passed)
+    failed_validations = sum(1 for _, opt in results if hasattr(opt, 'validation_passed') and not opt.validation_passed)
+    
     print("="*100)
-    print(f"✅ Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests successful")
+    if failed_validations > 0:
+        print(f"⚠️  Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests, {validated_tests} validated, {failed_validations} FAILED validation")
+    else:
+        print(f"✅ Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests successful, ALL validations passed")
     print("="*100)
     
     return results

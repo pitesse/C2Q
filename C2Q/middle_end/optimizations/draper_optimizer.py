@@ -37,23 +37,56 @@ class DraperOptimizer:
     
     def optimize_draper_circuit(self, module: ModuleOp) -> ModuleOp:
         """
-        Apply Draper-specific optimizations to reduce arithmetic circuit complexity.
+        Apply Draper-specific optimizations iteratively to reduce arithmetic circuit complexity.
+        
+        Runs optimization passes in a loop until convergence. This allows "peeling away" layers:
+        - Iteration 1: Cancel outer Hadamards (H-H = I at QFT/IQFT boundaries)
+        - Iteration 2: Merge now-adjacent phase gates from inner QFT layers
+        - Iteration 3+: Continue until no more improvements
         
         Key optimizations:
         1. Eliminate high-precision phase rotations for small operands
         2. Optimize QFT depth based on actual register usage
         3. Consolidate adjacent phase rotations in frequency domain
         4. Remove redundant SWAP operations in QFT
+        5. Hadamard cancellation at QFT/IQFT boundaries
         """
-        print("🧮 Starting Draper arithmetic optimization...")
+        print("🧮 Starting iterative Draper arithmetic optimization...")
         
-        # Draper-specific passes
-        self._optimize_phase_precision(module)
-        self._optimize_qft_depth(module) 
-        self._eliminate_redundant_swaps(module)
-        self._optimize_zero_operands(module)
+        iteration = 0
+        max_iterations = 10  # Safety limit
         
-        print("✅ Draper optimization complete!")
+        while iteration < max_iterations:
+            iteration += 1
+            print(f"\n  🔄 Draper Iteration {iteration}")
+            
+            # Track changes in this iteration
+            prev_gates = self.stats.gates_eliminated
+            prev_phases = self.stats.phases_consolidated
+            
+            # Draper-specific passes
+            self._optimize_phase_precision(module)
+            self._consolidate_adjacent_phases(module)  # New: merge adjacent phases
+            self._cancel_hadamard_pairs(module)  # New: H-H cancellation
+            self._optimize_qft_depth(module) 
+            self._eliminate_redundant_swaps(module)
+            self._optimize_zero_operands(module)
+            
+            # Check for convergence
+            gates_this_iter = self.stats.gates_eliminated - prev_gates
+            phases_this_iter = self.stats.phases_consolidated - prev_phases
+            changes_this_iter = gates_this_iter + phases_this_iter
+            
+            print(f"    Changes: {changes_this_iter} (gates: {gates_this_iter}, phases: {phases_this_iter})")
+            
+            if changes_this_iter == 0:
+                print(f"\n  ✅ Draper optimization converged after {iteration} iteration(s)")
+                break
+        
+        if iteration >= max_iterations:
+            print(f"\n  ⚠️  Reached maximum Draper iterations ({max_iterations})")
+        
+        print("\n🏆 Draper optimization complete!")
         print(self.stats)
         
         return module
@@ -74,6 +107,11 @@ class DraperOptimizer:
                 
                 # Eliminate very small phase rotations
                 if phase < self.precision_threshold:
+                    # Replace the result with the input (effectively no-op)
+                    if len(op.results) > 0 and len(op.operands) > 1:
+                        # The result should be the target register (operand 1)
+                        op.results[0].replace_by(op.operands[1])
+                    
                     if op.parent is not None:
                         op.detach()
                     op.erase()
@@ -156,6 +194,168 @@ class DraperOptimizer:
             self._apply_zero_optimization(optimization)
             
         print(f"    Applied {len(zero_optimizations)} zero-operand optimizations")
+    
+    def _consolidate_adjacent_phases(self, module: ModuleOp) -> None:
+        """
+        Consolidate adjacent controlled-phase operations on the same qubit pair.
+        
+        Multiple controlled phase rotations between the same control and target
+        qubits can be combined: R(θ₁)·R(θ₂) = R(θ₁ + θ₂)
+        
+        This is crucial after Hadamard cancellation exposes adjacent phases.
+        """
+        print("  🔄 Consolidating adjacent phase rotations...")
+        
+        operations = list(module.walk())
+        to_remove = set()
+        consolidated = 0
+        
+        i = 0
+        while i < len(operations) - 1:
+            op = operations[i]
+            
+            if op in to_remove:
+                i += 1
+                continue
+            
+            # Check if this is a controlled-phase operation
+            if not (hasattr(op, 'name') and op.name == "quantum.OnQubit_controlled_phase"):
+                i += 1
+                continue
+            
+            # Look for consecutive controlled-phase on same qubits
+            next_op = operations[i + 1]
+            
+            if (hasattr(next_op, 'name') and 
+                next_op.name == "quantum.OnQubit_controlled_phase" and
+                next_op not in to_remove):
+                
+                # Check if they operate on the same qubit pair
+                if self._same_phase_qubits(op, next_op):
+                    # Merge phases
+                    phase1 = self._extract_phase(op)
+                    phase2 = self._extract_phase(next_op)
+                    combined_phase = phase1 + phase2
+                    
+                    # Update first operation
+                    self._set_phase(op, combined_phase)
+                    
+                    # Replace uses of next_op's result with op's result
+                    if len(next_op.results) > 0 and len(op.results) > 0:
+                        next_op.results[0].replace_by(op.results[0])
+                    
+                    # Mark second for removal
+                    to_remove.add(next_op)
+                    consolidated += 1
+                    self.stats.phases_consolidated += 1
+                    
+                    # Don't increment i - check if we can merge more
+                    continue
+            
+            i += 1
+        
+        # Remove marked operations
+        for op in to_remove:
+            if op.parent is not None:
+                op.detach()
+            op.erase()
+        
+        print(f"    Consolidated {consolidated} adjacent phase rotations")
+    
+    def _cancel_hadamard_pairs(self, module: ModuleOp) -> None:
+        """
+        Cancel pairs of Hadamard gates on the same qubit (H·H = I).
+        
+        This is especially important at QFT/IQFT boundaries where the trailing
+        Hadamard of a QFT immediately precedes the leading Hadamard of an IQFT.
+        
+        Cancelling these exposes the inner phase gates for consolidation.
+        """
+        print("  ✂️  Cancelling Hadamard pairs (H·H = I)...")
+        
+        operations = list(module.walk())
+        to_remove = set()
+        cancelled = 0
+        
+        for i in range(len(operations) - 1):
+            op = operations[i]
+            
+            if op in to_remove:
+                continue
+            
+            next_op = operations[i + 1]
+            if next_op in to_remove:
+                continue
+            
+            # Check for Hadamard-Hadamard pair
+            if (hasattr(op, 'name') and hasattr(next_op, 'name') and
+                op.name == "quantum.OnQubit_hadamard" and
+                next_op.name == "quantum.OnQubit_hadamard"):
+                
+                # Check if same qubit
+                if self._same_qubit(op, next_op):
+                    to_remove.add(op)
+                    to_remove.add(next_op)
+                    cancelled += 2
+                    self.stats.gates_eliminated += 2
+        
+        # Remove identified pairs
+        for op in to_remove:
+            if op.parent is not None:
+                op.detach()
+            op.erase()
+        
+        print(f"    Cancelled {cancelled} Hadamard gates ({cancelled//2} pairs)")
+    
+    # === Helper Methods ===
+    
+    def _same_qubit(self, op1: Operation, op2: Operation) -> bool:
+        """Check if two operations target the same qubit."""
+        try:
+            # Get operands and indices
+            if len(op1.operands) == 0 or len(op2.operands) == 0:
+                return False
+            
+            reg1 = op1.operands[0]
+            reg2 = op2.operands[0]
+            
+            idx1 = op1.attributes.get("index", 0)
+            idx2 = op2.attributes.get("index", 0)
+            
+            return (reg1 == reg2 and idx1 == idx2)
+        except:
+            return False
+    
+    def _same_phase_qubits(self, op1: Operation, op2: Operation) -> bool:
+        """Check if two controlled-phase operations target the same qubit pair."""
+        try:
+            # For controlled-phase, check both control and target
+            if len(op1.operands) < 2 or len(op2.operands) < 2:
+                return False
+            
+            control1 = op1.operands[0]
+            target1 = op1.operands[1]
+            control2 = op2.operands[0]
+            target2 = op2.operands[1]
+            
+            control_idx1 = op1.attributes.get("control_index", 0)
+            target_idx1 = op1.attributes.get("target_index", 0)
+            control_idx2 = op2.attributes.get("control_index", 0)
+            target_idx2 = op2.attributes.get("target_index", 0)
+            
+            same_control = (control1 == control2 and control_idx1 == control_idx2)
+            same_target = (target1 == target2 and target_idx1 == target_idx2)
+            
+            return same_control and same_target
+        except:
+            return False
+    
+    def _set_phase(self, op: Operation, phase: float) -> None:
+        """Set phase angle for controlled-phase operation."""
+        try:
+            op.attributes["phase"] = phase
+        except:
+            pass
     
     def _extract_phase(self, op: Operation) -> float:
         """Extract phase angle from controlled phase operation."""

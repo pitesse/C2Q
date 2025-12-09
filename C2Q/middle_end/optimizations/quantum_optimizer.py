@@ -58,7 +58,11 @@ class QuantumOptimizer:
         
     def optimize_module(self, module: ModuleOp) -> ModuleOp:
         """
-        Apply all optimization passes to a quantum MLIR module.
+        Apply all optimization passes to a quantum MLIR module iteratively.
+        
+        Runs optimization passes in a loop until no more changes occur.
+        This allows "peeling away" layers - e.g., once outer Hadamards cancel,
+        inner Phase gates become adjacent and can merge in the next iteration.
         
         Args:
             module: Input MLIR module containing quantum operations
@@ -66,24 +70,49 @@ class QuantumOptimizer:
         Returns:
             Optimized MLIR module with reduced resource requirements
         """
-        print("🔧 Starting quantum circuit optimization...")
+        print("🔧 Starting iterative quantum circuit optimization...")
         
-        # Pass 1: Gate cancellation (X-X = I, etc.)
-        self._eliminate_gate_cancellations(module)
+        iteration = 0
+        max_iterations = 10  # Safety limit to prevent infinite loops
         
-        # Pass 2: Phase consolidation (combine rotations)
-        self._consolidate_phase_rotations(module)
+        while iteration < max_iterations:
+            iteration += 1
+            print(f"\n  🔄 Iteration {iteration}")
+            
+            # Reset per-iteration stats
+            prev_gates = self.stats.gates_eliminated
+            prev_phases = self.stats.phases_consolidated
+            
+            # Pass 1: Gate cancellation (X-X = I, H-H = I, etc.)
+            self._eliminate_gate_cancellations(module)
+            
+            # Pass 2: Phase consolidation (combine rotations)
+            self._consolidate_phase_rotations(module)
+            
+            # Pass 3: Dead code elimination
+            self._eliminate_dead_qubits(module)
+            
+            # Pass 4: QFT optimization (reduce precision for small values)
+            self._optimize_qft_precision(module)
+            
+            # Pass 5: Register coalescing (reuse registers when possible)
+            self._coalesce_registers(module)
+            
+            # Check if any changes were made in this iteration
+            gates_this_iter = self.stats.gates_eliminated - prev_gates
+            phases_this_iter = self.stats.phases_consolidated - prev_phases
+            changes_this_iter = gates_this_iter + phases_this_iter
+            
+            print(f"    Changes this iteration: {changes_this_iter} (gates: {gates_this_iter}, phases: {phases_this_iter})")
+            
+            if changes_this_iter == 0:
+                print(f"\n  ✅ Converged after {iteration} iteration(s)")
+                break
         
-        # Pass 3: Dead code elimination
-        self._eliminate_dead_qubits(module)
+        if iteration >= max_iterations:
+            print(f"\n  ⚠️  Reached maximum iterations ({max_iterations})")
         
-        # Pass 4: QFT optimization (reduce precision for small values)
-        self._optimize_qft_precision(module)
-        
-        # Pass 5: Register coalescing (reuse registers when possible)
-        self._coalesce_registers(module)
-        
-        print(f"✅ Optimization complete!")
+        print(f"\n🏆 Optimization complete!")
         print(self.stats)
         
         return module
@@ -150,42 +179,71 @@ class QuantumOptimizer:
     
     def _consolidate_phase_rotations(self, module: ModuleOp) -> None:
         """
-        Combine consecutive phase rotations on the same qubit pair.
+        Combine consecutive phase rotations on the same qubit pair (SAFE VERSION).
         
-        Multiple controlled phase rotations between the same control and target
-        qubits can be combined: R(θ₁)·R(θ₂) = R(θ₁ + θ₂)
+        Only merges adjacent controlled-phase operations that:
+        - Are both OnQubit_controlled_phase
+        - Share the exact same operands (control and target SSAValues)
+        - Are strictly adjacent in the operation sequence
+        
+        This ensures we never incorrectly merge phases that have intervening
+        operations that would change the semantics.
         """
-        print("  🔄 Pass 2: Phase consolidation...")
+        print("  🔄 Pass 2: Phase consolidation (safe adjacency)...")
         
-        # Group phase rotations by (control_qubit, target_qubit)
-        phase_groups: Dict[Tuple[str, int, str, int], List[Operation]] = defaultdict(list)
-        
-        for op in module.walk():
-            if hasattr(op, 'name') and op.name == "quantum.OnQubit_controlled_phase":
-                key = self._get_phase_rotation_key(op)
-                if key:
-                    phase_groups[key].append(op)
-        
+        # Get operations in linear order
+        operations = list(module.walk())
+        to_remove = set()
         consolidated = 0
-        for key, ops in phase_groups.items():
-            if len(ops) > 1:
-                # Consolidate phases
-                total_phase = sum(self._get_phase_angle(op) for op in ops)
-                
-                # Keep first operation, update its phase
-                first_op = ops[0]
-                self._set_phase_angle(first_op, total_phase)
-                
-                # Remove subsequent operations
-                for op in ops[1:]:
-                    if op.parent is not None:
-                        op.detach()
-                    op.erase()
-                    
-                consolidated += len(ops) - 1
-                self.stats.phases_consolidated += len(ops) - 1
         
-        print(f"    Consolidated {consolidated} phase rotations")
+        i = 0
+        while i < len(operations) - 1:
+            op = operations[i]
+            
+            # Skip if already marked for removal
+            if op in to_remove:
+                i += 1
+                continue
+            
+            # Check if this is a controlled-phase operation
+            if not (hasattr(op, 'name') and op.name == "quantum.OnQubit_controlled_phase"):
+                i += 1
+                continue
+            
+            # Look for consecutive controlled-phase operations on same qubits
+            next_op = operations[i + 1]
+            
+            if (hasattr(next_op, 'name') and 
+                next_op.name == "quantum.OnQubit_controlled_phase" and
+                next_op not in to_remove):
+                
+                # Check if they operate on the same qubit pair
+                if self._same_phase_target(op, next_op):
+                    # Merge phases: add next_op's phase to op's phase
+                    phase1 = self._get_phase_angle(op)
+                    phase2 = self._get_phase_angle(next_op)
+                    combined_phase = phase1 + phase2
+                    
+                    # Update first operation with combined phase
+                    self._set_phase_angle(op, combined_phase)
+                    
+                    # Mark second operation for removal
+                    to_remove.add(next_op)
+                    consolidated += 1
+                    self.stats.phases_consolidated += 1
+                    
+                    # Don't increment i - check if we can merge more
+                    continue
+            
+            i += 1
+        
+        # Remove marked operations
+        for op in to_remove:
+            if op.parent is not None:
+                op.detach()
+            op.erase()
+        
+        print(f"    Consolidated {consolidated} adjacent phase rotations")
     
     def _eliminate_dead_qubits(self, module: ModuleOp) -> None:
         """
@@ -258,6 +316,33 @@ class QuantumOptimizer:
             reg2 = op2.operands[0] if op2.operands else None
             
             return (idx1 == idx2 and reg1 == reg2)
+        except:
+            return False
+    
+    def _same_phase_target(self, op1: Operation, op2: Operation) -> bool:
+        """Check if two controlled-phase operations target the same qubit pair."""
+        try:
+            # For controlled-phase, we need to check both control and target
+            # Operands are typically: [control_register, target_register]
+            if len(op1.operands) < 2 or len(op2.operands) < 2:
+                return False
+            
+            control1 = op1.operands[0]
+            target1 = op1.operands[1]
+            control2 = op2.operands[0]
+            target2 = op2.operands[1]
+            
+            # Get indices from attributes
+            control_idx1 = op1.attributes.get("control_index", 0)
+            target_idx1 = op1.attributes.get("target_index", 0)
+            control_idx2 = op2.attributes.get("control_index", 0)
+            target_idx2 = op2.attributes.get("target_index", 0)
+            
+            # Check if same control and target
+            same_control = (control1 == control2 and control_idx1 == control_idx2)
+            same_target = (target1 == target2 and target_idx1 == target_idx2)
+            
+            return same_control and same_target
         except:
             return False
     
