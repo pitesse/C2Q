@@ -31,7 +31,21 @@ from C2Q.backend.validate import validate_circuit
 
 @dataclass
 class BenchmarkResult:
-    """Container for benchmark metrics from a single compilation run."""
+    """Container for benchmark metrics from a single compilation run.
+    
+    Attributes:
+        test_name: Name of the test case.
+        optimization_level: Optimization level used ("none" or "default").
+        mlir_op_count: Number of MLIR operations.
+        total_gates: Total number of quantum gates.
+        circuit_depth: Circuit depth.
+        qubit_count: Number of qubits used.
+        cnot_count: Number of CNOT gates.
+        hadamard_count: Number of Hadamard gates.
+        swap_count: Number of SWAP gates.
+        phase_gates: Number of phase gates.
+        validation_passed: Whether validation passed.
+    """
     test_name: str
     optimization_level: str
     mlir_op_count: int
@@ -45,7 +59,15 @@ class BenchmarkResult:
     validation_passed: bool = True
     
     def improvement_percentage(self, baseline: 'BenchmarkResult', metric: str) -> float:
-        """Calculate percentage improvement over baseline for a given metric."""
+        """Calculate percentage improvement over baseline for a given metric.
+        
+        Args:
+            baseline: Baseline result to compare against.
+            metric: Name of the metric attribute to compare.
+            
+        Returns:
+            Percentage improvement (positive for reduction, negative for increase).
+        """
         baseline_value = getattr(baseline, metric)
         optimized_value = getattr(self, metric)
         
@@ -135,22 +157,19 @@ def compile_to_mlir(source_path: Path, optimization_level: str = "none", precisi
     Returns:
         MLIR ModuleOp
     """
-    # Parse C to AST
     with open(source_path) as f:
         parser = CParser(source_path, f.read())
         ast = parser.parseModule()
     
-    # Generate initial MLIR
     ir_gen = QuantumIRGen()
     module_op = ir_gen.ir_gen_module(ast)
     
-    # Apply optimizations if requested
     if optimization_level == "default":
         module_op = optimize_quantum_circuit(
             module_op,
             optimization_level=optimization_level,
             analysis_only=False,
-            verbose=False,  # Suppress output for benchmarking
+            verbose=False,
             precision_threshold=precision_threshold
         )
     
@@ -181,7 +200,6 @@ def extract_qiskit_metrics(module: ModuleOp) -> Dict[str, int]:
     Returns:
         Dictionary with circuit metrics
     """
-    # Find the quantum.func operation in the module
     funcOp = None
     for op in module.body.block.ops:
         if op.name == "quantum.func":
@@ -191,16 +209,13 @@ def extract_qiskit_metrics(module: ModuleOp) -> Dict[str, int]:
     if funcOp is None:
         raise ValueError("No quantum.func operation found in module")
     
-    # Extract circuit information
     input_args = funcOp.regions[0].blocks[0]._args
     first_op = funcOp.regions[0].blocks[0]._first_op
     
-    # Convert MLIR to Qiskit circuit
     circuit_info = get_quantum_circuit_info(input_args, first_op)
     circuit = create_circuit(first_op, circuit_info["output_number"])
     
-    # Count specific gate types using circuit.count_ops()
-    # Convert to dict with string keys for type safety
+    # convert to dict with string keys for type safety
     raw_counts = circuit.count_ops()
     gate_counts: dict[str, int] = {str(k): v for k, v in raw_counts.items()}
     
@@ -216,7 +231,12 @@ def extract_qiskit_metrics(module: ModuleOp) -> Dict[str, int]:
 
 
 def save_mlir_artifact(module: ModuleOp, output_path: Path) -> None:
-    """Save MLIR module to file."""
+    """Save MLIR module to file.
+    
+    Args:
+        module: MLIR ModuleOp to save.
+        output_path: Path to output file.
+    """
     buffer = StringIO()
     printer = Printer(stream=buffer)
     printer.print(module)
@@ -241,7 +261,6 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     print(f"  Benchmarking: {test_name}")
     print(f"    Source: {source_path}")
     
-    # Run baseline (no optimization)
     print("    Running baseline (no optimization)...")
     baseline_module = compile_to_mlir(source_path, optimization_level="none")
     baseline_mlir_metrics = extract_mlir_metrics(baseline_module)
@@ -260,15 +279,13 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
         phase_gates=baseline_qiskit_metrics["phase_gates"]
     )
     
-    # Run optimized (default optimization level with aggressive phase precision)
     print("    Running optimized (aggressive threshold=0.1)...")
     # π/32 ≈ 0.098, so threshold=0.1 eliminates rotations smaller than π/16
-    # This creates an Approximate QFT, a standard quantum optimization technique
+    # this creates an approximate QFT, a standard quantum optimization technique
     optimized_module = compile_to_mlir(source_path, optimization_level="default", precision_threshold=0.1)
     optimized_mlir_metrics = extract_mlir_metrics(optimized_module)
     optimized_qiskit_metrics = extract_qiskit_metrics(optimized_module)
     
-    # VALIDATION: Verify optimized circuit produces correct result
     validation_passed: bool = True
     
     if "expected_result" in test_case:
@@ -277,7 +294,6 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
         
         print("    Validating optimized circuit...")
         try:
-            # Extract circuit from optimized module
             funcOp = None
             for op in optimized_module.body.block.ops:
                 if op.name == "quantum.func":
@@ -290,28 +306,25 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
                 circuit_info = get_quantum_circuit_info(input_args, first_op)
                 circuit = create_circuit(first_op, circuit_info["output_number"])
                 
-                # SANITY CHECK: Verify circuit is valid before simulation
                 if circuit.num_qubits == 0 or len(circuit.data) == 0:
-                    print(f"    ❌ ERROR: Generated circuit for {test_name} is EMPTY/INVALID!")
+                    print(f"    [ERROR] Generated circuit for {test_name} is empty/invalid")
                     validation_passed = False
                 else:
-                    print(f"    🔍 Checking circuit: {len(circuit.data)} ops, {circuit.num_qubits} qubits")
+                    print(f"    [INFO] Checking circuit: {len(circuit.data)} ops, {circuit.num_qubits} qubits")
                     
-                    # CIRCUIT FINGERPRINT
-                    print(f"    🔍 CIRCUIT FINGERPRINT for {test_name}:")
+                    print(f"    [INFO] Circuit fingerprint for {test_name}:")
                     print(f"       - Qubits: {circuit.num_qubits}")
                     print(f"       - Depth: {circuit.depth()}")
                     print(f"       - Total Ops: {len(circuit.data)}")
                     print(f"       - Ops Breakdown: {circuit.count_ops()}")
                     
-                    # PROOF OF OPTIMIZATION: Log baseline vs optimized metrics
-                    print(f"    🔍 PROOF OF OPTIMIZATION: Validating circuit with depth {circuit.depth()} (Baseline was {baseline_result.circuit_depth})")
+                    print(f"    [INFO] Validating circuit with depth {circuit.depth()} (Baseline was {baseline_result.circuit_depth})")
                     if circuit.depth() > baseline_result.circuit_depth:
-                        print(f"    ⚠️  WARNING: Optimized circuit is DEEPER than baseline!")
+                        print(f"    [WARN] Optimized circuit is deeper than baseline")
                     if len(circuit.data) > baseline_result.total_gates:
-                        print(f"    ⚠️  WARNING: Optimized circuit has MORE gates than baseline!")
+                        print(f"    [WARN] Optimized circuit has more gates than baseline")
                     
-                    # Use standardized validation function (same logic as CLI)
+                    # use standardized validation function (same logic as CLI)
                     result_width = test_case.get("result_width", 8)
                     is_signed = "Sub" in test_name
                     expected_result = test_case["expected_result"]
@@ -319,18 +332,18 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
                     validation_passed = validate_circuit(
                         circuit=circuit,
                         expected_result=expected_result,
-                        verbose=False,  # Keep output clean
+                        verbose=False,
                         signed=is_signed,
                         result_width=result_width
                     )
                     
                     val_time = time.time() - val_start
-                    print(f"    ⏱️  Validation took {val_time:.2f}s")
+                    print(f"    [INFO] Validation took {val_time:.2f}s")
             else:
-                print("    ⚠️  No quantum.func found for validation")
+                print("    [WARN] No quantum.func found for validation")
                 validation_passed = False
         except Exception as e:
-            print(f"    ⚠️  Validation error: {e}")
+            print(f"    [WARN] Validation error: {e}")
             import traceback
             traceback.print_exc()
             validation_passed = False
@@ -349,7 +362,6 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
         validation_passed=validation_passed
     )
     
-    # Save artifacts
     artifacts_dir = Path("benchmarks_data")
     artifacts_dir.mkdir(exist_ok=True)
     
@@ -375,7 +387,6 @@ def save_results_csv(results: List[Tuple[BenchmarkResult, BenchmarkResult]], out
     with open(output_path, 'w', newline='') as f:
         writer = csv.writer(f)
         
-        # Header
         writer.writerow([
             "Test Name",
             "Base MLIR Ops", "Opt MLIR Ops", "MLIR Reduction %",
@@ -388,7 +399,7 @@ def save_results_csv(results: List[Tuple[BenchmarkResult, BenchmarkResult]], out
             "Base Phase Gates", "Opt Phase Gates"
         ])
         
-        # Data rows
+        # data rows
         for baseline, optimized in results:
             writer.writerow([
                 baseline.test_name,
@@ -414,13 +425,12 @@ def print_comparison_table(results: List[Tuple[BenchmarkResult, BenchmarkResult]
     Args:
         results: List of (baseline, optimized) result pairs
     """
-    print("\n" + "="*100)
+    print("="*100)
     print("BENCHMARK RESULTS: Optimization Impact Analysis")
     print("="*100)
     print()
     
     for baseline, optimized in results:
-        # Add validation status indicator
         validation_indicator = ""
         if hasattr(optimized, 'validation_passed'):
             if optimized.validation_passed:
@@ -461,7 +471,6 @@ def print_comparison_table(results: List[Tuple[BenchmarkResult, BenchmarkResult]
         
         print()
     
-    # Summary statistics
     print("="*100)
     print("SUMMARY STATISTICS")
     print("="*100)
@@ -501,49 +510,45 @@ def run_all_benchmarks() -> List[Tuple[BenchmarkResult, BenchmarkResult]]:
     
     results = []
     
-    # Create output directory
     artifacts_dir = Path("benchmarks_data")
     artifacts_dir.mkdir(exist_ok=True)
-    print(f"📁 Artifacts directory: {artifacts_dir.absolute()}")
+    print(f"[INFO] Artifacts directory: {artifacts_dir.absolute()}")
     print()
     
-    # Run each test case
+    # run each test case
     for test_case in TEST_SUITE:
         try:
             baseline, optimized = run_benchmark(test_case)
             results.append((baseline, optimized))
         except FileNotFoundError as e:
-            print(f"  ⚠️  Skipping {test_case['name']}: File not found - {test_case['path']}")
+            print(f"  [WARN] Skipping {test_case['name']}: File not found - {test_case['path']}")
             print()
             continue
         except Exception as e:
-            print(f"  ❌ Error running {test_case['name']}: {e}")
+            print(f"  [ERROR] Error running {test_case['name']}: {e}")
             print()
             continue
     
     if not results:
-        print("❌ No benchmarks completed successfully!")
+        print("[ERROR] No benchmarks completed successfully")
         return []
     
-    # Save results
     csv_path = artifacts_dir / "results.csv"
     save_results_csv(results, csv_path)
-    print(f"✅ Results saved to: {csv_path.absolute()}")
+    print(f"[PASS] Results saved to: {csv_path.absolute()}")
     print()
     
-    # Print comparison table
     print_comparison_table(results)
     
-    # Count validation results
     total_tests = len(results)
     validated_tests = sum(1 for _, opt in results if hasattr(opt, 'validation_passed') and opt.validation_passed)
     failed_validations = sum(1 for _, opt in results if hasattr(opt, 'validation_passed') and not opt.validation_passed)
     
     print("="*100)
     if failed_validations > 0:
-        print(f"⚠️  Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests, {validated_tests} validated, {failed_validations} FAILED validation")
+        print(f"[WARN] Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests, {validated_tests} validated, {failed_validations} failed validation")
     else:
-        print(f"✅ Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests successful, ALL validations passed")
+        print(f"[PASS] Benchmark suite completed: {len(results)}/{len(TEST_SUITE)} tests successful, all validations passed")
     print("="*100)
     
     return results

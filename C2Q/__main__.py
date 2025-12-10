@@ -1,7 +1,6 @@
-"""!
-@file __main__.py
-@brief Main entry point for the C to Quantum compiler.
-@details This module serves as the entry point for the C to Quantum (C2Q) tool,
+"""Main entry point for the C to Quantum compiler.
+
+This module serves as the entry point for the C to Quantum (C2Q) tool,
 which parses C source code and generates corresponding Quantum IR.
 It handles command-line arguments, orchestrates the compilation process,
 and provides visualization and metrics of the generated quantum circuits.
@@ -32,30 +31,44 @@ from C2Q.backend.run_qasm import get_quantum_circuit_info, create_circuit, metri
 # HELPER FUNCTIONS
 #------------------------------------------------------------------------------
 def parse_c_to_ast(path: Path):
-    """Parse C file to AST and save to disk"""
+    """Parse C file to AST and save to disk.
+    
+    Args:
+        path: Path to the C source file.
+        
+    Returns:
+        The parsed AST module.
+    """
     with open(path) as f:
         parser = CParser(path, f.read())
         ast = parser.parseModule()
     
-    # Determine output path
     output_path = get_output_path(path, ".ast")
     
-    # Save the AST to disk
+    # save the AST to disk
     with open(output_path, "w") as ast_file:
         ast_file.write(ast.dump())
     
     return ast
 
 def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True, precision: float = 1e-4):
-    """Generate Quantum IR from AST with optional optimizations"""
+    """Generate Quantum IR from AST with optional optimizations.
+    
+    Args:
+        ast: The parsed AST module.
+        print_generic: Whether to print operations in generic format.
+        optimize: Whether to apply optimization passes.
+        precision: Phase precision threshold for optimizations.
+        
+    Returns:
+        Tuple of (module_op, mlir_string) containing the IR module and its string representation.
+    """
     ir_gen = QuantumIRGen()
     module_op = ir_gen.ir_gen_module(ast)
     
-    # Apply optimization passes if requested
     if optimize:
-        print("🔧 Starting Integrated Quantum Circuit Optimization...")
+        print("[OPTIMIZE] Starting Integrated Quantum Circuit Optimization...")
         
-        # Apply comprehensive optimization pipeline
         module_op = optimize_quantum_circuit(
             module_op, 
             optimization_level="default",
@@ -64,7 +77,7 @@ def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True, precisi
             precision_threshold=precision
         )
         
-        print("✅ Optimization pipeline completed")
+        print("[PASS] Optimization pipeline completed")
     
     # create a StringIO buffer to capture output
     ir_buffer = StringIO()
@@ -74,31 +87,40 @@ def generate_quantum_ir(ast, print_generic: bool, optimize: bool = True, precisi
     return module_op, ir_buffer.getvalue()
 
 def get_output_path(input_path: Path, suffix: str) -> Path:
-    """
-    Determine output path for generated files.
+    """Determine output path for generated files.
+    
     If input is in tests/inputs/, output to tests/outputs/.
     Otherwise, output to same directory as input.
+    
+    Args:
+        input_path: Path to the input file.
+        suffix: File suffix for the output file.
+        
+    Returns:
+        Path object for the output file.
     """
     input_path_str = str(input_path.resolve())
     
-    # Check if input is in tests/inputs/
     if "tests/inputs" in input_path_str or "tests\\inputs" in input_path_str:
-        # Replace tests/inputs with tests/outputs
         output_dir = Path(input_path_str.replace("tests/inputs", "tests/outputs").replace("tests\\inputs", "tests\\outputs")).parent
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir / (input_path.stem + suffix)
     else:
-        # Output to same directory as input
         return input_path.with_suffix(suffix)
 
 def save_ir_to_file(path: Path, mlir: str):
-    """Save IR to file"""
+    """Save IR to file.
+    
+    Args:
+        path: Path to the input file (used to determine output path).
+        mlir: MLIR string to save.
+    """
     output_path = get_output_path(path, ".mlir")
     with open(output_path, "w") as ir_file:
         ir_file.write(mlir)
 
 def print_banner():
-    """Print the C2Q banner"""
+    """Print the C2Q banner."""
     print("\n=========================================\n")
     print(
         "    mmmm    mmmmm      mmmm\n"
@@ -113,8 +135,13 @@ def print_banner():
     print("=========================================")
 
 def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
-    """Display circuit metrics and visualization"""
-    # Output results
+    """Display circuit metrics and visualization.
+    
+    Args:
+        circuit_metrics: Dictionary of circuit metrics.
+        circuit_info: Dictionary of circuit information.
+        circuit: Qiskit QuantumCircuit object.
+    """
     print("\nQuantum Circuit Metrics:")
     for key, value in circuit_metrics.items():
         if key != "Gate Distribution":
@@ -126,19 +153,16 @@ def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
     print(f"Total qubits used: {circuit_info['qubit_number']}")
     print(f"Output bits: {circuit_info['output_number']}")
 
-    # Draw the circuit
     print("\nCircuit Visualization:")
     print(circuit.draw(output="text"))
-    # circuit.draw(filename="circuit.png", output="mpl")
 
 #------------------------------------------------------------------------------
 # MAIN FUNCTION
 #------------------------------------------------------------------------------
 def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = True, precision: float = 1e-4):
-    """!
-    @brief Main compilation function that processes input files and generates quantum IR.
+    """Main compilation function that processes input files and generates quantum IR.
     
-    @details This function drives the compilation pipeline by reading the input file,
+    This function drives the compilation pipeline by reading the input file,
     parsing it based on its extension, and generating the appropriate IR.
     The pipeline includes:
     1. Parsing C source code into an AST
@@ -149,35 +173,35 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
     
     Currently, it supports C files for conversion to Quantum IR.
 
-    @param path Path object pointing to the source file
-    @param emit Target compilation format (e.g., "ast", "ir")
-    @param ir Flag to indicate whether to print the IR
-    @param print_generic Flag to indicate whether to print in generic format
-    @return The created QuantumCircuit object, or None if not created
+    Args:
+        path: Path object pointing to the source file.
+        emit: Target compilation format (e.g., "ast", "ir").
+        ir: Flag to indicate whether to print the IR.
+        print_generic: Flag to indicate whether to print in generic format.
+        optimize: Whether to apply optimization passes.
+        precision: Phase precision threshold for optimizations.
     
-    @exception FileNotFoundError If the specified input file doesn't exist
-    @exception Exception Various exceptions may be raised during circuit creation/analysis
+    Returns:
+        The created QuantumCircuit object, or None if not created.
+    
+    Raises:
+        FileNotFoundError: If the specified input file doesn't exist.
+        Exception: Various exceptions may be raised during circuit creation/analysis.
     """
     print_banner()
 
-    # process file based on extension
     match path.suffix:
         case ".c":
-            # parse C to AST
             ast = parse_c_to_ast(path)
             
-            # if only AST output is requested, print and return
             if emit == "ast":
                 print(ast.dump())
                 return None
 
-            # generate Quantum IR
             module_op, mlir = generate_quantum_ir(ast, print_generic, optimize, precision)
             
-            # save IR to file
             save_ir_to_file(path, mlir)
             
-            # print IR if requested
             if ir:
                 print("\nGenerated Quantum IR:")
                 print(mlir)
@@ -193,24 +217,19 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
                 print("Error: No quantum.func operation found in the module")
                 return None
 
-            # extract circuit information
             input_args = funcOp.regions[0].blocks[0]._args
             first_op = funcOp.regions[0].blocks[0]._first_op
             print(f"First operation: {first_op}")
             circuit_info = get_quantum_circuit_info(input_args, first_op)
 
-            # create and analyze quantum circuit
             try:
                 circuit = create_circuit(
                     first_op,
-                    # circuit_info["qubit_number"],
                     circuit_info["output_number"],
                 )
                 
-                # calculate metrics
                 circuit_metrics = metrics(circuit)
                 
-                # display results
                 display_circuit_metrics(circuit_metrics, circuit_info, circuit)
                 
                 return circuit
@@ -228,14 +247,7 @@ def main(path: Path, emit: str, ir: bool, print_generic: bool, optimize: bool = 
 # ENTRY POINT
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
-    """!
-    @brief Entry point when script is executed directly.
-    @details Parses command-line arguments and calls the main function with the provided options.
-    The workflow is:
-    1. Parse command-line arguments
-    2. Call main() with the parsed arguments
-    """
-    # Set up command-line argument parser
+    # set up command-line argument parser
     parser = argparse.ArgumentParser(description="C to Quantum Compiler")
     parser.add_argument("source", type=Path, help="C source file to compile")
     parser.add_argument(
@@ -262,28 +274,26 @@ if __name__ == "__main__":
     parser.add_argument("--precision", dest="precision", type=float, default=1e-4,
                        help="Phase precision threshold for optimization (default: 1e-4)")
     
-    # Parse arguments and run main function
     args = parser.parse_args()
     
-    # Determine optimization setting
+    # determine optimization setting
     optimize = not args.no_optimize
     if args.validate is not None and not args.force_optimize:
         optimize = False
         if not args.no_optimize:
-            print("⚠️  Optimizations disabled for validation (use --force-optimize to test optimized circuits)")
+            print("[WARN] Optimizations disabled for validation (use --force-optimize to test optimized circuits)")
     elif args.validate is not None and args.force_optimize:
         optimize = True
-        print("✅ Validating OPTIMIZED circuit (--force-optimize enabled)")
+        print("[INFO] Validating OPTIMIZED circuit (--force-optimize enabled)")
     
-    # Run compilation to get the circuit
     circuit = main(args.source, args.emit, args.ir, args.print_generic, optimize, args.precision)
     
-    # If validation requested, validate the circuit we just created
+    # validate the circuit if requested
     if args.validate is not None and circuit is not None:
         from C2Q.backend.validate import validate_circuit
         
         print("\n" + "="*60)
-        print("🔬 VALIDATION")
+        print("VALIDATION")
         print("="*60)
         
         passed = validate_circuit(

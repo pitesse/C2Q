@@ -8,25 +8,19 @@ quantum computational correctness.
 
 from .draper_optimizer import DraperOptimizer, optimize_draper_arithmetic, OptimizationStats
 from .integrated_optimizer import IntegratedQuantumOptimizer, optimize_quantum_circuit, create_optimizer_pipeline
-
-# Legacy optimizations (pattern-based)
 from .remove_unused_op import RemoveUnusedOperations
 from .ccnot_decomposition import CCnot_decomposition
 from .in_placing import InPlacing
 
 __all__ = [
-    # Main optimization interfaces
     'IntegratedQuantumOptimizer',
     'optimize_quantum_circuit',
     'create_optimizer_pipeline',
     
-    # Specialized optimizers
     'DraperOptimizer',
     'optimize_draper_arithmetic', 
     'OptimizationStats',
     
-    # Individual pattern-based passes
-    # Individual pattern-based passes
     'RemoveUnusedOperations',
     'CCnot_decomposition', 
     'InPlacing'
