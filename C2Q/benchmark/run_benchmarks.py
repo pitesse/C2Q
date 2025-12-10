@@ -18,7 +18,6 @@ from io import StringIO
 from xdsl.printer import Printer
 from xdsl.dialects.builtin import ModuleOp
 
-# Import compiler pipeline components
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -77,7 +76,7 @@ class BenchmarkResult:
         return ((baseline_value - optimized_value) / baseline_value) * 100
 
 
-# Test suite configuration
+# test suite configuration
 TEST_SUITE = [
     {
         "name": "Add (8-bit)",
@@ -369,8 +368,8 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     save_mlir_artifact(baseline_module, artifacts_dir / f"{safe_name}_base.mlir")
     save_mlir_artifact(optimized_module, artifacts_dir / f"{safe_name}_opt.mlir")
     
-    print(f"    ✓ Baseline:  {baseline_result.total_gates} gates, depth {baseline_result.circuit_depth}")
-    print(f"    ✓ Optimized: {optimized_result.total_gates} gates, depth {optimized_result.circuit_depth}")
+    print(f"    [PASS] Baseline:  {baseline_result.total_gates} gates, depth {baseline_result.circuit_depth}")
+    print(f"    [PASS] Optimized: {optimized_result.total_gates} gates, depth {optimized_result.circuit_depth}")
     print()
     
     return baseline_result, optimized_result
@@ -434,9 +433,9 @@ def print_comparison_table(results: List[Tuple[BenchmarkResult, BenchmarkResult]
         validation_indicator = ""
         if hasattr(optimized, 'validation_passed'):
             if optimized.validation_passed:
-                validation_indicator = " ✅"
+                validation_indicator = " [PASS]"
             else:
-                validation_indicator = " ❌ FAILED"
+                validation_indicator = " [FAIL]"
         
         print(f"Test: {baseline.test_name}{validation_indicator}")
         print("-" * 100)
