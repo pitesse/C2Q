@@ -17,7 +17,6 @@ from xdsl.pattern_rewriter import GreedyRewritePatternApplier
 # Import existing optimization passes
 from .remove_unused_op import RemoveUnusedOperations
 from .ccnot_decomposition import CCnot_decomposition
-from .qubit_renumber import QubitRenumber
 from .in_placing import InPlacing
 from .draper_optimizer import DraperOptimizer
 
@@ -34,7 +33,6 @@ class IntegratedQuantumOptimizer:
     def __init__(self, enable_decomposition: bool = True, 
                  enable_cse: bool = True,
                  enable_dead_code: bool = True,
-                 enable_renumbering: bool = True,
                  enable_in_place: bool = True,
                  enable_draper_opt: bool = True,
                  precision_threshold: float = 1e-6):
@@ -45,7 +43,6 @@ class IntegratedQuantumOptimizer:
             enable_decomposition: Enable CCNOT decomposition pass
             enable_cse: Enable common subexpression elimination
             enable_dead_code: Enable removal of unused operations
-            enable_renumbering: Enable qubit renumbering optimization
             enable_in_place: Enable in-place computation optimization
             enable_draper_opt: Enable Draper QFT arithmetic optimizations
             precision_threshold: Threshold for phase precision optimization
@@ -53,7 +50,6 @@ class IntegratedQuantumOptimizer:
         self.enable_decomposition = enable_decomposition
         self.enable_cse = enable_cse
         self.enable_dead_code = enable_dead_code
-        self.enable_renumbering = enable_renumbering
         self.enable_in_place = enable_in_place
         self.enable_draper_opt = enable_draper_opt
         self.precision_threshold = precision_threshold
@@ -145,11 +141,6 @@ class IntegratedQuantumOptimizer:
             patterns.append(CCnot_decomposition())
             if verbose:
                 print("  ✅ Added: CCNOT decomposition")
-        
-        if self.enable_renumbering:
-            patterns.append(QubitRenumber())
-            if verbose:
-                print("  ✅ Added: Qubit renumbering")
         
         if self.enable_in_place:
             patterns.append(InPlacing())
@@ -248,7 +239,6 @@ def create_optimizer_pipeline(optimization_level: str = "default", precision_thr
             enable_decomposition=False,
             enable_cse=False,
             enable_dead_code=True,
-            enable_renumbering=True,
             enable_in_place=False,
             enable_draper_opt=False,
             precision_threshold=max(precision_threshold, 1e-3)  # Conservative minimum
@@ -260,7 +250,6 @@ def create_optimizer_pipeline(optimization_level: str = "default", precision_thr
             enable_decomposition=True,
             enable_cse=True,
             enable_dead_code=True,
-            enable_renumbering=True,
             enable_in_place=True,
             enable_draper_opt=True,
             precision_threshold=precision_threshold  # Use provided threshold
@@ -272,7 +261,6 @@ def create_optimizer_pipeline(optimization_level: str = "default", precision_thr
             enable_decomposition=False,
             enable_cse=False,
             enable_dead_code=False,
-            enable_renumbering=False,
             enable_in_place=False,
             enable_draper_opt=False
         )
@@ -286,7 +274,6 @@ def create_optimizer_pipeline(optimization_level: str = "default", precision_thr
             enable_decomposition=True,
             enable_cse=False,  # Disabled for now due to potential compatibility issues
             enable_dead_code=True,  # Safe quantum-aware dead code elimination
-            enable_renumbering=True,
             enable_in_place=True,
             enable_draper_opt=True,
             precision_threshold=precision_threshold  # Use provided threshold

@@ -2057,8 +2057,8 @@ builtin.module {
     %q3_1998 = "quantum.OnQubit_controlled_phase"(%q3_1997, %q3_1997) {control_index = 13 : i32, target_index = 15 : i32, phase = -0.78539816339744828 : f64} : (vector<16xi1>, vector<16xi1>) -> vector<16xi1>
     %q3_1999 = "quantum.OnQubit_controlled_phase"(%q3_1998, %q3_1998) {control_index = 14 : i32, target_index = 15 : i32, phase = -1.5707963267948966 : f64} : (vector<16xi1>, vector<16xi1>) -> vector<16xi1>
     %q3_2000 = "quantum.OnQubit_hadamard"(%q3_1999) {index = 15 : i32} : (vector<16xi1>) -> vector<16xi1>
-    %q4_0 = "quantum.init"() {type = vector<16xi1>, value = 0 : i16} : () -> vector<16xi1>
-    %q5_1 = "quantum.OnQubit_cnot"(%q2_2, %q4_0) {control_index = 0 : i32, target_index = 0 : i32} : (vector<8xi1>, vector<16xi1>) -> vector<16xi1>
+    %q5_0 = "quantum.init"() {type = vector<16xi1>, value = 0 : i16} : () -> vector<16xi1>
+    %q5_1 = "quantum.OnQubit_cnot"(%q2_2, %q5_0) {control_index = 0 : i32, target_index = 0 : i32} : (vector<8xi1>, vector<16xi1>) -> vector<16xi1>
     %q5_2 = "quantum.OnQubit_cnot"(%q2_2, %q5_1) {control_index = 1 : i32, target_index = 1 : i32} : (vector<8xi1>, vector<16xi1>) -> vector<16xi1>
     %q5_3 = "quantum.OnQubit_cnot"(%q2_2, %q5_2) {control_index = 2 : i32, target_index = 2 : i32} : (vector<8xi1>, vector<16xi1>) -> vector<16xi1>
     %q5_4 = "quantum.OnQubit_cnot"(%q2_2, %q5_3) {control_index = 3 : i32, target_index = 3 : i32} : (vector<8xi1>, vector<16xi1>) -> vector<16xi1>
