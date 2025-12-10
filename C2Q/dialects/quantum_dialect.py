@@ -1,21 +1,17 @@
-"""
-Quantum Operation Dialect Implementation
+"""Quantum Operation Dialect Implementation
 
-This module defines a set of quantum operations for use in the C to Quantum
-compiler's intermediate representation (IR). It provides a collection of
-quantum gates and operations that can be used to build quantum circuits,
-including initialization, measurement, and various quantum gates like NOT,
-CNOT, CCNOT, Hadamard, and T gates.
+Defines quantum operations for the C-to-Quantum compiler's intermediate
+representation using xDSL's IRDL framework. Provides a comprehensive set
+of quantum gates and operations for building quantum circuits.
 
-The operations are defined using xDSL's IR definition language (IRDL) and
-are registered as part of the "quantum" dialect.
+Operation Categories:
+- Single-qubit gates: NOT, Hadamard, T, T-dagger, Phase
+- Multi-qubit gates: CNOT, CCNOT, Controlled-phase, SWAP
+- Register operations: Initialization, Measurement, Bit extraction/insertion
+- On-qubit operations: Direct bit manipulation within vector registers
+- Control structures: Function definitions, Comments
 
-Key Features:
-- Single-qubit operations (NOT, Hadamard, T, T-dagger)
-- Multi-qubit operations (CNOT, CCNOT)
-- On-qubit operations for direct bit manipulation
-- Controlled phase operations
-- Register initialization and measurement
+All operations are registered as part of the "quantum" dialect.
 """
 
 from __future__ import annotations
@@ -42,12 +38,10 @@ from xdsl.irdl import (
 
 @irdl_op_definition
 class InitOp(IRDLOperation):
-    """
-    Operation to initialize a qubit or a vector of qubits to zero.
+    """Initialize a qubit or vector of qubits to the |0⟩ state.
 
-    This operation creates a new qubit or vector of qubits, initializing
-    them to the |0⟩ state, which is the standard initial state for
-    quantum computation.
+    Creates new quantum register(s) initialized to the computational zero state,
+    which is the standard initial state for quantum computation.
     """
 
     name = "quantum.init"
@@ -108,11 +102,10 @@ class InitOp(IRDLOperation):
 
 @irdl_op_definition
 class NotOp(IRDLOperation):
-    """
-    Operation to apply the NOT gate (X gate) to a qubit or vector of qubits.
+    """Apply the NOT gate (X gate) to flip qubit states.
 
-    The NOT gate flips the state of a qubit, changing |0⟩ to |1⟩ and vice versa.
-    It is one of the fundamental single-qubit gates in quantum computing.
+    The NOT gate flips qubit states: |0⟩ ↔ |1⟩. It is a fundamental
+    single-qubit gate equivalent to the Pauli-X operator.
     """
 
     name = "quantum.not"
@@ -120,10 +113,10 @@ class NotOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
-        """
-        @brief Apply a NOT gate to a target qubit or vector of qubits.
-
-        @param target: The qubit or vector of qubits to apply the NOT gate to
+        """Apply a NOT gate to target qubit(s).
+        
+        Args:
+            target: The qubit or vector of qubits to flip.
         """
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
@@ -143,14 +136,13 @@ class NotOp(IRDLOperation):
 
     @staticmethod
     def from_value(value: SSAValue) -> NotOp:
-        """
-        Factory method to create a NotOp from a value.
-
+        """Create a NotOp from a value.
+        
         Args:
-            value: The target qubit or vector of qubits
+            value: The target qubit or vector of qubits.
             
         Returns:
-            A new NotOp instance
+            A new NotOp instance.
         """
         return NotOp(value)
 
@@ -162,12 +154,10 @@ class NotOp(IRDLOperation):
 
 @irdl_op_definition
 class CNotOp(IRDLOperation):
-    """
-    Operation to apply the CNOT gate (Controlled-NOT) to qubits.
+    """Apply the CNOT gate (Controlled-NOT) for entanglement.
 
-    The CNOT gate is a two-qubit operation where the state of the target qubit
-    is flipped if the control qubit is in the |1⟩ state. It is fundamental for
-    creating entanglement between qubits.
+    Two-qubit gate that flips the target qubit if the control qubit is |1⟩.
+    Fundamental for creating entanglement between qubits.
     """
 
     name = "quantum.cnot"
@@ -176,11 +166,11 @@ class CNotOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, control: SSAValue, target: SSAValue):
-        """
-        @brief Apply a CNOT gate with the specified control and target qubits.
-
-        @param control: The control qubit (or vector of control qubits)
-        @param target: The target qubit (or vector of target qubits)
+        """Apply a CNOT gate between control and target qubits.
+        
+        Args:
+            control: The control qubit or vector.
+            target: The target qubit or vector.
         """
         if isinstance(control.type, IntegerType) and isinstance(
             target.type, IntegerType
@@ -202,27 +192,24 @@ class CNotOp(IRDLOperation):
 
     @staticmethod
     def from_value(control: SSAValue, target: SSAValue) -> CNotOp:
-        """
-        @brief Factory method to create a CNotOp from control and target values.
-
-        @param control: The control qubit (or vector of control qubits)
-        @param target: The target qubit (or vector of target qubits)
-        @return A new CNotOp instance
+        """Create a CNotOp from control and target values.
+        
+        Args:
+            control: The control qubit or vector.
+            target: The target qubit or vector.
+            
+        Returns:
+            A new CNotOp instance.
         """
         return CNotOp(control, target)
 
 
 @irdl_op_definition
 class CCNotOp(IRDLOperation):
-    """
-    @brief Operation to apply the CCNOT gate (Toffoli gate) to qubits.
+    """Apply the CCNOT gate (Toffoli gate) for reversible computation.
 
-    The CCNOT gate is a three-qubit operation where the state of the target qubit
-    is flipped if both control qubits are in the |1⟩ state. It is a universal gate
-    for classical reversible computation within quantum computing.
-
-    @see NotOp
-    @see CNotOp
+    Three-qubit gate that flips the target qubit if both control qubits are |1⟩.
+    Universal gate for classical reversible computation within quantum systems.
     """
 
     name = "quantum.ccnot"
@@ -232,12 +219,12 @@ class CCNotOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, control1: SSAValue, control2: SSAValue, target: SSAValue):
-        """
-        @brief Apply a CCNOT gate with the specified control and target qubits.
-
-        @param control1: The first control qubit (or vector of control qubits)
-        @param control2: The second control qubit (or vector of control qubits)
-        @param target: The target qubit (or vector of target qubits)
+        """Apply a CCNOT gate with two controls and one target.
+        
+        Args:
+            control1: The first control qubit or vector.
+            control2: The second control qubit or vector.
+            target: The target qubit or vector.
         """
         if (
             isinstance(control1.type, IntegerType)
@@ -263,27 +250,25 @@ class CCNotOp(IRDLOperation):
 
     @staticmethod
     def from_value(control1: SSAValue, control2: SSAValue, target: SSAValue) -> CCNotOp:
-        """
-        @brief Factory method to create a CCNotOp from control and target values.
-
-        @param control1: The first control qubit (or vector of control qubits)
-        @param control2: The second control qubit (or vector of control qubits)
-        @param target: The target qubit (or vector of target qubits)
-        @return A new CCNotOp instance
+        """Create a CCNotOp from control and target values.
+        
+        Args:
+            control1: The first control qubit or vector.
+            control2: The second control qubit or vector.
+            target: The target qubit or vector.
+            
+        Returns:
+            A new CCNotOp instance.
         """
         return CCNotOp(control1, control2, target)
 
 
 @irdl_op_definition
 class MeasureOp(IRDLOperation):
-    """
-    @brief Operation to measure a qubit or vector of qubits.
+    """Measure qubit(s) to extract classical information.
 
-    This operation collapses the quantum state and returns a classical bit result.
-    It is typically used at the end of quantum circuits to extract classical
-    information from the quantum computation.
-
-    @see InitOp
+    Collapses the quantum state and returns a classical bit result.
+    Typically used at circuit end to extract computation results.
     """
 
     name = "quantum.measure"
@@ -291,10 +276,10 @@ class MeasureOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
-        """
-        @brief Measure a target qubit or vector of qubits.
-
-        @param target: The qubit or vector of qubits to measure
+        """Measure target qubit(s).
+        
+        Args:
+            target: The qubit or vector of qubits to measure.
         """
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
@@ -314,22 +299,23 @@ class MeasureOp(IRDLOperation):
 
     @staticmethod
     def from_value(target: SSAValue) -> MeasureOp:
-        """
-        @brief Factory method to create a MeasureOp from a target value.
-
-        @param target: The qubit or vector of qubits to measure
-        @return A new MeasureOp instance
+        """Create a MeasureOp from a target value.
+        
+        Args:
+            target: The qubit or vector of qubits to measure.
+            
+        Returns:
+            A new MeasureOp instance.
         """
         return MeasureOp(target)
 
 
 @irdl_op_definition
 class FuncOp(IRDLOperation):
-    """
-    @brief Operation to define a quantum function.
+    """Define a quantum function for code organization.
 
-    This operation encapsulates a sequence of quantum operations as a function
-    with a specified name. It provides a container for quantum code organization.
+    Encapsulates a sequence of quantum operations as a named function,
+    providing structure for quantum circuit organization.
     """
 
     name = "quantum.func"
@@ -339,11 +325,11 @@ class FuncOp(IRDLOperation):
     def __init__(
         self, name: str, region: Region | type[Region.DEFAULT] = Region.DEFAULT
     ):
-        """
-        @brief Define a quantum function with the specified name and region.
-
-        @param name: The function name
-        @param region: The region containing the function body operations
+        """Define a quantum function.
+        
+        Args:
+            name: The function name.
+            region: The region containing the function body operations.
         """
         attributes: dict[str, Attribute] = {"func_name": StringAttr(name)}
         regions_list = [region] if region is not Region.DEFAULT else []
@@ -352,14 +338,10 @@ class FuncOp(IRDLOperation):
 
 @irdl_op_definition
 class TGateOp(IRDLOperation):
-    """
-    @brief T-Gate operation for phase rotation.
+    """Apply the T gate for π/4 phase rotation.
 
-    The T gate is a single-qubit operation that rotates the state vector around
-    the Z-axis of the Bloch sphere by π/4 radians (45 degrees). It is particularly
-    important for universal quantum computation.
-
-    @see TDaggerGateOp
+    Single-qubit gate that rotates the state vector by π/4 radians around
+    the Z-axis of the Bloch sphere. Essential for universal quantum computation.
     """
 
     name = "quantum.not"
@@ -367,10 +349,10 @@ class TGateOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
-        """
-        @brief Apply a NOT gate to a target qubit or vector of qubits.
-
-        @param target: The qubit or vector of qubits to apply the NOT gate to
+        """Apply a T gate to target qubit(s).
+        
+        Args:
+            target: The qubit or vector to apply the gate to.
         """
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
@@ -390,25 +372,23 @@ class TGateOp(IRDLOperation):
 
     @staticmethod
     def from_value(target: SSAValue) -> TGateOp:
-        """
-        @brief Factory method to create a TGateOp from a target value.
-
-        @param target: The qubit or vector of qubits to apply the T gate to
-        @return A new TGateOp instance
+        """Create a TGateOp from a target value.
+        
+        Args:
+            target: The qubit or vector to apply the T gate to.
+            
+        Returns:
+            A new TGateOp instance.
         """
         return TGateOp(target)
 
 
 @irdl_op_definition
 class TDaggerGateOp(IRDLOperation):
-    """
-    @brief T-Dagger Gate operation for inverse phase rotation.
+    """Apply the T-dagger gate for -π/4 phase rotation.
 
-    The T-Dagger gate is the adjoint (inverse) of the T gate. It rotates the state
-    vector around the Z-axis of the Bloch sphere by -π/4 radians (-45 degrees).
-    It is used in conjunction with the T gate for quantum circuit construction.
-
-    @see TGateOp
+    Adjoint (inverse) of the T gate. Rotates the state vector by -π/4 radians
+    around the Z-axis. Used with T gate for quantum circuit construction.
     """
 
     name = "quantum.tdagger"
@@ -416,10 +396,10 @@ class TDaggerGateOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
-        """
-        @brief Apply a T-Dagger gate to a target qubit or vector of qubits.
-
-        @param target: The qubit or vector of qubits to apply the T-Dagger gate to
+        """Apply a T-dagger gate to target qubit(s).
+        
+        Args:
+            target: The qubit or vector to apply the gate to.
         """
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
@@ -439,23 +419,23 @@ class TDaggerGateOp(IRDLOperation):
 
     @staticmethod
     def from_value(target: SSAValue) -> TDaggerGateOp:
-        """
-        @brief Factory method to create a TDaggerGateOp from a target value.
-
-        @param target: The qubit or vector of qubits to apply the T-Dagger gate to
-        @return A new TDaggerGateOp instance
+        """Create a TDaggerGateOp from a target value.
+        
+        Args:
+            target: The qubit or vector to apply the T-dagger gate to.
+            
+        Returns:
+            A new TDaggerGateOp instance.
         """
         return TDaggerGateOp(target)
 
 
 @irdl_op_definition
 class HadamardOp(IRDLOperation):
-    """
-    @brief Hadamard gate operation for creating superposition.
+    """Apply the Hadamard gate to create superposition.
 
-    The Hadamard gate creates a superposition by transforming states |0⟩ to |+⟩ and
-    |1⟩ to |-⟩. It is fundamental for creating superposition states in quantum
-    algorithms and is often used as the first step in many quantum circuits.
+    Creates superposition by transforming |0⟩ → |+⟩ and |1⟩ → |-⟩.
+    Fundamental for quantum algorithms, often used as initialization step.
     """
 
     name = "quantum.h"
@@ -463,10 +443,10 @@ class HadamardOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, target: SSAValue):
-        """
-        @brief Apply a Hadamard gate to a target qubit or vector of qubits.
-
-        @param target: The qubit or vector of qubits to apply the Hadamard gate to
+        """Apply a Hadamard gate to target qubit(s).
+        
+        Args:
+            target: The qubit or vector to apply the gate to.
         """
         if isinstance(target.type, IntegerType):
             super().__init__(result_types=[IntegerType(1)], operands=[target])
@@ -486,52 +466,54 @@ class HadamardOp(IRDLOperation):
 
     @staticmethod
     def from_value(target: SSAValue) -> HadamardOp:
-        """
-        @brief Factory method to create a HadamardOp from a target value.
-
-        @param target: The qubit or vector of qubits to apply the Hadamard gate to
-        @return A new HadamardOp instance
+        """Create a HadamardOp from a target value.
+        
+        Args:
+            target: The qubit or vector to apply the Hadamard gate to.
+            
+        Returns:
+            A new HadamardOp instance.
         """
         return HadamardOp(target)
 
 
 @irdl_op_definition
 class CommentOp(IRDLOperation):
-    """
-    @brief Operation to add a comment to the IR.
+    """Add a comment to the IR for documentation.
 
-    This operation exists purely for documentation and debugging purposes.
-    It doesn't perform any quantum computation but helps make the IR more readable.
+    Non-computational operation for documentation and debugging.
+    Makes IR more readable without affecting quantum execution.
     """
 
     name = "quantum.comment"
     comment_text: StringAttr = attr_def(StringAttr)
 
     def __init__(self, text: str):
-        """
-        @brief Create a comment operation.
-
-        @param text: The comment text
+        """Create a comment operation.
+        
+        Args:
+            text: The comment text.
         """
         super().__init__(attributes={"comment_text": StringAttr(text)})
 
     @staticmethod
     def from_string(text: str) -> "CommentOp":
-        """
-        @brief Factory method to create a CommentOp from a string.
-
-        @param text: The comment text
-        @return A new CommentOp instance
+        """Create a CommentOp from a string.
+        
+        Args:
+            text: The comment text.
+            
+        Returns:
+            A new CommentOp instance.
         """
         return CommentOp(text)
 
 
 @irdl_op_definition
 class ExtractBitOp(IRDLOperation):
-    """
-    @brief Operation to extract a single qubit from a multi-qubit register.
+    """Extract a single qubit from a multi-qubit register.
 
-    This operation extracts one qubit from a vector of qubits at a specified index.
+    Extracts one qubit from a vector at the specified index.
     """
 
     name = "quantum.extract_bit"
@@ -540,11 +522,11 @@ class ExtractBitOp(IRDLOperation):
     res: OpResult = result_def()
 
     def __init__(self, vector: SSAValue, index: int):
-        """
-        @brief Extract a single qubit from a vector.
-
-        @param vector: The vector of qubits
-        @param index: The index to extract
+        """Extract a single qubit from a vector.
+        
+        Args:
+            vector: The vector of qubits.
+            index: The index to extract.
         """
         super().__init__(
             result_types=[IntegerType(1)],
@@ -554,12 +536,14 @@ class ExtractBitOp(IRDLOperation):
 
     @staticmethod
     def from_value(vector: SSAValue, index: int) -> "ExtractBitOp":
-        """
-        @brief Factory method to create an ExtractBitOp.
-
-        @param vector: The vector to extract from
-        @param index: The bit index to extract
-        @return A new ExtractBitOp instance
+        """Create an ExtractBitOp.
+        
+        Args:
+            vector: The vector to extract from.
+            index: The bit index to extract.
+            
+        Returns:
+            A new ExtractBitOp instance.
         """
         return ExtractBitOp(vector, index)
 
@@ -598,13 +582,15 @@ class InsertBitOp(IRDLOperation):
 
     @staticmethod
     def from_values(vector: SSAValue, value: SSAValue, index: int) -> "InsertBitOp":
-        """
-        @brief Factory method to create an InsertBitOp.
-
-        @param vector: The vector to insert into
-        @param value: The qubit value to insert
-        @param index: The bit position
-        @return A new InsertBitOp instance
+        """Create an InsertBitOp.
+        
+        Args:
+            vector: The vector to insert into.
+            value: The qubit value to insert.
+            index: The bit position.
+            
+        Returns:
+            A new InsertBitOp instance.
         """
         return InsertBitOp(vector, value, index)
 
@@ -616,11 +602,10 @@ class InsertBitOp(IRDLOperation):
 
 @irdl_op_definition
 class OnQubitNotOp(IRDLOperation):
-    """
-    Operation to apply the NOT gate directly to an indexed bit in a register.
+    """Apply NOT gate directly to an indexed bit in a register.
 
-    This operation applies a NOT gate to a specific bit within a vector register,
-    avoiding the need for separate extract and insert operations.
+    Applies NOT to a specific bit within a vector register, avoiding
+    separate extract and insert operations.
     """
 
     name = "quantum.OnQubit_not"
@@ -629,11 +614,11 @@ class OnQubitNotOp(IRDLOperation):
     res: OpResult = result_def(VectorType)
 
     def __init__(self, vector: SSAValue, bit_index: int):
-        """
-        @brief Apply a NOT gate OnQubitly to a specific bit in a vector.
-
-        @param vector: The vector of qubits
-        @param bit_index: The index of the bit to apply the NOT gate to
+        """Apply NOT gate to a specific bit in a vector.
+        
+        Args:
+            vector: The vector of qubits.
+            bit_index: The index of the bit to flip.
         """
         if isinstance(vector.type, VectorType):
             size = vector.type.shape.data[0]  # type: ignore
@@ -647,23 +632,24 @@ class OnQubitNotOp(IRDLOperation):
 
     @staticmethod
     def from_value(vector: SSAValue, bit_index: int) -> "OnQubitNotOp":
-        """
-        @brief Factory method to create a OnQubitNotOp from a vector and bit index.
-
-        @param vector: The vector of qubits
-        @param bit_index: The index of the bit to apply the NOT gate to
-        @return A new OnQubitNotOp instance
+        """Create a OnQubitNotOp from a vector and bit index.
+        
+        Args:
+            vector: The vector of qubits.
+            bit_index: The index of the bit to flip.
+            
+        Returns:
+            A new OnQubitNotOp instance.
         """
         return OnQubitNotOp(vector, bit_index)
 
 
 @irdl_op_definition
 class OnQubitCNotOp(IRDLOperation):
-    """
-    @brief Operation to apply the CNOT gate OnQubitly to indexed bits in registers.
+    """Apply CNOT gate directly to indexed bits in registers.
 
-    This operation applies a CNOT gate between two specific bits within vector registers,
-    avoiding the need for separate extract and insert operations.
+    Applies CNOT between specific bits within vector registers, avoiding
+    separate extract and insert operations.
     """
 
     name = "quantum.OnQubit_cnot"
@@ -680,13 +666,13 @@ class OnQubitCNotOp(IRDLOperation):
         target_vector: SSAValue,
         target_index: int,
     ):
-        """
-        @brief Apply a CNOT gate OnQubitly between specific bits in vectors.
-
-        @param control_vector: The vector containing the control qubit
-        @param control_index: The index of the control bit
-        @param target_vector: The vector containing the target qubit
-        @param target_index: The index of the target bit
+        """Apply CNOT gate between specific bits in vectors.
+        
+        Args:
+            control_vector: The vector containing the control qubit.
+            control_index: The index of the control bit.
+            target_vector: The vector containing the target qubit.
+            target_index: The index of the target bit.
         """
         if isinstance(control_vector.type, VectorType) and isinstance(
             target_vector.type, VectorType
@@ -710,25 +696,26 @@ class OnQubitCNotOp(IRDLOperation):
         target_vector: SSAValue,
         target_index: int,
     ) -> "OnQubitCNotOp":
-        """
-        @brief Factory method to create a OnQubitCNotOp.
-
-        @param control_vector: The vector containing the control qubit
-        @param control_index: The index of the control bit
-        @param target_vector: The vector containing the target qubit
-        @param target_index: The index of the target bit
-        @return A new OnQubitCNotOp instance
+        """Create a OnQubitCNotOp.
+        
+        Args:
+            control_vector: Vector containing the control qubit.
+            control_index: Index of the control bit.
+            target_vector: Vector containing the target qubit.
+            target_index: Index of the target bit.
+            
+        Returns:
+            A new OnQubitCNotOp instance.
         """
         return OnQubitCNotOp(control_vector, control_index, target_vector, target_index)
 
 
 @irdl_op_definition
 class OnQubitCCnotOp(IRDLOperation):
-    """
-    @brief Operation to apply the CCNOT gate OnQubitly to indexed bits in registers.
+    """Apply CCNOT gate directly to indexed bits in registers.
 
-    This operation applies a CCNOT gate between two control bits and a target bit
-    within vector registers, avoiding the need for separate extract and insert operations.
+    Applies CCNOT between two control bits and a target bit within vector
+    registers, avoiding separate extract and insert operations.
     """
 
     name = "quantum.OnQubit_ccnot"
@@ -749,15 +736,15 @@ class OnQubitCCnotOp(IRDLOperation):
         target_vector: SSAValue,
         target_index: int,
     ):
-        """
-        @brief Apply a CCNOT gate OnQubitly between specific bits in vectors.
-
-        @param control1_vector: The vector containing the first control qubit
-        @param control1_index: The index of the first control bit
-        @param control2_vector: The vector containing the second control qubit
-        @param control2_index: The index of the second control bit
-        @param target_vector: The vector containing the target qubit
-        @param target_index: The index of the target bit
+        """Apply CCNOT gate between specific bits in vectors.
+        
+        Args:
+            control1_vector: Vector containing the first control qubit.
+            control1_index: Index of the first control bit.
+            control2_vector: Vector containing the second control qubit.
+            control2_index: Index of the second control bit.
+            target_vector: Vector containing the target qubit.
+            target_index: Index of the target bit.
         """
         if (
             isinstance(control1_vector.type, VectorType)
@@ -786,15 +773,18 @@ class OnQubitCCnotOp(IRDLOperation):
         target_vector: SSAValue,
         target_index: int,
     ) -> "OnQubitCCnotOp":
-        """
-        @brief Factory method to create a OnQubitCCnotOp.
-        @param control1_vector: The vector containing the first control qubit
-        @param control1_index: The index of the first control bit
-        @param control2_vector: The vector containing the second control qubit
-        @param control2_index: The index of the second control bit
-        @param target_vector: The vector containing the target qubit
-        @param target_index: The index of the target bit
-        @return A new OnQubitCCnotOp instance
+        """Create a OnQubitCCnotOp.
+        
+        Args:
+            control1_vector: Vector containing the first control qubit.
+            control1_index: Index of the first control bit.
+            control2_vector: Vector containing the second control qubit.
+            control2_index: Index of the second control bit.
+            target_vector: Vector containing the target qubit.
+            target_index: Index of the target bit.
+            
+        Returns:
+            A new OnQubitCCnotOp instance.
         """
         return OnQubitCCnotOp(
             control1_vector,
@@ -808,11 +798,10 @@ class OnQubitCCnotOp(IRDLOperation):
 
 @irdl_op_definition
 class OnQubitHadamardOp(IRDLOperation):
-    """
-    @brief Operation to apply the Hadamard gate to a specific qubit in a register.
+    """Apply Hadamard gate to a specific qubit in a register.
     
-    This operation applies a Hadamard gate to a specific qubit within a vector register,
-    creating superposition: H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
+    Applies Hadamard to a specific qubit within a vector register,
+    creating superposition: H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2.
     """
     
     name = "quantum.OnQubit_hadamard"
@@ -821,11 +810,11 @@ class OnQubitHadamardOp(IRDLOperation):
     res: OpResult = result_def(VectorType)
     
     def __init__(self, register: SSAValue, index: int):
-        """
-        @brief Apply a Hadamard gate to a specific qubit in a vector.
+        """Apply Hadamard gate to a specific qubit.
         
-        @param register: The vector containing the qubit
-        @param index: The index of the qubit to apply Hadamard to
+        Args:
+            register: The vector containing the qubit.
+            index: The index of the qubit.
         """
         if isinstance(register.type, VectorType):
             size = register.type.shape.data[0]  # type: ignore
@@ -841,23 +830,23 @@ class OnQubitHadamardOp(IRDLOperation):
     
     @staticmethod
     def from_value(register: SSAValue, index: int) -> "OnQubitHadamardOp":
-        """
-        @brief Factory method to create a OnQubitHadamardOp.
+        """Create a OnQubitHadamardOp.
         
-        @param register: The vector containing the qubit
-        @param index: The index of the qubit
-        @return A new OnQubitHadamardOp instance
+        Args:
+            register: Vector containing the qubit.
+            index: Index of the qubit.
+            
+        Returns:
+            A new OnQubitHadamardOp instance.
         """
         return OnQubitHadamardOp(register, index)
 
 
 @irdl_op_definition
 class OnQubitPhaseOp(IRDLOperation):
-    """
-    @brief Operation to apply a phase gate to a specific qubit in a register.
+    """Apply phase gate to a specific qubit in a register.
     
-    This operation applies a phase rotation to a specific qubit within a vector register.
-    Phase gate: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩
+    Applies phase rotation to a specific qubit: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩.
     """
     
     name = "quantum.OnQubit_phase"
@@ -867,12 +856,12 @@ class OnQubitPhaseOp(IRDLOperation):
     res: OpResult = result_def(VectorType)
     
     def __init__(self, register: SSAValue, index: int, phase: float):
-        """
-        @brief Apply a phase gate to a specific qubit in a vector.
+        """Apply phase gate to a specific qubit.
         
-        @param register: The vector containing the qubit
-        @param index: The index of the qubit to apply phase to
-        @param phase: The phase angle in radians
+        Args:
+            register: The vector containing the qubit.
+            index: The index of the qubit.
+            phase: The phase angle in radians.
         """
         if isinstance(register.type, VectorType):
             size = register.type.shape.data[0]  # type: ignore
@@ -889,24 +878,24 @@ class OnQubitPhaseOp(IRDLOperation):
     
     @staticmethod
     def from_value(register: SSAValue, index: int, phase: float) -> "OnQubitPhaseOp":
-        """
-        @brief Factory method to create a OnQubitPhaseOp.
+        """Create a OnQubitPhaseOp.
         
-        @param register: The vector containing the qubit
-        @param index: The index of the qubit
-        @param phase: The phase angle in radians
-        @return A new OnQubitPhaseOp instance
+        Args:
+            register: Vector containing the qubit.
+            index: Index of the qubit.
+            phase: The phase angle in radians.
+            
+        Returns:
+            A new OnQubitPhaseOp instance.
         """
         return OnQubitPhaseOp(register, index, phase)
 
 
 @irdl_op_definition
 class OnQubitControlledPhaseOp(IRDLOperation):
-    """
-    @brief Operation to apply a controlled phase rotation to qubits in registers.
+    """Apply controlled phase rotation to qubits in registers.
     
-    This operation applies a controlled phase rotation where the phase is applied
-    to the target qubit only if the control qubit is in state |1⟩.
+    Applies phase to target qubit only if control qubit is |1⟩.
     """
     
     name = "quantum.OnQubit_controlled_phase"
@@ -919,14 +908,14 @@ class OnQubitControlledPhaseOp(IRDLOperation):
     
     def __init__(self, control_register: SSAValue, control_index: int,
                  target_register: SSAValue, target_index: int, phase: float):
-        """
-        @brief Apply a controlled phase rotation between specific qubits.
+        """Apply controlled phase rotation between specific qubits.
         
-        @param control_register: The vector containing the control qubit
-        @param control_index: The index of the control qubit
-        @param target_register: The vector containing the target qubit
-        @param target_index: The index of the target qubit
-        @param phase: The phase angle in radians
+        Args:
+            control_register: Vector containing the control qubit.
+            control_index: Index of the control qubit.
+            target_register: Vector containing the target qubit.
+            target_index: Index of the target qubit.
+            phase: The phase angle in radians.
         """
         if isinstance(control_register.type, VectorType) and isinstance(target_register.type, VectorType):
             size = target_register.type.shape.data[0]  # type: ignore
@@ -946,15 +935,17 @@ class OnQubitControlledPhaseOp(IRDLOperation):
     def from_values(control_register: SSAValue, control_index: int,
                    target_register: SSAValue, target_index: int, 
                    phase: float) -> "OnQubitControlledPhaseOp":
-        """
-        @brief Factory method to create a OnQubitControlledPhaseOp.
+        """Create a OnQubitControlledPhaseOp.
         
-        @param control_register: The vector containing the control qubit
-        @param control_index: The index of the control qubit
-        @param target_register: The vector containing the target qubit
-        @param target_index: The index of the target qubit
-        @param phase: The phase angle in radians
-        @return A new OnQubitControlledPhaseOp instance
+        Args:
+            control_register: Vector containing the control qubit.
+            control_index: Index of the control qubit.
+            target_register: Vector containing the target qubit.
+            target_index: Index of the target qubit.
+            phase: The phase angle in radians.
+            
+        Returns:
+            A new OnQubitControlledPhaseOp instance.
         """
         return OnQubitControlledPhaseOp(control_register, control_index, 
                                        target_register, target_index, phase)
@@ -962,10 +953,9 @@ class OnQubitControlledPhaseOp(IRDLOperation):
 
 @irdl_op_definition
 class OnQubitSwapOp(IRDLOperation):
-    """
-    @brief Operation to swap two qubits within a register.
+    """Swap two qubits within a register.
     
-    This operation swaps the states of two qubits within the same vector register.
+    Exchanges the quantum states of two qubits within the same vector register.
     """
     
     name = "quantum.OnQubit_swap"
@@ -975,12 +965,12 @@ class OnQubitSwapOp(IRDLOperation):
     res: OpResult = result_def(VectorType)
     
     def __init__(self, register: SSAValue, qubit1_index: int, qubit2_index: int):
-        """
-        @brief Swap two qubits within a vector register.
+        """Swap two qubits within a vector register.
         
-        @param register: The vector containing both qubits
-        @param qubit1_index: The index of the first qubit
-        @param qubit2_index: The index of the second qubit
+        Args:
+            register: The vector containing both qubits.
+            qubit1_index: Index of the first qubit.
+            qubit2_index: Index of the second qubit.
         """
         if isinstance(register.type, VectorType):
             size = register.type.shape.data[0]  # type: ignore
@@ -997,13 +987,15 @@ class OnQubitSwapOp(IRDLOperation):
     
     @staticmethod
     def from_values(register: SSAValue, qubit1_index: int, qubit2_index: int) -> "OnQubitSwapOp":
-        """
-        @brief Factory method to create a OnQubitSwapOp.
+        """Create a OnQubitSwapOp.
         
-        @param register: The vector containing both qubits
-        @param qubit1_index: The index of the first qubit
-        @param qubit2_index: The index of the second qubit
-        @return A new OnQubitSwapOp instance
+        Args:
+            register: Vector containing both qubits.
+            qubit1_index: Index of the first qubit.
+            qubit2_index: Index of the second qubit.
+            
+        Returns:
+            A new OnQubitSwapOp instance.
         """
         return OnQubitSwapOp(register, qubit1_index, qubit2_index)
 
@@ -1038,5 +1030,5 @@ Quantum = Dialect(
 # DIALECT REGISTRATION
 # ============================================================================
 
-# The Quantum dialect is automatically registered when this module is imported
-# and provides all quantum operations for the C-to-Quantum compiler's IR generation.
+# the quantum dialect is automatically registered when this module is imported
+# and provides all quantum operations for the c-to-quantum compiler's ir generation
