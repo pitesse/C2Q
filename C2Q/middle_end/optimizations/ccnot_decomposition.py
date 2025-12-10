@@ -1,22 +1,49 @@
-from xdsl.ir import Operation,SSAValue
+"""CCNOT decomposition optimization pass.
+
+This module implements a pattern rewriting pass to transform CCNOT operations
+into a sequence of CNOT, Hadamard, and T-gate operations for evaluation of
+circuit performance using existing metrics.
+"""
+
+from xdsl.ir import Operation, SSAValue
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.builder import Builder
-from xdsl.rewriter import Rewriter, InsertPoint
+from xdsl.rewriter import InsertPoint
 from xdsl.dialects.builtin import ModuleOp
 
-from ...dialects.quantum_dialect import HadamardOp, TGateOp,TDaggerGateOp, CNotOp, MeasureOp,InitOp,FuncOp
+from ...dialects.quantum_dialect import (
+    HadamardOp,
+    TGateOp,
+    TDaggerGateOp,
+    CNotOp,
+    FuncOp,
+)
 
-# pattern rewriting pass to transform CCNOT operations in a sequence of CNOT, Hadamard and T-gate operations
-# in order to use existing metrics for the evaluation of the circuit performances.
+
 class CCnot_decomposition(RewritePattern):
-    Builder: Builder
-    passedOperation : set
+    """Pattern rewriter for decomposing CCNOT gates.
 
-    def __init__(self):
+    Transforms CCNOT operations into a sequence of CNOT, Hadamard, and T-gate
+    operations to enable evaluation using existing circuit performance metrics.
+
+    Attributes:
+        Builder: Builder instance for inserting new operations.
+        passedOperation: Set of operations that have been processed.
+    """
+
+    Builder: Builder
+    passedOperation: set
+
+    def __init__(self) -> None:
+        """Initialize the CCNOT decomposition pattern."""
         self.passedOperation = set()
     
-    # function to recursively fix the names of the SSAValues after a replacement
-    def fixnames(self, changed: SSAValue):
+    def fixnames(self, changed: SSAValue) -> None:
+        """Recursively fix the names of SSAValues after a replacement.
+
+        Args:
+            changed: The SSAValue whose dependent operations need name updates.
+        """
         uses = list(changed.uses)
 
         for use in uses:
@@ -26,11 +53,14 @@ class CCnot_decomposition(RewritePattern):
                 if hasattr(using_operation, 'res'):
                     using_operation.res._name = changed._name.split("_")[0] + "_" + str(int(changed._name.split("_")[1])+1)  # type: ignore[attr-defined, union-attr]
                     self.fixnames(using_operation.res)  # type: ignore[attr-defined]
-        
 
-    # replace the old SSAValue with the new one in the uses of the old SSAValue and fix the names of the result of the
-    # operation where we replaced
-    def replace(self, old: SSAValue, new: SSAValue):
+    def replace(self, old: SSAValue, new: SSAValue) -> None:
+        """Replace old SSAValue with new one and fix dependent operation names.
+
+        Args:
+            old: The SSAValue to be replaced.
+            new: The SSAValue to replace with.
+        """
         uses = list(old.uses)
 
         for use in uses:
@@ -44,15 +74,19 @@ class CCnot_decomposition(RewritePattern):
                 if hasattr(using_operation, 'res'):
                     using_operation.res._name = new._name.split("_")[0] + "_" + str(int(new._name.split("_")[1])+1)  # type: ignore[attr-defined, union-attr]
                     self.fixnames(using_operation.res)  # type: ignore[attr-defined]
-            else: # used as a control
+            else:  # used as a control
                 using_operation.operands[using_operation.operands.index(old)] = new
-        
 
+    def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter) -> None:
+        """Match CCNOT operations and rewrite them into decomposed gates.
 
-    
-    # Match every ccnot and transform it to the sequence specified in the documentation.
-    # Match also the measure op to correct their target qubit after the transformation.
-    def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter):
+        Transforms each CCNOT operation into a sequence of CNOT, Hadamard, and
+        T-gate operations according to standard decomposition.
+
+        Args:
+            op: The operation to match and potentially rewrite.
+            rewriter: Pattern rewriter for performing transformations.
+        """
 
         if isinstance(op,ModuleOp) or isinstance(op,FuncOp):
             return
@@ -135,15 +169,15 @@ class CCnot_decomposition(RewritePattern):
             self.passedOperation.add(h2_res.op)
 
 
+
             # replace old ccnot operands with the new ones
-            self.replace(res,h2_res)
-            self.replace(control1,t2_res)
-            self.replace(control2,t3_res)
+            self.replace(res, h2_res)
+            self.replace(control1, t2_res)
+            self.replace(control2, t3_res)
 
             # erase the ccnot
             rewriter.erase_op(op)
             return
-
 
             
 

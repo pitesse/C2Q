@@ -38,95 +38,88 @@ class OptimizationStats:
 
 
 class QuantumOptimizer:
-    """
-    Main optimization engine for quantum MLIR.
-    
+    """Main optimization engine for quantum MLIR.
+
     Applies a sequence of optimization passes that understand quantum
     gate semantics and can safely transform circuits while preserving
     computational results.
     """
     
-    def __init__(self, epsilon: float = 1e-6):
-        """
-        Initialize optimizer.
-        
+    def __init__(self, epsilon: float = 1e-6) -> None:
+        """Initialize optimizer.
+
         Args:
-            epsilon: Threshold for eliminating negligible phase rotations
+            epsilon: Threshold for eliminating negligible phase rotations.
         """
         self.epsilon = epsilon
         self.stats = OptimizationStats()
         
     def optimize_module(self, module: ModuleOp) -> ModuleOp:
-        """
-        Apply all optimization passes to a quantum MLIR module iteratively.
-        
+        """Apply all optimization passes to a quantum MLIR module iteratively.
+
         Runs optimization passes in a loop until no more changes occur.
         This allows "peeling away" layers - e.g., once outer Hadamards cancel,
-        inner Phase gates become adjacent and can merge in the next iteration.
-        
+        inner phase gates become adjacent and can merge in the next iteration.
+
         Args:
-            module: Input MLIR module containing quantum operations
-            
+            module: Input MLIR module containing quantum operations.
+
         Returns:
-            Optimized MLIR module with reduced resource requirements
+            Optimized MLIR module with reduced resource requirements.
         """
-        print("🔧 Starting iterative quantum circuit optimization...")
+        print("[INFO] Starting iterative quantum circuit optimization...")
         
         iteration = 0
-        max_iterations = 10  # Safety limit to prevent infinite loops
+        max_iterations = 10  # safety limit to prevent infinite loops
         
         while iteration < max_iterations:
             iteration += 1
-            print(f"\n  🔄 Iteration {iteration}")
+            print(f"\n  [INFO] Iteration {iteration}")
             
-            # Reset per-iteration stats
+            # reset per-iteration stats
             prev_gates = self.stats.gates_eliminated
             prev_phases = self.stats.phases_consolidated
             
-            # Pass 1: Gate cancellation (X-X = I, H-H = I, etc.)
+            # pass 1: gate cancellation (x-x = i, h-h = i, etc.)
             self._eliminate_gate_cancellations(module)
             
-            # Pass 2: Phase consolidation (combine rotations)
+            # pass 2: phase consolidation (combine rotations)
             self._consolidate_phase_rotations(module)
             
-            # Pass 3: Dead code elimination
+            # pass 3: dead code elimination
             self._eliminate_dead_qubits(module)
             
-            # Pass 4: QFT optimization (reduce precision for small values)
+            # pass 4: qft optimization (reduce precision for small values)
             self._optimize_qft_precision(module)
             
-            # Pass 5: Register coalescing (reuse registers when possible)
-            self._coalesce_registers(module)
-            
-            # Check if any changes were made in this iteration
+            # check if any changes were made in this iteration
             gates_this_iter = self.stats.gates_eliminated - prev_gates
             phases_this_iter = self.stats.phases_consolidated - prev_phases
             changes_this_iter = gates_this_iter + phases_this_iter
             
-            print(f"    Changes this iteration: {changes_this_iter} (gates: {gates_this_iter}, phases: {phases_this_iter})")
+            print(f"    [INFO] Changes this iteration: {changes_this_iter} (gates: {gates_this_iter}, phases: {phases_this_iter})")
             
             if changes_this_iter == 0:
-                print(f"\n  ✅ Converged after {iteration} iteration(s)")
+                print(f"\n  [OK] Converged after {iteration} iteration(s)")
                 break
         
         if iteration >= max_iterations:
-            print(f"\n  ⚠️  Reached maximum iterations ({max_iterations})")
+            print(f"\n  [WARN] Reached maximum iterations ({max_iterations})")
         
-        print(f"\n🏆 Optimization complete!")
+        print(f"\n[INFO] Optimization complete.")
         print(self.stats)
         
         return module
     
     def _eliminate_gate_cancellations(self, module: ModuleOp) -> None:
-        """
-        Remove pairs of gates that cancel out (X-X, H-H, etc.).
-        
+        """Remove pairs of gates that cancel out (X-X, H-H, etc.).
+
         This pass identifies consecutive inverse operations and eliminates them:
-        - NOT followed by NOT on same qubit
-        - Hadamard followed by Hadamard on same qubit  
-        - Phase rotation followed by negative phase rotation
+        - not followed by not on same qubit
+        - hadamard followed by hadamard on same qubit
+        - phase rotation followed by negative phase rotation
         """
-        print("  🗑️  Pass 1: Gate cancellation...")
+        print("  [INFO] Pass 1: Gate cancellation...")
         
         operations = list(module.walk())
         to_remove = set()
@@ -139,7 +132,7 @@ class QuantumOptimizer:
             if next_op in to_remove:
                 continue
                 
-            # Check for NOT gate cancellation (X·X = I)
+            # check for not gate cancellation (x·x = i)
             if (hasattr(op, 'name') and hasattr(next_op, 'name') and
                 op.name == "quantum.OnQubit_not" and 
                 next_op.name == "quantum.OnQubit_not"):
@@ -149,7 +142,7 @@ class QuantumOptimizer:
                     to_remove.add(next_op)
                     self.stats.gates_eliminated += 2
                     
-            # Check for Hadamard cancellation (H·H = I)  
+            # check for hadamard cancellation (h·h = i)
             elif (hasattr(op, 'name') and hasattr(next_op, 'name') and
                   op.name == "quantum.OnQubit_hadamard" and
                   next_op.name == "quantum.OnQubit_hadamard"):
@@ -159,7 +152,7 @@ class QuantumOptimizer:
                     to_remove.add(next_op)
                     self.stats.gates_eliminated += 2
                     
-            # Check for phase rotation cancellation
+            # check for phase rotation cancellation
             elif (hasattr(op, 'name') and hasattr(next_op, 'name') and
                   op.name == "quantum.OnQubit_controlled_phase" and
                   next_op.name == "quantum.OnQubit_controlled_phase"):
@@ -169,27 +162,26 @@ class QuantumOptimizer:
                     to_remove.add(next_op)
                     self.stats.gates_eliminated += 2
         
-        # Remove identified operations (need to detach first)
+        # remove identified operations (need to detach first)
         for op in to_remove:
             if op.parent is not None:
                 op.detach()
             op.erase()
             
-        print(f"    Eliminated {len(to_remove)} redundant gates")
+        print(f"    [INFO] Eliminated {len(to_remove)} redundant gates")
     
     def _consolidate_phase_rotations(self, module: ModuleOp) -> None:
-        """
-        Combine consecutive phase rotations on the same qubit pair (SAFE VERSION).
-        
+        """Combine consecutive phase rotations on the same qubit pair.
+
         Only merges adjacent controlled-phase operations that:
-        - Are both OnQubit_controlled_phase
-        - Share the exact same operands (control and target SSAValues)
-        - Are strictly adjacent in the operation sequence
-        
+        - are both OnQubit_controlled_phase
+        - share the exact same operands (control and target SSAValues)
+        - are strictly adjacent in the operation sequence
+
         This ensures we never incorrectly merge phases that have intervening
         operations that would change the semantics.
         """
-        print("  🔄 Pass 2: Phase consolidation (safe adjacency)...")
+        print("  [INFO] Pass 2: Phase consolidation (safe adjacency)...")
         
         # Get operations in linear order
         operations = list(module.walk())
@@ -237,44 +229,42 @@ class QuantumOptimizer:
             
             i += 1
         
-        # Remove marked operations
+        # remove marked operations
         for op in to_remove:
             if op.parent is not None:
                 op.detach()
             op.erase()
         
-        print(f"    Consolidated {consolidated} adjacent phase rotations")
+        print(f"    [INFO] Consolidated {consolidated} adjacent phase rotations")
     
     def _eliminate_dead_qubits(self, module: ModuleOp) -> None:
-        """
-        Remove quantum registers that are never used after initialization.
-        
+        """Remove quantum registers that are never used after initialization.
+
         This is particularly useful after variable scoping where some
         intermediate registers may become unreferenced.
         """
-        print("  🧹 Pass 3: Dead qubit elimination...")
+        print("  [INFO] Pass 3: Dead qubit elimination...")
         
-        # Find all quantum.init operations
+        # find all quantum.init operations
         init_ops = [op for op in module.walk() if hasattr(op, 'name') and op.name == "quantum.init"]
         
         eliminated = 0
         for init_op in init_ops:
             if self._is_dead_register(init_op):
-                # Remove the entire chain of operations on this dead register
+                # remove the entire chain of operations on this dead register
                 self._remove_register_chain(init_op)
                 eliminated += 1
                 self.stats.qubits_eliminated += 1
                 
-        print(f"    Eliminated {eliminated} dead registers")
+        print(f"    [INFO] Eliminated {eliminated} dead registers")
     
     def _optimize_qft_precision(self, module: ModuleOp) -> None:
-        """
-        Reduce QFT precision by eliminating negligible phase rotations.
-        
+        """Reduce QFT precision by eliminating negligible phase rotations.
+
         For small phase angles (< epsilon), the quantum effect is negligible
         and the gates can be safely removed to reduce circuit depth.
         """
-        print("  📐 Pass 4: QFT precision optimization...")
+        print("  [INFO] Pass 4: QFT precision optimization...")
         
         eliminated = 0
         for op in list(module.walk()):
@@ -287,28 +277,11 @@ class QuantumOptimizer:
                     eliminated += 1
                     self.stats.gates_eliminated += 1
                     
-        print(f"    Eliminated {eliminated} negligible phase rotations")
-    
-    def _coalesce_registers(self, module: ModuleOp) -> None:
-        """
-        Reuse quantum registers when their lifetimes don't overlap.
-        
-        This optimization identifies registers that are never used simultaneously
-        and merges them to reduce the total qubit count.
-        """
-        print("  🔗 Pass 5: Register coalescing...")
-        
-        # This is a complex optimization that requires lifetime analysis
-        # For now, implement a simple version that identifies obvious cases
-        
-        # TODO: Implement full register lifetime analysis
-        print("    Register coalescing analysis (placeholder)")
-    
-    # === Helper Methods ===
+        print(f"    [INFO] Eliminated {eliminated} negligible phase rotations")
     
     def _same_qubit_target(self, op1: Operation, op2: Operation) -> bool:
         """Check if two operations target the same qubit."""
-        # Extract qubit indices from operations
+        # extract qubit indices from operations
         try:
             idx1 = op1.attributes.get("index")
             idx2 = op2.attributes.get("index") 
@@ -322,8 +295,8 @@ class QuantumOptimizer:
     def _same_phase_target(self, op1: Operation, op2: Operation) -> bool:
         """Check if two controlled-phase operations target the same qubit pair."""
         try:
-            # For controlled-phase, we need to check both control and target
-            # Operands are typically: [control_register, target_register]
+            # for controlled-phase, we need to check both control and target
+            # operands are typically: [control_register, target_register]
             if len(op1.operands) < 2 or len(op2.operands) < 2:
                 return False
             
@@ -332,13 +305,13 @@ class QuantumOptimizer:
             control2 = op2.operands[0]
             target2 = op2.operands[1]
             
-            # Get indices from attributes
+            # get indices from attributes
             control_idx1 = op1.attributes.get("control_index", 0)
             target_idx1 = op1.attributes.get("target_index", 0)
             control_idx2 = op2.attributes.get("control_index", 0)
             target_idx2 = op2.attributes.get("target_index", 0)
             
-            # Check if same control and target
+            # check if same control and target
             same_control = (control1 == control2 and control_idx1 == control_idx2)
             same_target = (target1 == target2 and target_idx1 == target_idx2)
             
@@ -352,31 +325,14 @@ class QuantumOptimizer:
             phase1 = self._get_phase_angle(op1)
             phase2 = self._get_phase_angle(op2) 
             
-            # Check if they target same qubits and have opposite phases
+            # check if they target same qubits and have opposite phases
             same_target = self._same_qubit_target(op1, op2)
             opposite_phase = abs(phase1 + phase2) < self.epsilon
             
             return same_target and opposite_phase
         except:
             return False
-    
-    def _get_phase_rotation_key(self, op: Operation) -> Optional[Tuple[str, int, str, int]]:
-        """Extract (control_reg, control_idx, target_reg, target_idx) key."""
-        try:
-            # This would need to be adapted based on your exact MLIR structure
-            control_reg = str(op.operands[0])
-            target_reg = str(op.operands[1])
-            
-            # Get index attributes properly
-            control_attr = op.attributes.get("control_index")
-            target_attr = op.attributes.get("target_index")
-            
-            control_idx = int(control_attr.data) if control_attr and hasattr(control_attr, 'data') else 0  # type: ignore[attr-defined]
-            target_idx = int(target_attr.data) if target_attr and hasattr(target_attr, 'data') else 0  # type: ignore[attr-defined]
-            
-            return (control_reg, control_idx, target_reg, target_idx)
-        except:
-            return None
+
     
     def _get_phase_angle(self, op: Operation) -> float:
         """Extract phase angle from controlled phase operation."""
@@ -384,7 +340,7 @@ class QuantumOptimizer:
             attr = op.attributes.get("phase")
             if attr is None:
                 return 0.0
-            # FloatAttr has .data property containing the float value
+            # floatattr has .data property containing the float value
             if hasattr(attr, 'data'):
                 return float(attr.data)  # type: ignore[attr-defined]
             return 0.0
@@ -401,13 +357,13 @@ class QuantumOptimizer:
     
     def _is_dead_register(self, init_op: Operation) -> bool:
         """Check if a register is never used after initialization."""
-        # This requires data flow analysis to determine if the register
+        # this requires data flow analysis to determine if the register
         # is referenced by any subsequent operations
         
-        # Simple heuristic: if the register result is never used
+        # simple heuristic: if the register result is never used
         try:
             result = init_op.results[0] if init_op.results else None
-            # IRUses is iterable, check if it has any uses
+            # iruses is iterable, check if it has any uses
             return result is not None and not any(True for _ in result.uses)
         except:
             return False
@@ -420,15 +376,14 @@ class QuantumOptimizer:
 
 
 def optimize_quantum_module(module: ModuleOp, **kwargs) -> ModuleOp:
-    """
-    Convenience function to optimize a quantum MLIR module.
-    
+    """Convenience function to optimize a quantum MLIR module.
+
     Args:
-        module: Input MLIR module
-        **kwargs: Options passed to QuantumOptimizer
-        
+        module: Input MLIR module.
+        **kwargs: Options passed to QuantumOptimizer.
+
     Returns:
-        Optimized MLIR module
+        Optimized MLIR module.
     """
     optimizer = QuantumOptimizer(**kwargs)
     return optimizer.optimize_module(module)
