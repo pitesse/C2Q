@@ -106,6 +106,13 @@ TEST_SUITE = [
         "expected_result": 11,
         "result_width": 16
     },
+    {
+        "name": "Overflow (8-bit Wrap)",
+        "path": "tests/inputs/test_overflow.c",
+        "description": "Modular arithmetic: 255+1 = 0 (mod 256), tests 8-bit overflow behavior",
+        "expected_result": 0,
+        "result_width": 8
+    },
 ]
 
 
@@ -281,6 +288,13 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
                     print(f"       - Depth: {circuit.depth()}")
                     print(f"       - Total Ops: {len(circuit.data)}")
                     print(f"       - Ops Breakdown: {circuit.count_ops()}")
+                    
+                    # PROOF OF OPTIMIZATION: Log baseline vs optimized metrics
+                    print(f"    🔍 PROOF OF OPTIMIZATION: Validating circuit with depth {circuit.depth()} (Baseline was {baseline_result.circuit_depth})")
+                    if circuit.depth() > baseline_result.circuit_depth:
+                        print(f"    ⚠️  WARNING: Optimized circuit is DEEPER than baseline!")
+                    if len(circuit.data) > baseline_result.total_gates:
+                        print(f"    ⚠️  WARNING: Optimized circuit has MORE gates than baseline!")
                     
                     # Use standardized validation function (same logic as CLI)
                     result_width = test_case.get("result_width", 8)

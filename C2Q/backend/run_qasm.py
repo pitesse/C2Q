@@ -203,19 +203,13 @@ def apply_onqubit_not(circuit, op):
                     propagate_ssa_mapping(vector, op.results[0])
                 return
             else:
-                # Fallback to name-based lookup for backwards compatibility
-                if hasattr(vector, "_name") and vector._name:
-                    reg_name = vector._name
-                    base_name = reg_name.split("_")[0]
-                    for qreg in circuit.qregs:
-                        if qreg.name == base_name:
-                            circuit.x(qreg[bit_index])
-                            return
-                print(f"Warning: Register not found for SSA value")
+                # STRICT MODE: No fallback - SSA mapping must exist
+                ssa_name = vector._name if hasattr(vector, '_name') else str(vector)
+                raise ValueError(f"SSA Mapping failed for operand in OnQubit NOT: {ssa_name}")
         else:
-            print("Warning: Bit index attribute not found")
+            raise ValueError("Bit index attribute not found for OnQubit NOT operation")
     else:
-        print("Warning: Invalid number of operands for OnQubit NOT operation")
+        raise ValueError(f"Invalid number of operands for OnQubit NOT operation: expected 1, got {len(op.operands)}")
 
 
 def apply_onqubit_cnot(circuit, op):
@@ -253,32 +247,17 @@ def apply_onqubit_cnot(circuit, op):
                     propagate_ssa_mapping(target_vector, op.results[1])
                 return
             else:
-                # Fallback to name-based lookup
-                if control_qreg is None and hasattr(control_vector, "_name") and control_vector._name:
-                    control_name = control_vector._name
-                    control_base = control_name.split("_")[0]
-                    for qreg in circuit.qregs:
-                        if qreg.name == control_base:
-                            control_qreg = qreg
-                            break
-                
-                if target_qreg is None and hasattr(target_vector, "_name") and target_vector._name:
-                    target_name = target_vector._name
-                    target_base = target_name.split("_")[0]
-                    for qreg in circuit.qregs:
-                        if qreg.name == target_base:
-                            target_qreg = qreg
-                            break
-                
-                if control_qreg and target_qreg:
-                    circuit.cx(control_qreg[control_index], target_qreg[target_index])
-                    return
-                    
-                print(f"Warning: Could not find registers for CNOT")
+                # STRICT MODE: No fallback - SSA mapping must exist
+                ctrl_name = control_vector._name if hasattr(control_vector, '_name') else str(control_vector)
+                tgt_name = target_vector._name if hasattr(target_vector, '_name') else str(target_vector)
+                if control_qreg is None:
+                    raise ValueError(f"SSA Mapping failed for control operand in OnQubit CNOT: {ctrl_name}")
+                if target_qreg is None:
+                    raise ValueError(f"SSA Mapping failed for target operand in OnQubit CNOT: {tgt_name}")
         else:
-            print("Warning: Index attributes not found")
+            raise ValueError("Index attributes not found for OnQubit CNOT operation")
     else:
-        print("Warning: Invalid number of operands for OnQubit CNOT operation")
+        raise ValueError(f"Invalid number of operands for OnQubit CNOT operation: expected 2, got {len(op.operands)}")
 
 
 def apply_cnot(circuit, op):
@@ -452,41 +431,20 @@ def apply_onqubit_ccnot(circuit, op):
                     propagate_ssa_mapping(target_vector, op.results[2])
                 return
             
-            # Fallback to name-based lookup
-            if control1_qreg is None and hasattr(control1_vector, "_name") and control1_vector._name:
-                control1_base = control1_vector._name.split("_")[0]
-                for qreg in circuit.qregs:
-                    if qreg.name == control1_base:
-                        control1_qreg = qreg
-                        break
-            
-            if control2_qreg is None and hasattr(control2_vector, "_name") and control2_vector._name:
-                control2_base = control2_vector._name.split("_")[0]
-                for qreg in circuit.qregs:
-                    if qreg.name == control2_base:
-                        control2_qreg = qreg
-                        break
-            
-            if target_qreg is None and hasattr(target_vector, "_name") and target_vector._name:
-                target_base = target_vector._name.split("_")[0]
-                for qreg in circuit.qregs:
-                    if qreg.name == target_base:
-                        target_qreg = qreg
-                        break
-            
-            if control1_qreg and control2_qreg and target_qreg:
-                circuit.ccx(
-                    control1_qreg[control1_index],
-                    control2_qreg[control2_index],
-                    target_qreg[target_index],
-                )
-                return
-            
-            print("Warning: Could not find registers for CCNOT")
+            # STRICT MODE: No fallback - SSA mapping must exist
+            if control1_qreg is None:
+                c1_name = control1_vector._name if hasattr(control1_vector, '_name') else str(control1_vector)
+                raise ValueError(f"SSA Mapping failed for control1 operand in OnQubit CCNOT: {c1_name}")
+            if control2_qreg is None:
+                c2_name = control2_vector._name if hasattr(control2_vector, '_name') else str(control2_vector)
+                raise ValueError(f"SSA Mapping failed for control2 operand in OnQubit CCNOT: {c2_name}")
+            if target_qreg is None:
+                tgt_name = target_vector._name if hasattr(target_vector, '_name') else str(target_vector)
+                raise ValueError(f"SSA Mapping failed for target operand in OnQubit CCNOT: {tgt_name}")
         else:
-            print("Warning: Index attributes not found")
+            raise ValueError("Index attributes not found for OnQubit CCNOT operation")
     else:
-        print("Warning: Invalid number of operands for OnQubit CCNOT operation")
+        raise ValueError(f"Invalid number of operands for OnQubit CCNOT operation: expected 3, got {len(op.operands)}")
 
 
 def apply_onqubit_hadamard(circuit, op):
@@ -511,14 +469,11 @@ def apply_onqubit_hadamard(circuit, op):
                 propagate_ssa_mapping(operand, op.results[0])
             return
         
-        # Fallback to name-based lookup
-        for qreg in circuit.qregs:
-            if hasattr(operand, "_name") and operand._name:
-                if operand._name.startswith(qreg.name.split('_')[0]):
-                    circuit.h(qreg[bit_index])
-                    break
+        # STRICT MODE: No fallback - SSA mapping must exist
+        ssa_name = operand._name if hasattr(operand, '_name') else str(operand)
+        raise ValueError(f"SSA Mapping failed for operand in OnQubit Hadamard: {ssa_name}")
     else:
-        print(f"Warning: OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
+        raise ValueError(f"OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
 
 def apply_onqubit_phase(circuit, op):
     """
@@ -543,12 +498,8 @@ def apply_onqubit_phase(circuit, op):
                 propagate_ssa_mapping(operand, op.results[0])
             return
         
-        # Fallback to name-based lookup
-        for qreg in circuit.qregs:
-            if hasattr(operand, "_name") and operand._name:
-                if operand._name.startswith(qreg.name.split('_')[0]):
-                    circuit.p(phase, qreg[bit_index])
-                    break
+        # SSA mapping is required - no fallback
+        raise ValueError("SSA Mapping failed for Phase operand")
     else:
         print(f"Warning: OnQubitPhaseOp expects 1 operand, got {len(op.operands)}")
 
@@ -583,17 +534,10 @@ def apply_onqubit_controlled_phase(circuit, op):
                 propagate_ssa_mapping(target_operand, op.results[1])
             return
         
-        # Fallback to name-based lookup
-        for qreg in circuit.qregs:
-            if control_reg is None and hasattr(control_operand, "_name") and control_operand._name:
-                if control_operand._name.startswith(qreg.name.split('_')[0]):
-                    control_reg = qreg
-            if target_reg is None and hasattr(target_operand, "_name") and target_operand._name:
-                if target_operand._name.startswith(qreg.name.split('_')[0]):
-                    target_reg = qreg
-        
-        if control_reg is not None and target_reg is not None:
-            circuit.cp(phase, control_reg[control_index], target_reg[target_index])
+        # SSA mapping is required - no fallback
+        if control_reg is None:
+            raise ValueError("SSA Mapping failed for Controlled Phase control operand")
+        raise ValueError("SSA Mapping failed for Controlled Phase target operand")
     else:
         print(f"Warning: OnQubitControlledPhaseOp expects 2 operands, got {len(op.operands)}")
 
@@ -620,12 +564,8 @@ def apply_onqubit_swap(circuit, op):
                 propagate_ssa_mapping(operand, op.results[0])
             return
         
-        # Fallback to name-based lookup
-        for qreg in circuit.qregs:
-            if hasattr(operand, "_name") and operand._name:
-                if operand._name.startswith(qreg.name.split('_')[0]):
-                    circuit.swap(qreg[qubit1_index], qreg[qubit2_index])
-                    break
+        # SSA mapping is required - no fallback
+        raise ValueError("SSA Mapping failed for SWAP operand")
     else:
         print(f"Warning: OnQubitSwapOp expects 1 operand, got {len(op.operands)}")
 
