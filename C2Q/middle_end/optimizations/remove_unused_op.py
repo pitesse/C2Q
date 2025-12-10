@@ -42,7 +42,7 @@ def is_trivially_dead(op: Operation) -> bool:
     
     # Safe to remove: single-qubit gates (Not, Hadamard, Pauli) with unused results
     # if the result of the operation is never used then it is dead
-    return not op.res.uses
+    return not op.res.uses  # type: ignore[attr-defined]
 
 # Class to drive the removal of unused operations in the main program.
 class RemoveUnusedOperations(RewritePattern):

@@ -2,8 +2,9 @@ from xdsl.ir import Operation, Block, Region, BlockArgument, OpResult
 from xdsl.dialects.builtin import ModuleOp, UnregisteredOp, IntegerType
 from xdsl.passes import ModulePass
 from xdsl.builder import Builder
-from xdsl.rewriter import Rewriter
+from xdsl.rewriter import Rewriter, InsertPoint
 from xdsl.traits import IsolatedFromAbove
+from xdsl.context import Context
 from dataclasses import dataclass
 from ...dialects.quantum_dialect import FuncOp, MeasureOp, InitOp, CCNotOp, CNotOp
 
@@ -296,7 +297,7 @@ class CSEDriver:
         # check if CCNotOp has two equal control qubits.
         # In that case we can replace it with a CNotOp
         if isinstance(op, CCNotOp) and (op.control1 == op.control2):
-            self.builder = Builder.before(op)
+            self.builder = Builder(InsertPoint.before(op))
             cnotOp = self.builder.insert(CNotOp.from_value(op.control1, op.target))
             self._replace_and_delete(op, cnotOp)
             cnotOp.res._name = op.res._name
@@ -304,7 +305,7 @@ class CSEDriver:
         # check if CNotOp has equal control and target qubits.
         # In that case we can replace it with an InitOp
         if isinstance(op, CNotOp) and (op.control == op.target):
-            self.builder= Builder.before(op)
+            self.builder= Builder(InsertPoint.before(op))
             initOp = self.builder.insert(InitOp.from_value(IntegerType(1)))
             initOp.res._name = "q" + str(self.max_qubit + 1) + "_0"
             self.max_qubit += 1
@@ -382,7 +383,7 @@ class CommonSubexpressionElimination(ModulePass):
 
     cseDriver: CSEDriver
 
-    def apply(self, op: ModuleOp) -> None:
+    def apply(self, ctx: Context, op: ModuleOp) -> None:
         self.cseDriver.simplify(op)
 
     def __init__(self):

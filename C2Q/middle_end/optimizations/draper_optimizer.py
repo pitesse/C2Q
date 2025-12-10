@@ -101,8 +101,10 @@ class DraperOptimizer:
         print("  📏 Optimizing phase precision...")
         
         eliminated = 0
+        total_phases = 0
         for op in list(module.walk()):
             if hasattr(op, 'name') and op.name == "quantum.OnQubit_controlled_phase":
+                total_phases += 1
                 phase = abs(self._extract_phase(op))
                 
                 # Eliminate very small phase rotations
@@ -118,7 +120,7 @@ class DraperOptimizer:
                     eliminated += 1
                     self.stats.gates_eliminated += 1
                     
-        print(f"    Eliminated {eliminated} negligible phase rotations")
+        print(f"    Eliminated {eliminated}/{total_phases} negligible phase rotations (< {self.precision_threshold:.4f} rad)")
     
     def _optimize_qft_depth(self, module: ModuleOp) -> None:
         """
@@ -353,7 +355,8 @@ class DraperOptimizer:
     def _set_phase(self, op: Operation, phase: float) -> None:
         """Set phase angle for controlled-phase operation."""
         try:
-            op.attributes["phase"] = phase
+            from xdsl.dialects.builtin import FloatAttr, Float64Type
+            op.attributes["phase"] = FloatAttr(phase, Float64Type())
         except:
             pass
     
@@ -363,17 +366,23 @@ class DraperOptimizer:
             attr = op.attributes.get("phase")
             if attr is None:
                 return 0.0
-            # Try different XDSL attribute access patterns
+            
+            # FloatAttr has .value or .data property
+            # Try .value first (xDSL FloatAttr structure)
             if hasattr(attr, 'value'):
-                if hasattr(attr.value, 'data'):
-                    return float(attr.value.data)
-                return float(attr.value)
-            elif hasattr(attr, 'data'):
-                return float(attr.data)
-            elif hasattr(attr, 'parameters') and len(attr.parameters) > 0:
-                return float(attr.parameters[0].data)
-            else:
-                return float(attr)
+                if hasattr(attr.value, 'data'):  # type: ignore[attr-defined]
+                    return float(attr.value.data)  # type: ignore[attr-defined]
+                return float(attr.value)  # type: ignore[attr-defined]
+            
+            # Try .data (direct access)
+            if hasattr(attr, 'data'):
+                return float(attr.data)  # type: ignore[attr-defined]
+            
+            # Last resort: try direct conversion
+            try:
+                return float(attr)  # type: ignore[arg-type]
+            except:
+                return 0.0
         except:
             return 0.0
     
@@ -396,19 +405,9 @@ class DraperOptimizer:
                     for attr_name in ['index', 'target_index', 'control_index']:
                         attr = op.attributes.get(attr_name)
                         if attr is not None:
-                            # Extract the integer value using multiple access patterns
-                            val = None
-                            if hasattr(attr, 'value'):
-                                if hasattr(attr.value, 'data'):
-                                    val = int(attr.value.data)
-                                else:
-                                    val = int(attr.value)
-                            elif hasattr(attr, 'data'):
-                                val = int(attr.data)
-                            else:
-                                val = int(attr)
-                            
-                            if val is not None:
+                            # IntegerAttr has .data property containing the int value
+                            if hasattr(attr, 'data'):
+                                val = int(attr.data)  # type: ignore[attr-defined]
                                 used_bits.add(val)
                 except:
                     # If we can't extract the index, skip this operation
@@ -446,34 +445,16 @@ class DraperOptimizer:
             if hasattr(op, 'attributes'):
                 # Check index attribute
                 attr = op.attributes.get("index")
-                if attr is not None:
-                    val = None
-                    if hasattr(attr, 'value'):
-                        if hasattr(attr.value, 'data'):
-                            val = int(attr.value.data)
-                        else:
-                            val = int(attr.value)
-                    elif hasattr(attr, 'data'):
-                        val = int(attr.data)
-                    else:
-                        val = int(attr)
-                    if val is not None and val >= max_bits:
+                if attr is not None and hasattr(attr, 'data'):
+                    val = int(attr.data)  # type: ignore[attr-defined]
+                    if val >= max_bits:
                         return True
                     
                 # Also check target_index for controlled operations
                 target_attr = op.attributes.get("target_index")
-                if target_attr is not None:
-                    val = None
-                    if hasattr(target_attr, 'value'):
-                        if hasattr(target_attr.value, 'data'):
-                            val = int(target_attr.value.data)
-                        else:
-                            val = int(target_attr.value)
-                    elif hasattr(target_attr, 'data'):
-                        val = int(target_attr.data)
-                    else:
-                        val = int(target_attr)
-                    if val is not None and val >= max_bits:
+                if target_attr is not None and hasattr(target_attr, 'data'):
+                    val = int(target_attr.data)  # type: ignore[attr-defined]
+                    if val >= max_bits:
                         return True
                     
         except:
@@ -493,12 +474,14 @@ class DraperOptimizer:
         except:
             return False
     
-    def _get_swap_indices(self, swap_op: Operation) -> tuple:
+    def _get_swap_indices(self, swap_op: Operation) -> tuple[int, int]:
         """Extract the pair of qubit indices being swapped."""
         try:
-            idx1 = swap_op.attributes.get("qubit1", 0)
-            idx2 = swap_op.attributes.get("qubit2", 0) 
-            return (int(idx1), int(idx2))
+            attr1 = swap_op.attributes.get("qubit1")
+            attr2 = swap_op.attributes.get("qubit2")
+            idx1 = int(attr1.data) if attr1 and hasattr(attr1, 'data') else 0  # type: ignore[attr-defined]
+            idx2 = int(attr2.data) if attr2 and hasattr(attr2, 'data') else 0  # type: ignore[attr-defined]
+            return (idx1, idx2)
         except:
             return (0, 0)
     

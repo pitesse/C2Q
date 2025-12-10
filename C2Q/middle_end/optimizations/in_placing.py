@@ -1,7 +1,7 @@
 from xdsl.ir import Operation
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.builder import Builder
-from xdsl.rewriter import Rewriter
+from xdsl.rewriter import Rewriter, InsertPoint
 from ...dialects.quantum_dialect import CNotOp,FuncOp,InitOp
 from xdsl.dialects.builtin import ModuleOp
 
@@ -10,7 +10,7 @@ from xdsl.dialects.builtin import ModuleOp
 class InPlacing(RewritePattern):
     
     builder: Builder
-    rewriter : Rewriter
+    rewriter : PatternRewriter
     maxqubit : int
     passedOperation: set
 
@@ -64,13 +64,17 @@ class InPlacing(RewritePattern):
         # we have a candidate for the optimization.
         if previous_op.name == "quantum.init" and op.name == "quantum.OnQubit_cnot":
             # The cnot must target the qubit initialized by the init.
-            if previous_op.res._name != op.target._name:
+            if not (hasattr(previous_op, 'res') and hasattr(op, 'target')):
+                return
+            if previous_op.res._name != op.target._name:  # type: ignore[attr-defined]
                 return
 
             cnot_list = [] # List for the cnot chain.
             cnot_list.append(op)
             next_op = op._next_op
-            while ((next_op.name == "quantum.OnQubit_cnot" or next_op.name == "quantum.OnQubit_not") and op.res._name.split('_')[0] == next_op.res._name.split('_')[0]):
+            while (next_op is not None and hasattr(op, 'res') and hasattr(next_op, 'res') and
+                   (next_op.name == "quantum.OnQubit_cnot" or next_op.name == "quantum.OnQubit_not") and 
+                   op.res._name.split('_')[0] == next_op.res._name.split('_')[0]):  # type: ignore[attr-defined]
                 if next_op.name =="quantum.OnQubit_not":
                     self.passedOperation.add(next_op)
                     next_op = next_op._next_op
@@ -94,11 +98,11 @@ class InPlacing(RewritePattern):
 
             # In the other cnots, substitute the result of cnot with the unused qubit with the unused qubit.
             qubit_to_pass = unused_qubit
-            builder = Builder.before(cnot_list[0])
+            builder = Builder(InsertPoint.before(cnot_list[0]))
             for cnot in cnot_list:
                 if cnot is not cnot_unused_control:
                     newcnot = builder.insert(CNotOp.from_value(cnot.control, qubit_to_pass))
-                    newcnot.res._name = qubit_to_pass._name.split('_')[0] + "_" + str(int(qubit_to_pass._name.split('_')[1]) + 1)
+                    newcnot.res._name = qubit_to_pass._name.split('_')[0] + "_" + str(int(qubit_to_pass._name.split('_')[1]) + 1)  # type: ignore[union-attr]
                     self.passedOperation.add(newcnot) # add the new op to the set of passed operations
                     qubit_to_pass = newcnot.res
 
@@ -126,7 +130,7 @@ class InPlacing(RewritePattern):
                 target_idx = len(operands)-1
                 if(operands[target_idx] == cnot_list[-1].res): # if the old result is target
                     operands[target_idx] = qubit_to_pass
-                    future_op.res._name = qubit_to_pass._name.split('_')[0] + "_" + str(int(qubit_to_pass._name.split("_")[1])+1)
+                    future_op.res._name = qubit_to_pass._name.split('_')[0] + "_" + str(int(qubit_to_pass._name.split("_")[1])+1)  # type: ignore[union-attr]
                 else: # it's a control
                     operands[operands.index(cnot_list[-1].res)] = qubit_to_pass
                 

@@ -365,9 +365,14 @@ class QuantumOptimizer:
         try:
             # This would need to be adapted based on your exact MLIR structure
             control_reg = str(op.operands[0])
-            control_idx = op.attributes.get("control_index", 0)
             target_reg = str(op.operands[1])
-            target_idx = op.attributes.get("target_index", 0)
+            
+            # Get index attributes properly
+            control_attr = op.attributes.get("control_index")
+            target_attr = op.attributes.get("target_index")
+            
+            control_idx = int(control_attr.data) if control_attr and hasattr(control_attr, 'data') else 0  # type: ignore[attr-defined]
+            target_idx = int(target_attr.data) if target_attr and hasattr(target_attr, 'data') else 0  # type: ignore[attr-defined]
             
             return (control_reg, control_idx, target_reg, target_idx)
         except:
@@ -379,24 +384,18 @@ class QuantumOptimizer:
             attr = op.attributes.get("phase")
             if attr is None:
                 return 0.0
-            # Try different XDSL attribute access patterns
-            if hasattr(attr, 'value'):
-                if hasattr(attr.value, 'data'):
-                    return float(attr.value.data)
-                return float(attr.value)
-            elif hasattr(attr, 'data'):
-                return float(attr.data)
-            elif hasattr(attr, 'parameters') and len(attr.parameters) > 0:
-                return float(attr.parameters[0].data)
-            else:
-                return float(attr)
+            # FloatAttr has .data property containing the float value
+            if hasattr(attr, 'data'):
+                return float(attr.data)  # type: ignore[attr-defined]
+            return 0.0
         except:
             return 0.0
     
     def _set_phase_angle(self, op: Operation, phase: float) -> None:
-        """Set phase angle for controlled phase operation.""" 
+        """Set phase angle for controlled phase operation."""
         try:
-            op.attributes["phase"] = phase
+            from xdsl.dialects.builtin import FloatAttr, Float64Type
+            op.attributes["phase"] = FloatAttr(phase, Float64Type())
         except:
             pass
     
@@ -408,7 +407,8 @@ class QuantumOptimizer:
         # Simple heuristic: if the register result is never used
         try:
             result = init_op.results[0] if init_op.results else None
-            return result is not None and len(result.uses) == 0
+            # IRUses is iterable, check if it has any uses
+            return result is not None and not any(True for _ in result.uses)
         except:
             return False
     

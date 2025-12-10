@@ -181,8 +181,8 @@ class VarDeclExprAST(ExprAST):
     """
     name: str
     type_name: str  # c type (int, float, etc.)
-    varType: VarType = None  # for tensor dimensions if needed
-    expr: ExprAST = None  # initialization is optional
+    varType: VarType | None = None  # for tensor dimensions if needed
+    expr: ExprAST | None = None  # initialization is optional
 
     @property
     def kind(self):
@@ -260,9 +260,9 @@ class NumberExprAST(ExprAST):
         """
         @brief Get the kind of this expression.
         
-        @return ExprASTKind.Expr_Number
+        @return ExprASTKind.Expr_Num
         """
-        return ExprASTKind.Expr_Number
+        return ExprASTKind.Expr_Num
 
     def inner_dump(self, prefix: str, dumper: Dumper):
         """
@@ -356,7 +356,7 @@ class VariableExprAST(ExprAST):
     @param type_name: Optional type information for the variable
     """
     name: str
-    type_name: str = None  # add type information for C variables
+    type_name: str | None = None  # add type information for C variables
 
     @property
     def kind(self):

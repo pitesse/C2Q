@@ -600,7 +600,10 @@ class QuantumIRGen:
 
     def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None) -> SSAValue:
         """
-        Draper quantum addition using QFT approach 
+        Draper quantum addition using QFT approach with dynamic width support.
+        
+        Supports mixed-width operands (e.g., adding an 8-bit number to a 16-bit number).
+        The result width is the maximum of the two operand widths.
         
         Algorithm:
         1. Apply QFT to target register
@@ -615,85 +618,55 @@ class QuantumIRGen:
         """
         import math
         
-        # # DEBUG: Print what we're adding
-        # print(f"🔍 DEBUG Draper Addition:")
-        # print(f"   a_expr: {a_expr}")
-        # print(f"   b_expr: {b_expr}")
-        
         # Evaluate expressions to get quantum registers
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
-        
-        # print(f"   a register: {a}")
-        # print(f"   b register: {b}")
         
         # Ensure we have valid operands
         if a is None or b is None:
             raise IRGenError("Failed to generate quantum register for addition operands")
         
-        # print(f"   a type: {a.type}")
-        # print(f"   b type: {b.type}")
-        # if hasattr(a, '_name'):
-        #     print(f"   a name: {a._name}")
-        # if hasattr(b, '_name'):
-        #     print(f"   b name: {b._name}")
-        
         # Handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
-            # print(f"   Converting single qubits to registers...")
             if not isinstance(a.type, VectorType):
                 a_temp = self.ir_gen_init(None)
                 a_temp = self.apply_cnot_on_bits(a, 0, a_temp, 0)
                 a = a_temp
-                # print(f"   a converted to: {a}")
             if not isinstance(b.type, VectorType):
                 b_temp = self.ir_gen_init(None)
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
-                # print(f"   b converted to: {b}")
 
-        # Work with appropriate bit width
-        bit_width = 8
-        print(f"   bit_width: {bit_width}")
-
-        # # CRITICAL: Apply phase gates to input register FIRST (required by Draper QFT adder)
-        # # This must be done BEFORE copying b to target
-        # # This prepares the input in the correct phase basis for QFT addition
-        # print(f"   Applying phase preparation to input register a...")
-        # for i in range(bit_width):
-        #     a = self.apply_phase_gate(a, i, math.pi / 2)
-        # print(f"   Phase preparation complete")
+        # Dynamic width detection - use actual register widths
+        width_a = self.get_bit_width(a)
+        width_b = self.get_bit_width(b)
+        op_width = max(width_a, width_b)  # Result needs at least this many bits
 
         # Determine target register for the addition
         if target_reg is None:
-            print(f"   Creating new target register and copying b into it...")
-            # Create a new register and copy B into it
-            target = self.ir_gen_init(None)
-            print(f"   target after init: {target}")
-            # Copy B into the target register
-            for i in range(bit_width):
+            # Create a new register with the operation width and copy B into it
+            target = self.ir_gen_init_with_width(op_width)
+            # Copy B into the target register - only copy up to width_b bits
+            for i in range(min(width_b, op_width)):
                 target = self.apply_cnot_on_bits(b, i, target, i)
-            print(f"   target after copying b: {target}")
         else:
-            print(f"   Using provided target register...")
             # Use the provided target register, but still need to copy B into it
             target = target_reg
-            # Copy B into the target register
-            for i in range(bit_width):
+            target_width = self.get_bit_width(target)
+            # Copy B into the target register - respect both widths
+            for i in range(min(width_b, target_width)):
                 target = self.apply_cnot_on_bits(b, i, target, i)
-            print(f"   target after copying b: {target}")
+            # Update op_width to match target if target is larger
+            op_width = target_width
         
-        print(f"   About to apply QFT to target...")
         # Step 1: Apply QFT to target register
-        result = self.apply_qft(target, bit_width)
-        print(f"   result after QFT: {result}")
+        result = self.apply_qft(target, op_width)
         
-        print(f"   Applying Draper phase rotations...")
         # Step 2: Apply Draper's controlled phase additions
-        # For each bit i in register A, and each bit j in target where j >= i:
+        # For each bit i in register A (up to width_a), and each bit j in target where j >= i:
         # If A[i] = 1, apply phase rotation 2π/2^(j-i+1) to target[j]
-        for i in range(bit_width):
-            for j in range(i, bit_width):
+        for i in range(width_a):  # Only iterate up to actual width of a
+            for j in range(i, op_width):  # Target bits from i up to op_width
                 # Phase angle: 2π/2^(j-i+1)
                 # This is the key formula for Draper's algorithm
                 phase_angle = 2 * math.pi / (2 ** (j - i + 1))
@@ -706,7 +679,7 @@ class QuantumIRGen:
                 )
         
         # Step 3: Apply inverse QFT to get the final result
-        result = self.apply_inverse_qft(result, bit_width)
+        result = self.apply_inverse_qft(result, op_width)
         
         return result
 
@@ -714,8 +687,8 @@ class QuantumIRGen:
         """
         Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
         
-        Implements quantum subtraction (target - addend) using Draper's algorithm
-        by applying negative phase rotations in the frequency domain.
+        Supports mixed-width operands (e.g., subtracting an 8-bit number from a 16-bit number).
+        The result width is the maximum of the two operand widths.
         
         Algorithm:
         1. Apply QFT to target register
@@ -751,30 +724,36 @@ class QuantumIRGen:
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
         
-        bit_width = 8
+        # Dynamic width detection - use actual register widths
+        width_a = self.get_bit_width(a)
+        width_b = self.get_bit_width(b)
+        op_width = max(width_a, width_b)  # Result needs at least this many bits
         
         # Determine target register for the subtraction
         if target_reg is None:
-            # Create a new register and copy A into it (minuend)
-            target = self.ir_gen_init(None)
-            # Copy A into the target register
-            for i in range(bit_width):
+            # Create a new register with the operation width and copy A into it (minuend)
+            target = self.ir_gen_init_with_width(op_width)
+            # Copy A into the target register - only copy up to width_a bits
+            for i in range(min(width_a, op_width)):
                 target = self.apply_cnot_on_bits(a, i, target, i)
         else:
             # Use the provided target register, but still need to copy A into it
             target = target_reg
-            # Copy A into the target register
-            for i in range(bit_width):
+            target_width = self.get_bit_width(target)
+            # Copy A into the target register - respect both widths
+            for i in range(min(width_a, target_width)):
                 target = self.apply_cnot_on_bits(a, i, target, i)
+            # Update op_width to match target if target is larger
+            op_width = target_width
         
         # Step 1: Apply QFT to target register
-        result = self.apply_qft(target, bit_width)
+        result = self.apply_qft(target, op_width)
         
         # Step 2: Apply Draper's controlled phase subtractions (negative phases)
-        # For each bit i in register B (subtrahend), and each bit j in target where j >= i:
+        # For each bit i in register B (subtrahend) up to width_b, and each bit j in target where j >= i:
         # If B[i] = 1, apply phase rotation -2π/2^(j-i+1) to target[j]
-        for i in range(bit_width):
-            for j in range(i, bit_width):
+        for i in range(width_b):  # Only iterate up to actual width of b
+            for j in range(i, op_width):  # Target bits from i up to op_width
                 # Negative phase angle: -2π/2^(j-i+1)
                 # This is the key formula for Draper's subtraction algorithm
                 phase_angle = -2 * math.pi / (2 ** (j - i + 1))
@@ -787,7 +766,7 @@ class QuantumIRGen:
                 )
         
         # Step 3: Apply inverse QFT to get the final result
-        result = self.apply_inverse_qft(result, bit_width)
+        result = self.apply_inverse_qft(result, op_width)
         
         return result
 
@@ -795,6 +774,8 @@ class QuantumIRGen:
         """
         Generate quantum circuit for multiplication using Draper's QFT-based algorithm.
         Computes A * B by accumulating doubly-controlled phase rotations in Fourier space.
+        
+        Supports dynamic operand widths - the product register width is the sum of operand widths.
         
         Algorithm:
         1. Initialize product register with width = width(A) + width(B)
@@ -832,10 +813,10 @@ class QuantumIRGen:
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
 
-        # Get bit widths
-        width_a = 8  # Width of multiplicand
-        width_b = 8  # Width of multiplier
-        width_product = width_a + width_b  # Product needs double width to avoid overflow
+        # Dynamic width detection - use actual register widths
+        width_a = self.get_bit_width(a)  # Width of multiplicand
+        width_b = self.get_bit_width(b)  # Width of multiplier
+        width_product = width_a + width_b  # Product needs combined width to avoid overflow
         
         # Initialize product register (starts at 0)
         product = self.ir_gen_init_with_width(width_product)
@@ -869,6 +850,41 @@ class QuantumIRGen:
         
         return product
 
+
+    # ============================================================================
+    # REGISTER WIDTH HELPERS
+    # ============================================================================
+
+    def get_bit_width(self, register: SSAValue) -> int:
+        """
+        Get the bit width of a quantum register.
+        
+        Inspects the register's VectorType to determine how many qubits it contains.
+        This is essential for supporting mixed-width arithmetic operations.
+        
+        Args:
+            register: The SSA value representing a quantum register
+            
+        Returns:
+            The number of qubits (bits) in the register, defaults to 8 if unable to determine
+        """
+        try:
+            if hasattr(register, 'type') and isinstance(register.type, VectorType):
+                # VectorType.shape is an ArrayAttr with IntAttr elements
+                # Access the underlying data list
+                shape = register.type.shape
+                if hasattr(shape, 'data') and len(shape.data) > 0:
+                    # shape.data is a tuple of IntAttr
+                    first_dim = shape.data[0]
+                    # IntAttr has a .data attribute with the actual integer
+                    if hasattr(first_dim, 'data'):
+                        return first_dim.data
+                    else:
+                        return int(first_dim)
+        except Exception:
+            pass
+        # Default to 8 bits for backward compatibility
+        return 8
 
 
     def ir_gen_init_with_width(self, width: int) -> SSAValue:
@@ -1116,27 +1132,23 @@ class QuantumIRGen:
                 # self.add_comment(f"// initializing with binary expression")
                 
                 # For declarations with binary expressions like int c = a + b,
-                # we need to ensure the result is stored in a new register for variable c
+                # let the operation create an appropriately-sized result register.
+                # This is important for mixed-width operations (e.g., 16-bit + 8-bit).
                 
-                # Create a new register for this variable
-                target_reg = self.ir_gen_init(None)
-                
-                # Use the target register for arithmetic operations
                 if expr.expr.op == "+":
-                    expr_result = self.draper_quantum_addition(expr.expr.lhs, expr.expr.rhs, target_reg)
+                    # Let addition auto-detect widths and create appropriate target
+                    expr_result = self.draper_quantum_addition(expr.expr.lhs, expr.expr.rhs)
                 elif expr.expr.op == "-":
-                    expr_result = self.draper_quantum_subtraction(expr.expr.lhs, expr.expr.rhs, target_reg)
+                    # Let subtraction auto-detect widths and create appropriate target
+                    expr_result = self.draper_quantum_subtraction(expr.expr.lhs, expr.expr.rhs)
+                elif expr.expr.op == "*":
+                    # Multiplication creates its own wider register (width_a + width_b)
+                    expr_result = self.draper_quantum_multiplication(expr.expr.lhs, expr.expr.rhs)
                 else:
-                    # For other operations, evaluate normally and copy to target
-                    temp_result = self.ir_gen_expr(expr.expr)
-                    if temp_result is None:
+                    # For other operations, evaluate normally
+                    expr_result = self.ir_gen_expr(expr.expr)
+                    if expr_result is None:
                         raise IRGenError("Binary expression evaluation failed")
-                    
-                    # Copy result to the target register
-                    bit_width = 8  # Must match ir_gen_init
-                    for i in range(bit_width):
-                        target_reg = self.apply_cnot_on_bits(temp_result, i, target_reg, i)
-                    expr_result = target_reg
 
                 qubit = expr_result
 

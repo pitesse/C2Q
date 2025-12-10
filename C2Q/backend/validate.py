@@ -136,12 +136,8 @@ def extract_result_value(counts: Dict[str, int], target_width: int = 8, signed: 
     # Remove spaces from bitstring
     bitstring = most_common.replace(' ', '')
     
-    print(f"\n🔍 DEBUG: Full bitstring: {bitstring} (length: {len(bitstring)})")
-    
     # Extract the leftmost target_width bits (result register is created last)
     result_bits = bitstring[:target_width]
-    
-    print(f"🔍 DEBUG: Result bits ({target_width}-bit): {result_bits}")
     
     # Convert to integer
     unsigned_value = int(result_bits, 2)
@@ -154,11 +150,8 @@ def extract_result_value(counts: Dict[str, int], target_width: int = 8, signed: 
             # Negative number: compute two's complement
             # Formula: value - 2^n where n is the bit width
             signed_value = unsigned_value - (1 << target_width)
-            print(f"🔍 DEBUG: Unsigned = {unsigned_value}, Signed (two's complement) = {signed_value}")
             return signed_value
         else:
-            print(f"🔍 DEBUG: Unsigned = {unsigned_value}, Signed = {unsigned_value} (positive)")
             return unsigned_value
     else:
-        print(f"🔍 DEBUG: Unsigned value = {unsigned_value}")
         return unsigned_value

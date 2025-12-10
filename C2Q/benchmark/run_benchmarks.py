@@ -99,6 +99,13 @@ TEST_SUITE = [
         "expected_result": 4,
         "result_width": 8
     },
+    {
+        "name": "Complex Math (Mixed Width)",
+        "path": "tests/inputs/test_complex_math.c",
+        "description": "Chained arithmetic: (3*2)+5 = 11, tests 16-bit mult → 16+8-bit addition",
+        "expected_result": 11,
+        "result_width": 16
+    },
 ]
 
 
@@ -245,6 +252,7 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     if "expected_result" in test_case:
         import time
         val_start = time.time()
+        
         print("    Validating optimized circuit...")
         try:
             # Extract circuit from optimized module

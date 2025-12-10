@@ -1,7 +1,7 @@
 from xdsl.ir import Operation,SSAValue
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.builder import Builder
-from xdsl.rewriter import Rewriter
+from xdsl.rewriter import Rewriter, InsertPoint
 from xdsl.dialects.builtin import ModuleOp
 
 from ...dialects.quantum_dialect import HadamardOp, TGateOp,TDaggerGateOp, CNotOp, MeasureOp,InitOp,FuncOp
@@ -17,20 +17,21 @@ class CCnot_decomposition(RewritePattern):
     
     # function to recursively fix the names of the SSAValues after a replacement
     def fixnames(self, changed: SSAValue):
-        uses = changed.uses.copy()
+        uses = list(changed.uses)
 
         for use in uses:
             using_operation = use.operation
             target_idx = len(using_operation.operands) - 1
             if using_operation.operands[target_idx] == changed:
-                using_operation.res._name = changed._name.split("_")[0] + "_" + str(int(changed._name.split("_")[1])+1)
-                self.fixnames(using_operation.res)
+                if hasattr(using_operation, 'res'):
+                    using_operation.res._name = changed._name.split("_")[0] + "_" + str(int(changed._name.split("_")[1])+1)  # type: ignore[attr-defined, union-attr]
+                    self.fixnames(using_operation.res)  # type: ignore[attr-defined]
         
 
     # replace the old SSAValue with the new one in the uses of the old SSAValue and fix the names of the result of the
     # operation where we replaced
     def replace(self, old: SSAValue, new: SSAValue):
-        uses = old.uses.copy()
+        uses = list(old.uses)
 
         for use in uses:
             using_operation = use.operation
@@ -40,8 +41,9 @@ class CCnot_decomposition(RewritePattern):
             target_idx = len(using_operation.operands) - 1
             if using_operation.operands[target_idx] == old:
                 using_operation.operands[target_idx] = new
-                using_operation.res._name = new._name.split("_")[0] + "_" + str(int(new._name.split("_")[1])+1)
-                self.fixnames(using_operation.res)
+                if hasattr(using_operation, 'res'):
+                    using_operation.res._name = new._name.split("_")[0] + "_" + str(int(new._name.split("_")[1])+1)  # type: ignore[attr-defined, union-attr]
+                    self.fixnames(using_operation.res)  # type: ignore[attr-defined]
             else: # used as a control
                 using_operation.operands[using_operation.operands.index(old)] = new
         
@@ -58,22 +60,25 @@ class CCnot_decomposition(RewritePattern):
         self.passedOperation.add(op)
 
         if op.name == "quantum.ccnot":
-            self.builder = Builder.before(op)
+            self.builder = Builder(InsertPoint.before(op))
 
-            control1 = op.control1
+            if not (hasattr(op, 'control1') and hasattr(op, 'control2') and hasattr(op, 'target') and hasattr(op, 'res')):
+                return
 
-            control2 = op.control2
+            control1 = op.control1  # type: ignore[attr-defined]
 
-            target = op.target
+            control2 = op.control2  # type: ignore[attr-defined]
 
-            res = op.res
+            target = op.target  # type: ignore[attr-defined]
+
+            res = op.res  # type: ignore[attr-defined]
 
             h1_res = self.builder.insert(HadamardOp.from_value(target)).res
-            h1_res._name = target._name.split('_')[0] +"_" + str(int(target._name.split('_')[1])+1)
+            h1_res._name = target._name.split('_')[0] +"_" + str(int(target._name.split('_')[1])+1)  # type: ignore[union-attr]
             self.passedOperation.add(h1_res.op)
             
             cnot1_res = self.builder.insert(CNotOp.from_value(control2, h1_res)).res
-            cnot1_res._name = h1_res._name.split('_')[0] +"_" + str(int(h1_res._name.split('_')[1])+1)
+            cnot1_res._name = h1_res._name.split('_')[0] +"_" + str(int(h1_res._name.split('_')[1])+1)  # type: ignore[union-attr]
             self.passedOperation.add(cnot1_res.op)
         
             tcross1_res = self.builder.insert(TDaggerGateOp.from_value(cnot1_res)).res
@@ -104,7 +109,7 @@ class CCnot_decomposition(RewritePattern):
             self.passedOperation.add(cnot5_res.op)
 
             tcross3_res = self.builder.insert(TDaggerGateOp.from_value(cnot5_res)).res
-            tcross3_res._name = cnot5_res._name.split('_')[0] +"_" + str(int(cnot5_res._name.split('_')[1])+1)
+            tcross3_res._name = cnot5_res._name.split('_')[0] +"_" + str(int(cnot5_res._name.split('_')[1])+1)  # type: ignore[union-attr]
             self.passedOperation.add(tcross3_res.op)
             cnot6_res = self.builder.insert(CNotOp.from_value(control1, tcross3_res)).res
             cnot6_res._name = tcross3_res._name.split('_')[0] +"_" + str(int(tcross3_res._name.split('_')[1])+1)

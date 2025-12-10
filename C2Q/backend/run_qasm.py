@@ -66,6 +66,59 @@ def parse_mlir_file(file_path):
 # QISKIT CIRCUIT CREATION FUNCTIONS
 # ============================================================================
 
+# Global SSA value to Qiskit register mapping
+# Maps xDSL SSA values to (QuantumRegister, base_name) tuples
+_ssa_to_qreg = {}
+
+
+def get_register_for_ssa(ssa_value):
+    """
+    Look up the Qiskit register for an SSA value.
+    
+    This function traces through the SSA chain to find the original register.
+    Each SSA value in a quantum wire (from init through gates) maps to the same register.
+    
+    Args:
+        ssa_value: xDSL SSA value (operand or result)
+        
+    Returns:
+        Tuple of (QuantumRegister, base_name) or (None, None) if not found
+    """
+    if ssa_value in _ssa_to_qreg:
+        return _ssa_to_qreg[ssa_value]
+    return None, None
+
+
+def register_ssa_mapping(ssa_value, qreg, base_name):
+    """
+    Register an SSA value to Qiskit register mapping.
+    
+    Args:
+        ssa_value: xDSL SSA value
+        qreg: Qiskit QuantumRegister
+        base_name: Base name of the register (e.g., 'q0')
+    """
+    _ssa_to_qreg[ssa_value] = (qreg, base_name)
+
+
+def propagate_ssa_mapping(from_ssa, to_ssa):
+    """
+    Propagate SSA mapping from one value to another.
+    
+    Used when a gate produces a new SSA result that represents the same qubit wire.
+    
+    Args:
+        from_ssa: Source SSA value (operand)
+        to_ssa: Target SSA value (result)
+    """
+    if from_ssa in _ssa_to_qreg:
+        _ssa_to_qreg[to_ssa] = _ssa_to_qreg[from_ssa]
+
+
+def clear_ssa_mappings():
+    """Clear all SSA mappings. Call before creating a new circuit."""
+    _ssa_to_qreg.clear()
+
 
 def create_quantum_register(op):
     """
@@ -78,6 +131,7 @@ def create_quantum_register(op):
         Qiskit QuantumRegister object
     """
     result = op.results[0]
+    base_name = "q0"  # Default name
     if hasattr(result, "_name") and result._name:
         reg_name = result._name
         # Extract the base register name (e.g., q0 from q0_1)
@@ -91,8 +145,6 @@ def create_quantum_register(op):
         vec_size = op.result_types[0].get_shape()[0]
 
     q_reg = QuantumRegister(vec_size, name=base_name)
-
-    print(f"Creating QuantumRegister: {q_reg.name} with size {vec_size}")
 
     return q_reg
 
@@ -134,28 +186,32 @@ def apply_onqubit_not(circuit, op):
         op: OnQubitNotOp operation
     """
     if len(op.operands) == 1:
-        # Get the vector register
+        # Get the vector register via SSA mapping
         vector = op.operands[0]
+        qreg, base_name = get_register_for_ssa(vector)
 
         # Get the index from the operation attributes
         if hasattr(op, "attributes") and "index" in op.attributes:
             bit_index = op.attributes["index"].value.data
 
-            # Get the register name
-            if hasattr(vector, "_name") and vector._name:
-                reg_name = vector._name
-                base_name = reg_name.split("_")[0]
-
-                # Find the register in the circuit
-                for qreg in circuit.qregs:
-                    if qreg.name == base_name:
-                        # Apply the NOT gate directly to the bit
-                        circuit.x(qreg[bit_index])
-                        return
-
-                print(f"Warning: Register {base_name} not found in circuit")
+            if qreg is not None:
+                # Apply the NOT gate directly to the bit
+                circuit.x(qreg[bit_index])
+                
+                # Propagate SSA mapping if this op produces a result
+                if hasattr(op, "results") and op.results:
+                    propagate_ssa_mapping(vector, op.results[0])
+                return
             else:
-                print("Warning: Vector name not found")
+                # Fallback to name-based lookup for backwards compatibility
+                if hasattr(vector, "_name") and vector._name:
+                    reg_name = vector._name
+                    base_name = reg_name.split("_")[0]
+                    for qreg in circuit.qregs:
+                        if qreg.name == base_name:
+                            circuit.x(qreg[bit_index])
+                            return
+                print(f"Warning: Register not found for SSA value")
         else:
             print("Warning: Bit index attribute not found")
     else:
@@ -171,9 +227,12 @@ def apply_onqubit_cnot(circuit, op):
         op: OnQubitCNotOp operation
     """
     if len(op.operands) == 2:
-        # Get the control and target vectors
+        # Get the control and target vectors via SSA mapping
         control_vector = op.operands[0]
         target_vector = op.operands[1]
+        
+        control_qreg, _ = get_register_for_ssa(control_vector)
+        target_qreg, _ = get_register_for_ssa(target_vector)
 
         # Get the indices from attributes
         if (
@@ -181,45 +240,41 @@ def apply_onqubit_cnot(circuit, op):
             and "control_index" in op.attributes
             and "target_index" in op.attributes
         ):
-
             control_index = op.attributes["control_index"].value.data
             target_index = op.attributes["target_index"].value.data
 
-            # Get register names
-            if (
-                hasattr(control_vector, "_name")
-                and control_vector._name
-                and hasattr(target_vector, "_name")
-                and target_vector._name
-            ):
-
-                control_name = control_vector._name
-                control_base = control_name.split("_")[0]
-
-                target_name = target_vector._name
-                target_base = target_name.split("_")[0]
-
-                # Find the registers in the circuit
-                control_qreg = None
-                target_qreg = None
-
-                for qreg in circuit.qregs:
-                    if qreg.name == control_base:
-                        control_qreg = qreg
-                    if qreg.name == target_base:
-                        target_qreg = qreg
-
+            if control_qreg is not None and target_qreg is not None:
+                # Apply CNOT directly between the bits
+                circuit.cx(control_qreg[control_index], target_qreg[target_index])
+                
+                # Propagate SSA mapping for both results if they exist
+                if hasattr(op, "results") and len(op.results) >= 2:
+                    propagate_ssa_mapping(control_vector, op.results[0])
+                    propagate_ssa_mapping(target_vector, op.results[1])
+                return
+            else:
+                # Fallback to name-based lookup
+                if control_qreg is None and hasattr(control_vector, "_name") and control_vector._name:
+                    control_name = control_vector._name
+                    control_base = control_name.split("_")[0]
+                    for qreg in circuit.qregs:
+                        if qreg.name == control_base:
+                            control_qreg = qreg
+                            break
+                
+                if target_qreg is None and hasattr(target_vector, "_name") and target_vector._name:
+                    target_name = target_vector._name
+                    target_base = target_name.split("_")[0]
+                    for qreg in circuit.qregs:
+                        if qreg.name == target_base:
+                            target_qreg = qreg
+                            break
+                
                 if control_qreg and target_qreg:
-                    # Apply CNOT directly between the bits
                     circuit.cx(control_qreg[control_index], target_qreg[target_index])
                     return
-                else:
-                    if not control_qreg:
-                        print(f"Warning: Control register {control_base} not found")
-                    if not target_qreg:
-                        print(f"Warning: Target register {target_base} not found")
-            else:
-                print("Warning: Register names not found")
+                    
+                print(f"Warning: Could not find registers for CNOT")
         else:
             print("Warning: Index attributes not found")
     else:
@@ -237,6 +292,8 @@ def apply_cnot(circuit, op):
     if len(op.operands) == 2:
         control_qubit = op.operands[0]
         target_qubit = op.operands[1]
+        control_qreg = None
+        target_qreg = None
 
         if hasattr(control_qubit, "_name") and control_qubit._name:
             control_name = control_qubit._name
@@ -262,7 +319,8 @@ def apply_cnot(circuit, op):
                 print(f"Warning: Target register {base_name} not found in circuit")
                 return
 
-        circuit.cx(control_qreg, target_qreg)
+        if control_qreg is not None and target_qreg is not None:
+            circuit.cx(control_qreg, target_qreg)
     else:
         print("Warning: Invalid number of operands for CNOT operation")
 
@@ -279,6 +337,9 @@ def apply_ccnot(circuit, op):
         control_qubit1 = op.operands[0]
         control_qubit2 = op.operands[1]
         target_qubit = op.operands[2]
+        c1_qreg = None
+        c2_qreg = None
+        t_qreg = None
 
         # Extract control and target qubits properly
         if hasattr(control_qubit1, "_name") and control_qubit1._name:
@@ -336,7 +397,8 @@ def apply_ccnot(circuit, op):
                     t_qreg = new_qreg[0]
 
         # Use the built-in ccx gate (Toffoli)
-        circuit.ccx(c1_qreg, c2_qreg, t_qreg)
+        if c1_qreg is not None and c2_qreg is not None and t_qreg is not None:
+            circuit.ccx(c1_qreg, c2_qreg, t_qreg)
     else:
         print("Warning: Invalid number of operands for CCNOT operation")
 
@@ -355,10 +417,14 @@ def apply_onqubit_ccnot(circuit, op):
         op: OnQubitCCnotOp operation
     """
     if len(op.operands) == 3:
-        # Get the vectors
+        # Get the vectors via SSA mapping
         control1_vector = op.operands[0]
         control2_vector = op.operands[1]
         target_vector = op.operands[2]
+        
+        control1_qreg, _ = get_register_for_ssa(control1_vector)
+        control2_qreg, _ = get_register_for_ssa(control2_vector)
+        target_qreg, _ = get_register_for_ssa(target_vector)
 
         # Get indices from attributes
         if (
@@ -367,60 +433,56 @@ def apply_onqubit_ccnot(circuit, op):
             and "control2_index" in op.attributes
             and "target_index" in op.attributes
         ):
-
             control1_index = op.attributes["control1_index"].value.data
             control2_index = op.attributes["control2_index"].value.data
             target_index = op.attributes["target_index"].value.data
 
-            # Get register names
-            if (
-                hasattr(control1_vector, "_name")
-                and control1_vector._name
-                and hasattr(control2_vector, "_name")
-                and control2_vector._name
-                and hasattr(target_vector, "_name")
-                and target_vector._name
-            ):
-
-                control1_name = control1_vector._name
-                control1_base = control1_name.split("_")[0]
-
-                control2_name = control2_vector._name
-                control2_base = control2_name.split("_")[0]
-
-                target_name = target_vector._name
-                target_base = target_name.split("_")[0]
-
-                # Find registers in circuit
-                control1_qreg = None
-                control2_qreg = None
-                target_qreg = None
-
+            if control1_qreg and control2_qreg and target_qreg:
+                # Apply CCNOT directly between bits
+                circuit.ccx(
+                    control1_qreg[control1_index],
+                    control2_qreg[control2_index],
+                    target_qreg[target_index],
+                )
+                
+                # Propagate SSA mappings
+                if hasattr(op, "results") and len(op.results) >= 3:
+                    propagate_ssa_mapping(control1_vector, op.results[0])
+                    propagate_ssa_mapping(control2_vector, op.results[1])
+                    propagate_ssa_mapping(target_vector, op.results[2])
+                return
+            
+            # Fallback to name-based lookup
+            if control1_qreg is None and hasattr(control1_vector, "_name") and control1_vector._name:
+                control1_base = control1_vector._name.split("_")[0]
                 for qreg in circuit.qregs:
                     if qreg.name == control1_base:
                         control1_qreg = qreg
+                        break
+            
+            if control2_qreg is None and hasattr(control2_vector, "_name") and control2_vector._name:
+                control2_base = control2_vector._name.split("_")[0]
+                for qreg in circuit.qregs:
                     if qreg.name == control2_base:
                         control2_qreg = qreg
+                        break
+            
+            if target_qreg is None and hasattr(target_vector, "_name") and target_vector._name:
+                target_base = target_vector._name.split("_")[0]
+                for qreg in circuit.qregs:
                     if qreg.name == target_base:
                         target_qreg = qreg
-
-                if control1_qreg and control2_qreg and target_qreg:
-                    # Apply CCNOT directly between bits
-                    circuit.ccx(
-                        control1_qreg[control1_index],
-                        control2_qreg[control2_index],
-                        target_qreg[target_index],
-                    )
-                    return
-                else:
-                    if not control1_qreg:
-                        print(f"Warning: Control1 register {control1_base} not found")
-                    if not control2_qreg:
-                        print(f"Warning: Control2 register {control2_base} not found")
-                    if not target_qreg:
-                        print(f"Warning: Target register {target_base} not found")
-            else:
-                print("Warning: Register names not found")
+                        break
+            
+            if control1_qreg and control2_qreg and target_qreg:
+                circuit.ccx(
+                    control1_qreg[control1_index],
+                    control2_qreg[control2_index],
+                    target_qreg[target_index],
+                )
+                return
+            
+            print("Warning: Could not find registers for CCNOT")
         else:
             print("Warning: Index attributes not found")
     else:
@@ -436,11 +498,20 @@ def apply_onqubit_hadamard(circuit, op):
         op: OnQubitHadamardOp operation
     """
     if len(op.operands) == 1:
-        # Get the register and bit index
+        # Get the register via SSA mapping
         operand = op.operands[0]
+        qreg, _ = get_register_for_ssa(operand)
         bit_index = op.attributes.get("index", IntegerAttr(0, IntegerType(32))).value.data
         
-        # Find the corresponding register
+        if qreg is not None:
+            circuit.h(qreg[bit_index])
+            
+            # Propagate SSA mapping if this op produces a result
+            if hasattr(op, "results") and op.results:
+                propagate_ssa_mapping(operand, op.results[0])
+            return
+        
+        # Fallback to name-based lookup
         for qreg in circuit.qregs:
             if hasattr(operand, "_name") and operand._name:
                 if operand._name.startswith(qreg.name.split('_')[0]):
@@ -458,12 +529,21 @@ def apply_onqubit_phase(circuit, op):
         op: OnQubitPhaseOp operation
     """
     if len(op.operands) == 1:
-        # Get the register, bit index, and phase
+        # Get the register via SSA mapping
         operand = op.operands[0]
+        qreg, _ = get_register_for_ssa(operand)
         bit_index = op.attributes.get("index", IntegerAttr(0, IntegerType(32))).value.data
         phase = op.attributes.get("phase", FloatAttr(0.0, Float64Type())).value.data
         
-        # Find the corresponding register
+        if qreg is not None:
+            circuit.p(phase, qreg[bit_index])
+            
+            # Propagate SSA mapping if this op produces a result
+            if hasattr(op, "results") and op.results:
+                propagate_ssa_mapping(operand, op.results[0])
+            return
+        
+        # Fallback to name-based lookup
         for qreg in circuit.qregs:
             if hasattr(operand, "_name") and operand._name:
                 if operand._name.startswith(qreg.name.split('_')[0]):
@@ -481,46 +561,66 @@ def apply_onqubit_controlled_phase(circuit, op):
         op: OnQubitControlledPhaseOp operation
     """
     if len(op.operands) == 2:
-        # Get the control and target operands
+        # Get the control and target operands via SSA mapping
         control_operand = op.operands[0]
         target_operand = op.operands[1]
+        
+        control_reg, _ = get_register_for_ssa(control_operand)
+        target_reg, _ = get_register_for_ssa(target_operand)
         
         # Get indices and phase
         control_index = op.attributes.get("control_index", IntegerAttr(0, IntegerType(32))).value.data
         target_index = op.attributes.get("target_index", IntegerAttr(0, IntegerType(32))).value.data
         phase = op.attributes.get("phase", FloatAttr(0.0, Float64Type())).value.data
         
-        # Find the corresponding registers
-        control_reg = None
-        target_reg = None
+        if control_reg is not None and target_reg is not None:
+            # Apply controlled phase rotation
+            circuit.cp(phase, control_reg[control_index], target_reg[target_index])
+            
+            # Propagate SSA mapping for results
+            if hasattr(op, "results") and len(op.results) >= 2:
+                propagate_ssa_mapping(control_operand, op.results[0])
+                propagate_ssa_mapping(target_operand, op.results[1])
+            return
         
+        # Fallback to name-based lookup
         for qreg in circuit.qregs:
-            if hasattr(control_operand, "_name") and control_operand._name:
+            if control_reg is None and hasattr(control_operand, "_name") and control_operand._name:
                 if control_operand._name.startswith(qreg.name.split('_')[0]):
                     control_reg = qreg
-            if hasattr(target_operand, "_name") and target_operand._name:
+            if target_reg is None and hasattr(target_operand, "_name") and target_operand._name:
                 if target_operand._name.startswith(qreg.name.split('_')[0]):
                     target_reg = qreg
         
         if control_reg is not None and target_reg is not None:
-            # Apply controlled phase rotation
             circuit.cp(phase, control_reg[control_index], target_reg[target_index])
     else:
         print(f"Warning: OnQubitControlledPhaseOp expects 2 operands, got {len(op.operands)}")
 
 def apply_onqubit_swap(circuit, op):
-    """!
-    @brief Apply a SWAP gate between specific bits in a register
-    @param circuit Qiskit QuantumCircuit object
-    @param op OnQubitSwapOp operation
+    """
+    Apply a SWAP gate between specific bits in a register.
+    
+    Args:
+        circuit: Qiskit QuantumCircuit object
+        op: OnQubitSwapOp operation
     """
     if len(op.operands) == 1:
-        # Get the register and bit indices
+        # Get the register via SSA mapping
         operand = op.operands[0]
+        qreg, _ = get_register_for_ssa(operand)
         qubit1_index = op.attributes.get("qubit1_index", IntegerAttr(0, IntegerType(32))).value.data
         qubit2_index = op.attributes.get("qubit2_index", IntegerAttr(0, IntegerType(32))).value.data
         
-        # Find the corresponding register
+        if qreg is not None:
+            circuit.swap(qreg[qubit1_index], qreg[qubit2_index])
+            
+            # Propagate SSA mapping if this op produces a result
+            if hasattr(op, "results") and op.results:
+                propagate_ssa_mapping(operand, op.results[0])
+            return
+        
+        # Fallback to name-based lookup
         for qreg in circuit.qregs:
             if hasattr(operand, "_name") and operand._name:
                 if operand._name.startswith(qreg.name.split('_')[0]):
@@ -601,19 +701,75 @@ def apply_tdagger(circuit, op):
         print("Warning: Invalid number of operands for T-dagger operation")
 
 
+def build_ssa_mapping(first_op, quantum_registers):
+    """
+    Build SSA value to register mapping by walking through all operations.
+    
+    This first pass establishes the mapping from SSA values to their corresponding
+    Qiskit registers. Gate operations that produce results propagate the mapping
+    from their operands to their results (same qubit wire, new SSA value).
+    
+    Args:
+        first_op: First operation in the IR
+        quantum_registers: Dict mapping register names to Qiskit QuantumRegister objects
+    """
+    current_op = first_op
+    
+    while current_op is not None:
+        op_name = current_op.name
+        
+        # For init operations, the result is the initial register SSA value
+        if op_name == "quantum.init" and hasattr(current_op, "results") and current_op.results:
+            result = current_op.results[0]
+            if hasattr(result, "_name") and result._name:
+                base_name = result._name.split("_")[0]
+                if base_name in quantum_registers:
+                    register_ssa_mapping(result, quantum_registers[base_name], base_name)
+        
+        # For gate operations that produce results, propagate from operand to result
+        # Single-operand gates (NOT, Hadamard, Phase, etc.)
+        elif op_name in ["quantum.OnQubit_not", "quantum.OnQubit_hadamard", 
+                         "quantum.OnQubit_phase", "quantum.OnQubit_swap"]:
+            if len(current_op.operands) >= 1 and hasattr(current_op, "results") and current_op.results:
+                propagate_ssa_mapping(current_op.operands[0], current_op.results[0])
+        
+        # Two-operand gates with single result (CNOT, Controlled Phase)
+        # The result represents the TARGET qubit (operand[1]), not the control
+        elif op_name in ["quantum.OnQubit_cnot", "quantum.OnQubit_controlled_phase"]:
+            if len(current_op.operands) >= 2 and hasattr(current_op, "results") and current_op.results:
+                # The single result is the new value of the target qubit (operand[1])
+                propagate_ssa_mapping(current_op.operands[1], current_op.results[0])
+        
+        # Three-operand gates with single result (CCNOT)
+        # The result represents the TARGET qubit (operand[2])
+        elif op_name == "quantum.OnQubit_ccnot":
+            if len(current_op.operands) >= 3 and hasattr(current_op, "results") and current_op.results:
+                # The single result is the new value of the target qubit (operand[2])
+                propagate_ssa_mapping(current_op.operands[2], current_op.results[0])
+        
+        current_op = current_op.next_op
+
+
 def create_circuit(first_op, output_number):
     """
-    Create a Qiskit quantum circuit from IR operations with preserved register names
+    Create a Qiskit quantum circuit from IR operations with preserved register names.
+    
+    Uses SSA value mapping to correctly track qubit registers through optimization passes.
+    This is a two-pass approach:
+    1. First pass: Create registers and build SSA mapping
+    2. Second pass: Apply gates using SSA mapping
     """
+    # Clear any previous SSA mappings
+    clear_ssa_mappings()
+    
     quantum_registers = {}
     reg_counter = 0
     current_op = first_op
 
     circuit = QuantumCircuit()
-
+    
+    # PASS 1: Create all quantum registers first
     while current_op is not None:
-        print(f"Processing operation: {current_op.name}")
-
         if (
             current_op.name == "quantum.init"
             and hasattr(current_op, "results")
@@ -621,10 +777,18 @@ def create_circuit(first_op, output_number):
         ):
             new_reg = create_quantum_register(current_op)
             if new_reg.name not in quantum_registers:
-                quantum_registers[reg_counter] = new_reg
+                quantum_registers[new_reg.name] = new_reg
                 reg_counter += 1
                 circuit.add_register(new_reg)
-        elif current_op.name == "quantum.not":
+        current_op = current_op.next_op
+    
+    # Build full SSA mapping by walking through all operations
+    build_ssa_mapping(first_op, quantum_registers)
+    
+    # PASS 2: Apply all gates
+    current_op = first_op
+    while current_op is not None:
+        if current_op.name == "quantum.not":
             apply_not(circuit, current_op)
         elif current_op.name == "quantum.OnQubit_not":
             apply_onqubit_not(circuit, current_op)

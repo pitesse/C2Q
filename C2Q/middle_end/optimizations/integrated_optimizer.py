@@ -191,9 +191,9 @@ class IntegratedQuantumOptimizer:
                 applier = GreedyRewritePatternApplier(patterns)
                 # Try different method names for different XDSL versions
                 if hasattr(applier, 'rewrite_module'):
-                    applier.rewrite_module(module)
+                    applier.rewrite_module(module)  # type: ignore[attr-defined]
                 elif hasattr(applier, 'apply_patterns'):
-                    applier.apply_patterns(module)
+                    applier.apply_patterns(module)  # type: ignore[attr-defined]
                 else:
                     # Fallback: apply patterns manually
                     for pattern in patterns:

@@ -3,6 +3,7 @@ from xdsl.dialects.builtin import ModuleOp, UnregisteredOp
 from xdsl.passes import ModulePass
 from xdsl.rewriter import Rewriter
 from xdsl.traits import IsolatedFromAbove
+from xdsl.context import Context
 
 from dataclasses import dataclass
 
@@ -14,17 +15,20 @@ from ...dialects.quantum_dialect import FuncOp, MeasureOp, InitOp
 # if not we can safely delete the two operations as they commute
 def has_uses_between(from_op: Operation, to_op: Operation) -> bool:
     
+    if not hasattr(from_op, 'res'):
+        return False
+    
     next_op = from_op.next_op
 
     # check on every operation until the target operation
-    while not next_op is to_op:
+    while next_op is not None and not next_op is to_op:
 
         # if the operation is an InitOp surely it will not use the existing qubit 
         if not isinstance(next_op, InitOp):
 
             # if we find the SSAValue is used in any way we don't delete
             for operand in next_op.operands:
-                if operand._name == from_op.res._name:
+                if operand._name == from_op.res._name:  # type: ignore[attr-defined]
                     return True  
                 
         next_op = next_op.next_op
@@ -45,7 +49,7 @@ class OperationInfo:
 
     def __init__(self, op: Operation):
         self.op = op
-        self.hash = hash((self.name, tuple(operand._name for operand in self.operands[:-1]), self.operands[-1]._name.split('_')[0]))
+        self.hash = hash((self.name, tuple(operand._name for operand in self.operands[:-1]), self.operands[-1]._name.split('_')[0]))  # type: ignore[union-attr]
     
     
     @property
@@ -66,6 +70,8 @@ class OperationInfo:
     
     # check if two operation are enough equal to be analized
     def __eq__(self, other: object):
+        if not isinstance(other, OperationInfo):
+            return False
         return self.hash == other.hash
 
 # A dictionary used to store the passed operations
@@ -118,13 +124,14 @@ class HGEDriver:
     def _replace_and_delete(self, op: Operation, existing: Operation):
 
         # replace all future uses of the current operation results with the existing one
-        for o, n in zip([op.results,], [existing.target,], strict=True):
-            o[0].replace_by(n)
+        if hasattr(existing, 'target'):
+            for o, n in zip([op.results,], [existing.target,], strict=True):  # type: ignore[attr-defined]
+                o[0].replace_by(n)
 
         # if there are no uses delete the operations
         # also remove op from the _know_ops to avoid getting matched again
         if all(not r.uses for r in op.results):
-            self._known_ops.pop(op)
+            self._known_ops.pop(OperationInfo(op))
             self._commit_erasure(op)
             self._commit_erasure(existing)
 
@@ -136,8 +143,9 @@ class HGEDriver:
             return
         
         # renaming of the state of the qubits if any trasformation has changed the temporal sequence
-        if int(op.res._name.split('_')[1]) != int(op.target._name.split('_')[1]) + 1:
-            op.res._name = op.res._name.split('_')[0] + '_' + str(int(op.target._name.split('_')[1]) + 1)
+        if hasattr(op, 'res') and hasattr(op, 'target'):
+            if int(op.res._name.split('_')[1]) != int(op.target._name.split('_')[1]) + 1:  # type: ignore[attr-defined]
+                op.res._name = op.res._name.split('_')[0] + '_' + str(int(op.target._name.split('_')[1]) + 1)  # type: ignore[attr-defined]
 
         # MeasureOp may need a rename but is never simplified
         if isinstance(op, MeasureOp):
@@ -153,7 +161,7 @@ class HGEDriver:
                 return
         
         # if the operation is not known we add it to the known operations
-        self._known_ops[op] = op
+        self._known_ops[OperationInfo(op)] = op
         return
 
     # simplify the block, it sweeps all the operations in the block
@@ -205,5 +213,5 @@ class HGEDriver:
 # This class is used to apply the transformation to the MLIR in the main program
 class HermitianGatesElimination(ModulePass):
 
-    def apply(self, op: ModuleOp) -> None:
+    def apply(self, ctx: Context, op: ModuleOp) -> None:
         HGEDriver().simplify(op)

@@ -84,7 +84,7 @@ class SimpleQuantumOptimizer:
                 try:
                     # Try to extract phase from attributes
                     if hasattr(op, 'attributes') and 'phase' in op.attributes:
-                        phase = float(op.attributes['phase'].data)
+                        phase = float(op.attributes['phase'].data)  # type: ignore[attr-defined]
                         phase_angles.append(abs(phase))
                         
                         if abs(phase) < self.precision_threshold:
