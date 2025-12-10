@@ -6,9 +6,7 @@ focusing on reducing gate count, circuit depth, and qubit usage while preserving
 quantum computational correctness.
 """
 
-from .quantum_optimizer import QuantumOptimizer, optimize_quantum_module, OptimizationStats
-from .draper_optimizer import DraperOptimizer, optimize_draper_arithmetic
-from .simple_optimizer import SimpleQuantumOptimizer, analyze_quantum_circuit
+from .draper_optimizer import DraperOptimizer, optimize_draper_arithmetic, OptimizationStats
 from .integrated_optimizer import IntegratedQuantumOptimizer, optimize_quantum_circuit, create_optimizer_pipeline
 
 # Legacy optimizations (pattern-based)
@@ -23,14 +21,10 @@ __all__ = [
     'optimize_quantum_circuit',
     'create_optimizer_pipeline',
     
-    # Analysis and specialized optimizers
-    'SimpleQuantumOptimizer',
-    'analyze_quantum_circuit',
-    'QuantumOptimizer',
-    'optimize_quantum_module', 
-    'OptimizationStats',
+    # Specialized optimizers
     'DraperOptimizer',
-    'optimize_draper_arithmetic',
+    'optimize_draper_arithmetic', 
+    'OptimizationStats',
     
     # Individual pattern-based passes
     'RemoveUnusedOperations',

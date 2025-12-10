@@ -93,7 +93,7 @@ class CCnot_decomposition(RewritePattern):
 
         self.passedOperation.add(op)
 
-        if op.name == "quantum.ccnot":
+        if op.name == "quantum.OnQubit_ccnot":
             self.builder = Builder(InsertPoint.before(op))
 
             if not (hasattr(op, 'control1') and hasattr(op, 'control2') and hasattr(op, 'target') and hasattr(op, 'res')):

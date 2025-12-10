@@ -8,11 +8,26 @@ addition and subtraction.
 import math
 from typing import List, Dict, Set, Optional
 from collections import defaultdict
+from dataclasses import dataclass
 
 from xdsl.ir import SSAValue, Operation
 from xdsl.dialects.builtin import ModuleOp
 
-from .quantum_optimizer import OptimizationStats
+
+@dataclass
+class OptimizationStats:
+    """Statistics tracking optimization effectiveness."""
+    gates_eliminated: int = 0
+    phases_consolidated: int = 0
+    qubits_eliminated: int = 0
+    depth_reduction: int = 0
+    
+    def __str__(self) -> str:
+        return (f"Optimization Results:\n"
+                f"  Gates eliminated: {self.gates_eliminated}\n"
+                f"  Phases consolidated: {self.phases_consolidated}\n"
+                f"  Qubits eliminated: {self.qubits_eliminated}\n"
+                f"  Depth reduction: {self.depth_reduction}")
 
 
 class DraperOptimizer:
@@ -70,7 +85,6 @@ class DraperOptimizer:
             self._cancel_hadamard_pairs(module)
             self._optimize_qft_depth(module) 
             self._eliminate_redundant_swaps(module)
-            self._optimize_zero_operands(module)
             
             gates_this_iter = self.stats.gates_eliminated - prev_gates
             phases_this_iter = self.stats.phases_consolidated - prev_phases
@@ -169,23 +183,6 @@ class DraperOptimizer:
                 i += 1
                 
         print(f"    [INFO] Eliminated {eliminated} redundant SWAPs")
-    
-    def _optimize_zero_operands(self, module: ModuleOp) -> None:
-        """Optimize arithmetic operations involving zero operands.
-        
-        Special cases include A + 0 = A, A - 0 = A, 0 + B = B (no operation needed),
-        and A * 0 = 0 (replace with register clear).
-        
-        Args:
-            module: MLIR module to optimize.
-        """
-        print("  [INFO] Optimizing zero operand cases...")
-        
-        zero_optimizations = self._detect_zero_arithmetic(module)
-        for optimization in zero_optimizations:
-            self._apply_zero_optimization(optimization)
-            
-        print(f"    [INFO] Applied {len(zero_optimizations)} zero-operand optimizations")
     
     def _consolidate_adjacent_phases(self, module: ModuleOp) -> None:
         """Consolidate adjacent controlled-phase operations on the same qubit pair.
@@ -501,27 +498,6 @@ class DraperOptimizer:
             return (idx1, idx2)
         except:
             return (0, 0)
-    
-    def _detect_zero_arithmetic(self, module: ModuleOp) -> List[Dict]:
-        """Detect arithmetic operations involving zero operands.
-        
-        Args:
-            module: MLIR module to analyze.
-            
-        Returns:
-            List of optimization opportunities.
-        """
-        optimizations = []
-        
-        return optimizations
-    
-    def _apply_zero_optimization(self, optimization: Dict) -> None:
-        """Apply a specific zero-operand optimization.
-        
-        Args:
-            optimization: Dictionary describing the optimization to apply.
-        """
-        pass
 
 
 def optimize_draper_arithmetic(module: ModuleOp, **kwargs) -> ModuleOp:

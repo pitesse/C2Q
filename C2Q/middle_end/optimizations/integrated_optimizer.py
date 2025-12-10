@@ -20,12 +20,6 @@ from .ccnot_decomposition import CCnot_decomposition
 from .qubit_renumber import QubitRenumber
 from .in_placing import InPlacing
 from .draper_optimizer import DraperOptimizer
-# Hermitian transformation uses ModulePass, need different integration approach
-# from .hermitian_gates_transformation import HermitianGatesElimination
-# from .common_subexpr_elimination import CommonSubexprElimination
-
-# Import new analysis capabilities
-from .simple_optimizer import SimpleQuantumOptimizer
 
 
 class IntegratedQuantumOptimizer:
@@ -64,15 +58,11 @@ class IntegratedQuantumOptimizer:
         self.enable_draper_opt = enable_draper_opt
         self.precision_threshold = precision_threshold
         
-        # Initialize analyzer for insights
-        self.analyzer = SimpleQuantumOptimizer(precision_threshold)
-        
         # Statistics tracking
         self.stats = {
             'passes_applied': [],
             'operations_before': 0,
-            'operations_after': 0,
-            'analysis_insights': {}
+            'operations_after': 0
         }
     
     def optimize_circuit(self, module: ModuleOp, 
@@ -90,33 +80,22 @@ class IntegratedQuantumOptimizer:
             Optimized MLIR module
         """
         if verbose:
-            print("🔧 Starting Integrated Quantum Circuit Optimization")
-            print("=" * 60)
+            print("[INFO] Starting integrated quantum circuit optimization")
         
-        # Phase 1: Pre-optimization analysis
+        # Collect initial statistics
         self._collect_initial_stats(module)
-        
-        if verbose:
-            print("📊 Phase 1: Circuit Analysis")
-        
-        # Run comprehensive circuit analysis
-        analyzed_module = self.analyzer.analyze_and_optimize(module)
-        self.stats['analysis_insights'] = self.analyzer.stats
         
         if analysis_only:
             if verbose:
-                print("✅ Analysis-only mode completed")
-            return analyzed_module
+                print("[INFO] Analysis-only mode completed")
+            return module
         
-        # Phase 2: Pattern-based optimizations
+        # Apply optimization passes
+        optimized_module = self._apply_pattern_optimizations(module, verbose)
+        
+        # Collect final statistics
         if verbose:
-            print("\n🛠️  Phase 2: Pattern-Based Optimizations")
-        
-        optimized_module = self._apply_pattern_optimizations(analyzed_module, verbose)
-        
-        # Phase 3: Post-optimization analysis
-        if verbose:
-            print("\n📈 Phase 3: Optimization Results")
+            print("\n[INFO] Optimization Results")
         
         self._collect_final_stats(optimized_module)
         self._print_optimization_summary(verbose)
