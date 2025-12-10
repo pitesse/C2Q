@@ -59,14 +59,14 @@ class BenchmarkResult:
 TEST_SUITE = [
     {
         "name": "Add (8-bit)",
-        "path": "tests/inputs/test_add_new.c",
+        "path": "tests/inputs/test_add.c",
         "description": "Addition: a=3, b=5, c=a+b",
         "expected_result": 8,
         "result_width": 8
     },
     {
         "name": "Sub (8-bit)",
-        "path": "tests/inputs/test_sub_new.c",
+        "path": "tests/inputs/test_sub.c",
         "description": "Subtraction using Draper QFT",
         "expected_result": 5,
         "result_width": 8
@@ -82,7 +82,7 @@ TEST_SUITE = [
         "name": "Assignment",
         "path": "tests/inputs/test_assignment.c",
         "description": "Multiple assignment operations",
-        "expected_result": 0,
+        "expected_result": 5,
         "result_width": 8
     },
     {
@@ -112,6 +112,13 @@ TEST_SUITE = [
         "description": "Modular arithmetic: 255+1 = 0 (mod 256), tests 8-bit overflow behavior",
         "expected_result": 0,
         "result_width": 8
+    },
+    {
+        "name": "Mixed add/mult",
+        "path": "tests/inputs/test_mixed_add.c",
+        "description": "Mixed addition and multiplication: (2 * 3) + 5 = 11",
+        "expected_result": 11,
+        "result_width": 16
     },
 ]
 
@@ -193,7 +200,9 @@ def extract_qiskit_metrics(module: ModuleOp) -> Dict[str, int]:
     circuit = create_circuit(first_op, circuit_info["output_number"])
     
     # Count specific gate types using circuit.count_ops()
-    gate_counts = circuit.count_ops()
+    # Convert to dict with string keys for type safety
+    raw_counts = circuit.count_ops()
+    gate_counts: dict[str, int] = {str(k): v for k, v in raw_counts.items()}
     
     return {
         "total_gates": len(circuit),
@@ -241,8 +250,14 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     baseline_result = BenchmarkResult(
         test_name=test_name,
         optimization_level="none",
-        **baseline_mlir_metrics,
-        **baseline_qiskit_metrics
+        mlir_op_count=baseline_mlir_metrics["mlir_op_count"],
+        total_gates=baseline_qiskit_metrics["total_gates"],
+        circuit_depth=baseline_qiskit_metrics["circuit_depth"],
+        qubit_count=baseline_qiskit_metrics["qubit_count"],
+        cnot_count=baseline_qiskit_metrics["cnot_count"],
+        hadamard_count=baseline_qiskit_metrics["hadamard_count"],
+        swap_count=baseline_qiskit_metrics["swap_count"],
+        phase_gates=baseline_qiskit_metrics["phase_gates"]
     )
     
     # Run optimized (default optimization level with aggressive phase precision)
@@ -254,7 +269,7 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     optimized_qiskit_metrics = extract_qiskit_metrics(optimized_module)
     
     # VALIDATION: Verify optimized circuit produces correct result
-    validation_passed = True
+    validation_passed: bool = True
     
     if "expected_result" in test_case:
         import time
@@ -323,8 +338,14 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     optimized_result = BenchmarkResult(
         test_name=test_name,
         optimization_level="default",
-        **optimized_mlir_metrics,
-        **optimized_qiskit_metrics,
+        mlir_op_count=optimized_mlir_metrics["mlir_op_count"],
+        total_gates=optimized_qiskit_metrics["total_gates"],
+        circuit_depth=optimized_qiskit_metrics["circuit_depth"],
+        qubit_count=optimized_qiskit_metrics["qubit_count"],
+        cnot_count=optimized_qiskit_metrics["cnot_count"],
+        hadamard_count=optimized_qiskit_metrics["hadamard_count"],
+        swap_count=optimized_qiskit_metrics["swap_count"],
+        phase_gates=optimized_qiskit_metrics["phase_gates"],
         validation_passed=validation_passed
     )
     
@@ -332,7 +353,7 @@ def run_benchmark(test_case: Dict) -> Tuple[BenchmarkResult, BenchmarkResult]:
     artifacts_dir = Path("benchmarks_data")
     artifacts_dir.mkdir(exist_ok=True)
     
-    safe_name = test_name.replace(" ", "_").replace("(", "").replace(")", "").replace("×", "x")
+    safe_name = test_name.replace(" ", "_").replace("(", "").replace(")", "").replace("×", "x").replace("/", "-")
     save_mlir_artifact(baseline_module, artifacts_dir / f"{safe_name}_base.mlir")
     save_mlir_artifact(optimized_module, artifacts_dir / f"{safe_name}_opt.mlir")
     

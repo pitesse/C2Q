@@ -34,6 +34,7 @@ from xdsl.utils.scoped_dict import ScopedDict
 
 
 from .c_ast import *
+from .quantum_arithmetic import QuantumArithmetic
 from ..dialects.quantum_dialect import (
     InitOp,
     NotOp,
@@ -134,6 +135,10 @@ class QuantumIRGen:
         self.module = ModuleOp([])
         self.builder = Builder(InsertPoint.at_end(self.module.body.blocks[0]))
         self.function_map = {}
+        
+        # Initialize the quantum arithmetic module
+        # NOTE: We pass self.builder to each method call, not storing it here
+        self.quantum_arith = QuantumArithmetic()
 
     # ============================================================================
     # MODULE GENERATION
@@ -365,110 +370,51 @@ class QuantumIRGen:
             raise IRGenError(f"Unsupported binary operation: {expr.op}")
 
     # ============================================================================
-    # QUANTUM OPERATIONS
+    # QUANTUM OPERATIONS (Delegated to QuantumArithmetic)
     # ============================================================================
 
     def apply_hadamard_gate(self, register: SSAValue, qubit_index: int) -> SSAValue:
         """
-        Apply Hadamard gate to a specific qubit in the register
+        Apply Hadamard gate to a specific qubit in the register.
         H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
+        
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        from C2Q.dialects.quantum_dialect import OnQubitHadamardOp
-        
-        result = self.builder.insert(
-            OnQubitHadamardOp.from_value(register, qubit_index)
-        ).res
-        
-        # Update naming convention
-        if hasattr(register, '_name') and register._name:
-            parts = register._name.split('_')
-            if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
-                version_num = int(parts[1]) + 1
-                result._name = f"q{register_num}_{version_num}"
-        
-        return result
+        return self.quantum_arith.apply_hadamard_gate(self.builder, register, qubit_index)
 
     def apply_controlled_phase_rotation(self, control_register: SSAValue, control_index: int,
                                        target_register: SSAValue, target_index: int, 
                                        phase_angle: float) -> SSAValue:
         """
-        Apply controlled phase rotation: |control⟩|target⟩ → |control⟩|target⟩ if control=0
-                                                            → |control⟩e^(iθ)|target⟩ if control=1
+        Apply controlled phase rotation.
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        from C2Q.dialects.quantum_dialect import OnQubitControlledPhaseOp
-        
-        result = self.builder.insert(
-            OnQubitControlledPhaseOp.from_values(
-                control_register, control_index,
-                target_register, target_index,
-                phase_angle
-            )
-        ).res
-        
-        # Update naming convention
-        if hasattr(target_register, '_name') and target_register._name:
-            parts = target_register._name.split('_')
-            if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
-                version_num = int(parts[1]) + 1
-                result._name = f"q{register_num}_{version_num}"
-        
-        return result
+        return self.quantum_arith.apply_controlled_phase_rotation(
+            self.builder, control_register, control_index,
+            target_register, target_index, phase_angle
+        )
 
     def apply_swap_gate(self, register: SSAValue, qubit1: int, qubit2: int) -> SSAValue:
         """
-        Swap two qubits using the dedicated swap operation
+        Swap two qubits using the dedicated swap operation.
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        from C2Q.dialects.quantum_dialect import OnQubitSwapOp
-        
-        result = self.builder.insert(
-            OnQubitSwapOp.from_values(register, qubit1, qubit2)
-        ).res
-        
-        # Update naming convention
-        if hasattr(register, '_name') and register._name:
-            parts = register._name.split('_')
-            if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
-                version_num = int(parts[1]) + 1
-                result._name = f"q{register_num}_{version_num}"
-        
-        return result
+        return self.quantum_arith.apply_swap_gate(self.builder, register, qubit1, qubit2)
 
     def apply_phase_gate(self, register: SSAValue, qubit_index: int, phase: float) -> SSAValue:
         """
         Apply a phase gate to a specific qubit in a register.
         Phase gate: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        from C2Q.dialects.quantum_dialect import OnQubitPhaseOp
-        
-        result = self.builder.insert(
-            OnQubitPhaseOp.from_value(register, qubit_index, phase)
-        ).res
-        
-        # Update naming convention
-        if hasattr(register, '_name') and register._name:
-            parts = register._name.split('_')
-            if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
-                version_num = int(parts[1]) + 1
-                result._name = f"q{register_num}_{version_num}"
-        
-        return result
+        return self.quantum_arith.apply_phase_gate(self.builder, register, qubit_index, phase)
 
     def reverse_qubit_order(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
-        Reverse the order of qubits in the register using SWAP operations
+        Reverse the order of qubits in the register using SWAP operations.
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        result = register
-        
-        # Swap qubits: 0↔(n-1), 1↔(n-2), etc.
-        for i in range(n_qubits // 2):
-            j = n_qubits - 1 - i
-            result = self.apply_swap_gate(result, i, j)
-        
-        return result
+        return self.quantum_arith.reverse_qubit_order(self.builder, register, n_qubits)
 
     def apply_ccphase(self, control1_reg: SSAValue, control1_bit: int,
                      control2_reg: SSAValue, control2_bit: int,
@@ -477,126 +423,29 @@ class QuantumIRGen:
         """
         Apply doubly-controlled phase gate: CCPhase(theta).
         Only applies phase if BOTH control qubits are |1⟩.
-        
-        Decomposition:
-        1. CP(theta/2, control2, target)
-        2. CNOT(control1, control2)
-        3. CP(-theta/2, control2, target)
-        4. CNOT(control1, control2)
-        5. CP(theta/2, control1, target)
-        
-        Args:
-            control1_reg: First control register
-            control1_bit: First control bit index
-            control2_reg: Second control register
-            control2_bit: Second control bit index
-            target_reg: Target register
-            target_bit: Target bit index
-            phase_angle: Phase angle theta
-            
-        Returns:
-            Updated target register
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        result = target_reg
-        
-        # Step 1: CP(theta/2, control2, target)
-        result = self.apply_controlled_phase_rotation(
+        return self.quantum_arith.apply_ccphase(
+            self.builder,
+            control1_reg, control1_bit,
             control2_reg, control2_bit,
-            result, target_bit,
-            phase_angle / 2
+            target_reg, target_bit,
+            phase_angle
         )
-        
-        # Step 2: CNOT(control1, control2)
-        control2_reg = self.apply_cnot_on_bits(
-            control1_reg, control1_bit,
-            control2_reg, control2_bit
-        )
-        
-        # Step 3: CP(-theta/2, control2, target)
-        result = self.apply_controlled_phase_rotation(
-            control2_reg, control2_bit,
-            result, target_bit,
-            -phase_angle / 2
-        )
-        
-        # Step 4: CNOT(control1, control2) - undo the CNOT
-        control2_reg = self.apply_cnot_on_bits(
-            control1_reg, control1_bit,
-            control2_reg, control2_bit
-        )
-        
-        # Step 5: CP(theta/2, control1, target)
-        result = self.apply_controlled_phase_rotation(
-            control1_reg, control1_bit,
-            result, target_bit,
-            phase_angle / 2
-        )
-        
-        return result
 
     def apply_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
         Apply Quantum Fourier Transform to a register.
-        Matches Qiskit's standard implementation (MSB -> LSB).
-        
-        Ref: qiskit.library.QFT(do_swaps=False)
-        QFT transforms |x⟩ → (1/√2ⁿ) Σ e^(2πixk/2ⁿ) |k⟩
-        
-        NOTE: This implements QFT with do_swaps=False (matching Qiskit's Draper adder).
-        The bit order is implicitly reversed but no SWAP gates are applied.
-        This leaves the qubits in reversed order, which is expected by the Draper algorithm.
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        import math
-        
-        result = register
-        
-        # QFT processes from most significant qubit down to 0 (MSB -> LSB)
-        for i in reversed(range(n_qubits)):
-            # 1. Apply Hadamard to the current qubit
-            result = self.apply_hadamard_gate(result, i)
-            
-            # 2. Apply controlled rotations from all LOWER qubits (j < i)
-            # targeting the current qubit (i)
-            for j in reversed(range(i)):
-                # The distance between qubits determines the phase denominator
-                # k = 1 implies π/2, k = 2 implies π/4, etc.
-                k = i - j + 1
-                phase_angle = 2 * math.pi / (2 ** k)
-                
-                # Control is j, Target is i (the one we just applied H to)
-                result = self.apply_controlled_phase_rotation(result, j, result, i, phase_angle)
-        
-        # We do NOT swap qubits at the end, consistent with Draper's requirement
-        # for "do_swaps=False". The output state is effectively bit-reversed.
-        return result
+        return self.quantum_arith.apply_qft(self.builder, register, n_qubits)
 
     def apply_inverse_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
         Apply Inverse Quantum Fourier Transform.
-        Un-does the operations of QFT in exact reverse order.
-        
-        NOTE: Input register is expected to be in REVERSED order from QFT.
-        IQFT will process it and return it in normal order (no SWAP needed at start).
+        Delegates to QuantumArithmetic, passing the current builder.
         """
-        import math
-        
-        result = register
-        
-        # IQFT processes from 0 up to n-1 (Reverse of QFT's n-1 -> 0)
-        for i in range(n_qubits):
-            # 1. Apply inverse controlled rotations first (Reverse of QFT order)
-            # Controlled by lower qubits j < i
-            for j in range(i):
-                k = i - j + 1
-                phase_angle = -2 * math.pi / (2 ** k)  # Negative phase
-                
-                # Control is j, Target is i
-                result = self.apply_controlled_phase_rotation(result, j, result, i, phase_angle)
-            
-            # 2. Apply Hadamard to the current qubit
-            result = self.apply_hadamard_gate(result, i)
-        
-        return result
+        return self.quantum_arith.apply_inverse_qft(self.builder, register, n_qubits)
 
     def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None) -> SSAValue:
         """
@@ -878,9 +727,10 @@ class QuantumIRGen:
                     first_dim = shape.data[0]
                     # IntAttr has a .data attribute with the actual integer
                     if hasattr(first_dim, 'data'):
-                        return first_dim.data
+                        return int(first_dim.data)
                     else:
-                        return int(first_dim)
+                        # Fallback: default to 8 bits
+                        return 8
         except Exception:
             pass
         # Default to 8 bits for backward compatibility
