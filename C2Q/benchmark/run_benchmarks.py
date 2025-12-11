@@ -76,7 +76,7 @@ class BenchmarkResult:
         return ((baseline_value - optimized_value) / baseline_value) * 100
 
 
-# test suite configuration
+# tdest suite configuration
 TEST_SUITE = [
     {
         "name": "Add (8-bit)",

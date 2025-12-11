@@ -1,6 +1,4 @@
-"""
-@file parser.py
-@brief C language parser implementation for the C to Quantum compiler.
+"""C language parser implementation for the C to Quantum compiler.
 
 This module implements a recursive descent parser for a subset of the C programming
 language. It uses the CtoQ lexer to tokenize C source code and builds an Abstract
@@ -43,7 +41,14 @@ class ParseError(Exception):
 
 @dataclass
 class Symbol:
-    """Represents a variable symbol in the symbol table."""
+    """Represents a variable symbol in the symbol table.
+    
+    Attributes:
+        name: Variable name.
+        type: Variable type.
+        initialized: Whether the variable has been initialized.
+        used: Whether the variable has been used.
+    """
     name: str
     type: str
     initialized: bool = False
@@ -51,24 +56,28 @@ class Symbol:
 
 
 class SymbolTable:
-    """
-    A symbol table that manages variable declarations with nested scopes.
+    """A symbol table that manages variable declarations with nested scopes.
+    
+    Manages variable scoping, tracks variable usage and initialization,
+    and provides semantic validation for variable declarations and references.
     """
     def __init__(self):
-        # Initialize with a global scope
         self.scopes: List[Dict[str, Symbol]] = [{}]
-        self.current_function: Optional[Tuple[str, str]] = None  # (name, return_type)
+        self.current_function: Optional[Tuple[str, str]] = None
         
     def enter_scope(self):
-        """Create a new scope."""
+        """Create a new scope for block-level variable declarations."""
         self.scopes.append({})
         
     def exit_scope(self):
-        """Exit the current scope and check for unused variables."""
+        """Exit the current scope and check for unused variables.
+        
+        Raises:
+            RuntimeError: If attempting to exit the global scope.
+        """
         if len(self.scopes) <= 1:
             raise RuntimeError("Cannot exit global scope")
             
-        # Check for unused variables before removing scope
         scope = self.scopes[-1]
         for name, symbol in scope.items():
             if not symbol.used:
@@ -77,9 +86,15 @@ class SymbolTable:
         self.scopes.pop()
         
     def declare(self, name: str, type_str: str, initialized: bool = False) -> bool:
-        """
-        Declare a variable in the current scope.
-        Returns True if successful, False if already declared in this scope.
+        """Declare a variable in the current scope.
+        
+        Args:
+            name: Variable name.
+            type_str: Variable type.
+            initialized: Whether the variable is initialized.
+            
+        Returns:
+            True if successful, False if already declared in this scope.
         """
         if name in self.scopes[-1]:
             return False
@@ -88,19 +103,27 @@ class SymbolTable:
         return True
         
     def lookup(self, name: str) -> Optional[Symbol]:
+        """Look up a variable, starting from the innermost scope.
+        
+        Args:
+            name: Variable name to look up.
+            
+        Returns:
+            Symbol if found, None otherwise.
         """
-        Look up a variable, starting from the innermost scope.
-        Returns None if not found.
-        """
-        # Search from innermost to outermost scope
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
         return None
         
     def mark_used(self, name: str) -> bool:
-        """
-        Mark a variable as used. Returns False if not found.
+        """Mark a variable as used.
+        
+        Args:
+            name: Variable name.
+            
+        Returns:
+            True if found and marked, False if not found.
         """
         for scope in reversed(self.scopes):
             if name in scope:
@@ -109,8 +132,13 @@ class SymbolTable:
         return False
         
     def mark_initialized(self, name: str) -> bool:
-        """
-        Mark a variable as initialized. Returns False if not found.
+        """Mark a variable as initialized.
+        
+        Args:
+            name: Variable name.
+            
+        Returns:
+            True if found and marked, False if not found.
         """
         for scope in reversed(self.scopes):
             if name in scope:
@@ -119,7 +147,12 @@ class SymbolTable:
         return False
         
     def enter_function(self, name: str, return_type: str):
-        """Set the current function context."""
+        """Set the current function context.
+        
+        Args:
+            name: Function name.
+            return_type: Function return type.
+        """
         self.current_function = (name, return_type)
         
     def exit_function(self):
@@ -127,13 +160,16 @@ class SymbolTable:
         self.current_function = None
         
     def get_current_function(self) -> Optional[Tuple[str, str]]:
-        """Get the current function name and return type."""
+        """Get the current function name and return type.
+        
+        Returns:
+            Tuple of (name, return_type) if in a function, None otherwise.
+        """
         return self.current_function
 
 
 class CParser(GenericParser[CTokenKind]):
-    """
-    @brief Parser for C language source code with semantic validation.
+    """Parser for C language source code with semantic validation.
 
     This parser implements a recursive descent algorithm to parse a subset of the
     C programming language. It builds an Abstract Syntax Tree (AST) that represents
@@ -142,40 +178,37 @@ class CParser(GenericParser[CTokenKind]):
 
     The parser supports function definitions, variable declarations, expressions,
     function calls, and validates variable usage according to C language rules.
-
-    @see CLexer
-    @see c_ast.py
     """
 
     def __init__(self, file: Path, program: str):
-        """
-        @brief Initialize the C parser with source file and program text.
+        """Initialize the C parser with source file and program text.
 
-        @param file: Path object representing the source file path
-        @param program: String containing the C program text to parse
+        Args:
+            file: Path object representing the source file path.
+            program: String containing the C program text to parse.
         """
         super().__init__(ParserState(CLexer(Input(program, str(file)))))
         self.symbol_table = SymbolTable()
         self.current_token_loc = None
 
     def getToken(self):
-        """
-        @brief Returns current token in parser.
+        """Returns current token in parser.
 
-        @return The current token being processed
+        Returns:
+            The current token being processed.
         """
         token = self._current_token
         self.current_token_loc = token.span
         return token
 
     def getTokenPrecedence(self) -> int:
-        """
-        @brief Returns precedence if the current token is a binary operation.
+        """Returns precedence if the current token is a binary operation.
 
         Determines the precedence level of the current token if it's a binary
         operator. Higher values indicate higher precedence.
 
-        @return Precedence value or -1 if the token is not a binary operator
+        Returns:
+            Precedence value or -1 if the token is not a binary operator.
         """
         PRECEDENCE = {
             "=": 10,  # assignment has lower precedence
@@ -190,11 +223,13 @@ class CParser(GenericParser[CTokenKind]):
         return PRECEDENCE.get(op, -1)
 
     def peek(self, pattern: str | CTokenKind) -> CToken | None:
-        """
-        @brief Check if the current token matches a pattern without consuming it.
+        """Check if the current token matches a pattern without consuming it.
 
-        @param pattern: String or token kind to match against
-        @return The matching token or None if no match
+        Args:
+            pattern: String or token kind to match against.
+            
+        Returns:
+            The matching token or None if no match.
         """
         token = self._current_token
 
@@ -206,29 +241,35 @@ class CParser(GenericParser[CTokenKind]):
                 return token
 
     def check(self, pattern: str | CTokenKind) -> bool:
-        """
-        @brief Verifies that the current token fits the pattern.
+        """Verifies that the current token fits the pattern.
 
-        @param pattern: String or token kind to match against
-        @return True if the current token matches the pattern, False otherwise
+        Args:
+            pattern: String or token kind to match against.
+            
+        Returns:
+            True if the current token matches the pattern, False otherwise.
         """
         return self.peek(pattern) is not None
 
     def pop(self) -> CToken:
-        """
-        @brief Consume and return the current token.
+        """Consume and return the current token.
 
-        @return The consumed token
+        Returns:
+            The consumed token.
         """
         return self._consume_token()
 
     def pop_pattern(self, pattern: str) -> CToken:
-        """
-        @brief Verify that the current token matches a pattern and consume it.
+        """Verify that the current token matches a pattern and consume it.
 
-        @param pattern: String pattern to match against
-        @return The consumed token
-        @throws ParseError if the current token doesn't match the pattern
+        Args:
+            pattern: String pattern to match against.
+            
+        Returns:
+            The consumed token.
+            
+        Raises:
+            ParseError: If the current token doesn't match the pattern.
         """
         token = self._consume_token()
         if token.text != pattern:
@@ -236,101 +277,102 @@ class CParser(GenericParser[CTokenKind]):
         return token
 
     def pop_token(self, tokenType: CTokenKind) -> CToken:
-        """
-        @brief Verify that the current token is of expected type and consume it.
+        """Verify that the current token is of expected type and consume it.
 
-        @param tokenType: Expected token kind
-        @return The consumed token
-        @throws ParseError if the current token is not of the expected type
+        Args:
+            tokenType: Expected token kind.
+            
+        Returns:
+            The consumed token.
+            
+        Raises:
+            ParseError: If the current token is not of the expected type.
         """
         return self._consume_token(tokenType)
 
     def parseModule(self):
-        """
-        @brief Parse a full C module (a collection of function definitions).
+        """Parse a full C module (a collection of function definitions).
 
-        module ::= definition*
+        Grammar: module ::= definition*
 
-        @return ModuleAST object containing the parsed functions
-        @throws ParseError if the global scope contains syntax errors
+        Returns:
+            ModuleAST object containing the parsed functions.
+            
+        Raises:
+            ParseError: If the global scope contains syntax errors.
         """
         functions: list[FunctionAST] = []
 
         while not self.check(CTokenKind.EOF):
             functions.append(self.parseDefinition())
 
-        # if we didn't reach EOF, there was an error during parsing
         self.pop_token(CTokenKind.EOF)
 
         return ModuleAST(tuple(functions))
 
     def parseReturn(self):
-        """
-        @brief Parse a return statement and validate against function return type.
+        """Parse a return statement and validate against function return type.
 
-        return_statement ::= 'return' [expression] ';'
+        Grammar: return_statement ::= 'return' [expression] ';'
 
-        @return ReturnExprAST representing the return statement
-        @throws ParseError if the return type doesn't match function declaration
+        Returns:
+            ReturnExprAST representing the return statement.
+            
+        Raises:
+            ParseError: If the return type doesn't match function declaration.
         """
         returnToken = self.pop_pattern("return")
         expr = None
 
-        # Get the current function's return type
         current_function = self.symbol_table.get_current_function()
         if not current_function:
             self.raise_error("Return statement outside of function")
             
         func_name, return_type = current_function
 
-        # Return takes an optional expression
         if not self.check(";"):
             expr = self.parseExpression()
             
-            # Validate return type
             if return_type == "void" and expr is not None:
                 self.raise_error(f"Function '{func_name}' has void return type but returns a value")
             elif return_type != "void" and expr is None:
                 self.raise_error(f"Function '{func_name}' must return a value of type {return_type}")
-                
-            # Type compatibility checking could be added here
-            # (for now, we're just checking presence/absence for void functions)
 
         return ReturnExprAST(loc(returnToken), expr)
 
     def parseNumberExpr(self):
-        """
-        @brief Parse a literal number.
+        """Parse a literal number.
 
-        numberexpr ::= number
+        Grammar: numberexpr ::= number
 
-        @return NumberExprAST representing the parsed number
+        Returns:
+            NumberExprAST representing the parsed number.
         """
         numberToken = self.pop_token(CTokenKind.NUMBER)
         return NumberExprAST(loc(numberToken), float(numberToken.span.text))
 
     def parseTensorLiteralExpr(self) -> LiteralExprAST | NumberExprAST:
-        """
-        @brief Parse a literal array expression.
+        """Parse a literal array expression.
 
-        tensorLiteral ::= [ literalList ] | number
-        literalList ::= tensorLiteral | tensorLiteral, literalList
+        Grammar:
+            tensorLiteral ::= [ literalList ] | number
+            literalList ::= tensorLiteral | tensorLiteral, literalList
 
-        @return LiteralExprAST or NumberExprAST representing the parsed tensor/array
-        @throws ParseError if the tensor literal is malformed
+        Returns:
+            LiteralExprAST or NumberExprAST representing the parsed tensor/array.
+            
+        Raises:
+            ParseError: If the tensor literal is malformed.
         """
         if self.check(CTokenKind.NUMBER):
             return self.parseNumberExpr()
 
         openBracket = self.pop_pattern("[")
 
-        # hold the list of values at this nesting level
         values: list[LiteralExprAST | NumberExprAST] = []
-        # hold the dimensions for all the nesting inside this level
         dims: list[int] = []
 
         while True:
-            # we can have either another nested array or a number literal
             if self.check("["):
                 values.append(self.parseTensorLiteralExpr())
             else:
@@ -338,20 +380,15 @@ class CParser(GenericParser[CTokenKind]):
                     self.raise_error("Expected <num> or [ in literal expression")
                 values.append(self.parseNumberExpr())
 
-            # end of this list on ']'
             if self.check("]"):
                 break
 
-            # elements are separated by a comma
             self.pop_pattern(",")
 
         self.pop_pattern("]")
 
-        # fill in the dimensions now. first the current nesting level:
         dims.append(len(values))
 
-        # if there is any nested array, process all of them and ensure
-        # that dimensions are uniform
         if any(type(val) is LiteralExprAST for val in values):
             allTensors = all(type(val) is LiteralExprAST for val in values)
             if not allTensors:
@@ -372,12 +409,12 @@ class CParser(GenericParser[CTokenKind]):
         return LiteralExprAST(loc(openBracket), values, dims)
 
     def parseParenExpr(self) -> ExprAST:
-        """
-        @brief Parse a parenthesized expression.
+        """Parse a parenthesized expression.
 
-        parenexpr ::= '(' expression ')'
+        Grammar: parenexpr ::= '(' expression ')'
 
-        @return ExprAST representing the parsed expression
+        Returns:
+            ExprAST representing the parsed expression.
         """
         self.pop_pattern("(")
         v = self.parseExpression()
@@ -385,28 +422,28 @@ class CParser(GenericParser[CTokenKind]):
         return v
 
     def parseIdentifierExpr(self):
-        """
-        @brief Parse an identifier expression (variable or function call).
+        """Parse an identifier expression (variable or function call).
 
-        identifierexpr ::= identifier
-                        ::= identifier '(' expression ')'
+        Grammar:
+            identifierexpr ::= identifier
+                            ::= identifier '(' expression ')'
 
-        @return VariableExprAST, CallExprAST, or PrintExprAST for the parsed expression
-        @throws ParseError if the variable is used before declaration
+        Returns:
+            VariableExprAST, CallExprAST, or PrintExprAST for the parsed expression.
+            
+        Raises:
+            ParseError: If the variable is used before declaration.
         """
         name = self.pop_token(CTokenKind.IDENTIFIER)
         
         if not self.check("("):
-            # Simple variable reference
             symbol = self.symbol_table.lookup(name.text)
             if not symbol:
                 self.raise_error(f"Use of undeclared variable '{name.text}'")
             
-            # Don't mark as used or check initialization here since this might be an assignment
-            # That will be handled in parseBinOpRHS when we know if it's assignment or usage
+            # usage/initialization checking deferred to parseBinOpRHS to distinguish assignment from usage
             return VariableExprAST(loc(name), name.text, symbol.type)
         
-        # This is a function call
         self.pop_pattern("(")
         args: list[ExprAST] = []
         while True:
@@ -424,52 +461,43 @@ class CParser(GenericParser[CTokenKind]):
         self.pop_pattern(")")
 
         if name.text == "print":
-            # It's a builtin call to print
             if len(args) != 1:
                 self.raise_error("Expected exactly one argument to print()")
             return PrintExprAST(loc(name), args[0])
 
-        # Check if function has been declared
-        # In a real C compiler, we'd check against function declarations
-        # For this simplified parser, we'll just allow the call
-        # but you could add function prototype checking here
         return CallExprAST(loc(name), name.text, args)
 
     def _check_variable_usage(self, expr):
-        """
-        @brief Recursively check variable usage in an expression tree.
+        """Recursively check variable usage in an expression tree.
         
-        @param expr: Expression AST node to check
+        Args:
+            expr: Expression AST node to check.
         """
         if isinstance(expr, VariableExprAST):
-            # Mark variable as used
             self.symbol_table.mark_used(expr.name)
             
-            # Check if variable was initialized before use
             symbol = self.symbol_table.lookup(expr.name)
             if symbol and not symbol.initialized:
                 self.raise_error(f"Variable '{expr.name}' is used before being initialized")
         elif isinstance(expr, BinaryExprAST):
-            # Recursively check both sides
             self._check_variable_usage(expr.lhs)
             self._check_variable_usage(expr.rhs)
         elif isinstance(expr, CallExprAST):
-            # Check all arguments
             for arg in expr.args:
                 self._check_variable_usage(arg)
-        # NumberExprAST and other leaf nodes don't need checking
 
     def parsePrimary(self) -> ExprAST | None:
-        """
-        @brief Parse a primary expression.
+        """Parse a primary expression.
     
-        primary ::= identifierexpr
-                ::= numberexpr
-                ::= parenexpr
-                ::= tensorliteral
-                ::= unary_expr
+        Grammar:
+            primary ::= identifierexpr
+                    ::= numberexpr
+                    ::= parenexpr
+                    ::= tensorliteral
+                    ::= unary_expr
     
-        @return ExprAST representing the parsed expression or None if end of block
+        Returns:
+            ExprAST representing the parsed expression or None if end of block.
         """
         current = self._current_token
         if current.kind == CTokenKind.IDENTIFIER:
@@ -481,23 +509,16 @@ class CParser(GenericParser[CTokenKind]):
         elif current.text == "[":
             return self.parseTensorLiteralExpr()
         elif current.text == "-":
-            # Handle unary minus (negative numbers)
             minus_token = self.pop_pattern("-")
-            # Check if this is followed by a number (negative literal)
             if self.check(CTokenKind.NUMBER):
                 number_token = self.pop_token(CTokenKind.NUMBER)
-                # Create a negative number directly
                 return NumberExprAST(loc(minus_token), -float(number_token.span.text))
             else:
-                # Parse the expression after the minus sign for other cases
                 expr = self.parsePrimaryNotNone()
-                # Create a binary expression with 0 - expr 
                 zero_expr = NumberExprAST(loc(minus_token), 0.0)
                 return BinaryExprAST(loc(minus_token), "-", zero_expr, expr)
         elif current.text == "+":
-            # Handle unary plus (for completeness)
             plus_token = self.pop_pattern("+")
-            # Parse the expression after the plus sign and return it as-is
             return self.parsePrimaryNotNone()
         elif current.text == ";":
             return None
@@ -507,8 +528,10 @@ class CParser(GenericParser[CTokenKind]):
             self.raise_error("Expected expression or one of `;`, `}`")
     
     def parsePrimaryNotNone(self) -> ExprAST:
-        """
-        @brief Parse a primary expression, requiring a valid expression.
+        """Parse a primary expression, requiring a valid expression.
+        
+        Returns:
+            ExprAST representing the parsed expression.
         """
         current = self._current_token
         if current.kind == CTokenKind.IDENTIFIER:
@@ -520,131 +543,110 @@ class CParser(GenericParser[CTokenKind]):
         elif current.text == "[":
             return self.parseTensorLiteralExpr()
         elif current.text == "-":
-            # Handle unary minus (negative numbers)
             minus_token = self.pop_pattern("-")
-            # Check if this is followed by a number (negative literal)
             if self.check(CTokenKind.NUMBER):
                 number_token = self.pop_token(CTokenKind.NUMBER)
-                # Create a negative number directly
                 return NumberExprAST(loc(minus_token), -float(number_token.span.text))
             else:
-                # Parse the expression after the minus sign for other cases
                 expr = self.parsePrimaryNotNone()
-                # Create a binary expression with 0 - expr 
                 zero_expr = NumberExprAST(loc(minus_token), 0.0)
                 return BinaryExprAST(loc(minus_token), "-", zero_expr, expr)
         elif current.text == "+":
-            # Handle unary plus (for completeness)
             plus_token = self.pop_pattern("+")
-            # Parse the expression after the plus sign and return it as-is
             return self.parsePrimaryNotNone()
         else:
             self.raise_error("Expected expression")
 
     def parseBinOpRHS(self, exprPrec: int, lhs: ExprAST) -> ExprAST:
-        """
-        @brief Parse the right-hand side of a binary expression.
+        """Parse the right-hand side of a binary expression.
 
         This method handles operator precedence and builds the appropriate
         expression tree based on operator precedence.
 
-        @param exprPrec: Current precedence level
-        @param lhs: Left-hand side expression
-        @return Complete binary expression with correct precedence handling
-        @throws ParseError if assignment target is not a variable or types are incompatible
+        Args:
+            exprPrec: Current precedence level.
+            lhs: Left-hand side expression.
+            
+        Returns:
+            Complete binary expression with correct precedence handling.
+            
+        Raises:
+            ParseError: If assignment target is not a variable or types are incompatible.
         """
-        # if this is a binop, find its precedence
         while True:
             tokPrec = self.getTokenPrecedence()
 
-            # if this is a binop that binds at least as tightly as the current binop,
-            # consume it, otherwise we are done
             if tokPrec < exprPrec:
                 return lhs
 
-            # okay, we know this is a binop - could be +, -, *, /, % or =
             if self.check(CTokenKind.ASSIGN):
                 binOp = self.pop_token(CTokenKind.ASSIGN).text
                 
-                # For assignment, validate that LHS is a variable
                 if not isinstance(lhs, VariableExprAST):
                     self.raise_error("Left side of assignment must be a variable")
                     
-                # Check if variable is declared
                 var_name = lhs.name
                 symbol = self.symbol_table.lookup(var_name)
                 if not symbol:
                     self.raise_error(f"Assignment to undeclared variable '{var_name}'")
             else:
-                # check for other operators in SINGLE_CHAR_TOKENS
                 current_token = self.getToken()
                 if current_token.text in ["+", "-", "*", "/", "%"]:
                     binOp = self.pop().text
                     
-                    # For non-assignment operations, mark LHS as used and check initialization
                     if isinstance(lhs, VariableExprAST):
                         self.symbol_table.mark_used(lhs.name)
                         symbol = self.symbol_table.lookup(lhs.name)
                         if symbol and not symbol.initialized:
                             self.raise_error(f"Variable '{lhs.name}' is used before being initialized")
                 else:
-                    # No operator found, this might be a standalone variable usage
                     if isinstance(lhs, VariableExprAST):
                         self.symbol_table.mark_used(lhs.name)
                         symbol = self.symbol_table.lookup(lhs.name)
                         if symbol and not symbol.initialized:
                             self.raise_error(f"Variable '{lhs.name}' is used before being initialized")
-                    return lhs  # not an operator we recognize
+                    return lhs
 
-            # parse the primary expression after the binary operator
             rhs = self.parsePrimary()
 
             if rhs is None:
                 self.raise_error("Expected expression to complete binary operator")
 
-            # For non-assignment operations, mark RHS variables as used and check initialization
             if binOp != "=":
                 self._check_variable_usage(rhs)
 
-            # For assignment, mark variable as initialized
             if binOp == "=" and isinstance(lhs, VariableExprAST):
                 self.symbol_table.mark_initialized(lhs.name)
-                # Also check that RHS variables are initialized
                 self._check_variable_usage(rhs)
                 
-            # Type compatibility check could be added here
-            # For now, we're assuming all types are compatible
-                
-            # if BinOp binds less tightly with rhs than the operator after rhs, let
-            # the pending operator take rhs as its lhs
             nextPrec = self.getTokenPrecedence()
             if tokPrec < nextPrec:
                 rhs = self.parseBinOpRHS(tokPrec + 1, rhs)
 
-            # merge lhs/rhs
             lhs = BinaryExprAST(rhs.loc, binOp, lhs, rhs)
 
         return lhs
 
     def parseExpression(self) -> ExprAST:
-        """
-        @brief Parse a complete expression.
+        """Parse a complete expression.
 
-        expression ::= primary binop rhs
+        Grammar: expression ::= primary binop rhs
 
-        @return ExprAST representing the full expression
+        Returns:
+            ExprAST representing the full expression.
         """
         lhs = self.parsePrimaryNotNone()
         return self.parseBinOpRHS(0, lhs)
 
     def parseType(self):
-        """
-        @brief Parse a variable type with shape information.
+        """Parse a variable type with shape information.
 
-        type ::= < shape_list >
-        shape_list ::= num | num , shape_list
+        Grammar:
+            type ::= < shape_list >
+            shape_list ::= num | num , shape_list
 
-        @return VarType object with shape information
+        Returns:
+            VarType object with shape information.
         """
         self.pop_pattern("<")
         shape: list[int] = []
@@ -658,15 +660,16 @@ class CParser(GenericParser[CTokenKind]):
         return VarType(shape)
 
     def parseDeclaration(self):
-        """
-        @brief Parse a C variable declaration and register in symbol table.
+        """Parse a C variable declaration and register in symbol table.
 
-        declaration ::= type identifier ['=' expr] ';'
+        Grammar: declaration ::= type identifier ['=' expr] ';'
 
-        @return VarDeclExprAST representing the variable declaration
-        @throws ParseError if variable is redeclared or has invalid initialization
+        Returns:
+            VarDeclExprAST representing the variable declaration.
+            
+        Raises:
+            ParseError: If variable is redeclared or has invalid initialization.
         """
-        # get variable type
         if (
             not self.check(CTokenKind.INT)
             and not self.check(CTokenKind.FLOAT)
@@ -678,18 +681,15 @@ class CParser(GenericParser[CTokenKind]):
         type_token = self.pop()
         var_type = type_token.text
 
-        # get variable name
         if not self.check(CTokenKind.IDENTIFIER):
             self.raise_error("Expected variable name")
 
         name_token = self.pop_token(CTokenKind.IDENTIFIER)
         var_name = name_token.text
         
-        # Check if variable is already declared in current scope
         if var_name in self.symbol_table.scopes[-1]:
             self.raise_error(f"Redeclaration of variable '{var_name}' in the same scope")
 
-        # check for initialization
         expr = None
         initialized = False
         
@@ -697,25 +697,22 @@ class CParser(GenericParser[CTokenKind]):
             self.pop_pattern("=")
             expr = self.parseExpression()
             initialized = True
-            
-            # Type compatibility check could be added here
-            # For now, we're assuming all initializations are valid
         
-        # Register variable in symbol table
         self.symbol_table.declare(var_name, var_type, initialized)
         
         return VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
 
     def parseDeclarationList(self):
-        """
-        @brief Parse a list of C variable declarations of the same type.
+        """Parse a list of C variable declarations of the same type.
 
-        declaration_list ::= type identifier ['=' expr] [, identifier ['=' expr]]* ';'
+        Grammar: declaration_list ::= type identifier ['=' expr] [, identifier ['=' expr]]* ';'
 
-        @return List of VarDeclExprAST objects representing the variable declarations
-        @throws ParseError if declaration syntax is invalid or variables are redeclared
+        Returns:
+            List of VarDeclExprAST objects representing the variable declarations.
+            
+        Raises:
+            ParseError: If declaration syntax is invalid or variables are redeclared.
         """
-        # get variable type
         if (
             not self.check(CTokenKind.INT)
             and not self.check(CTokenKind.FLOAT)
@@ -727,23 +724,18 @@ class CParser(GenericParser[CTokenKind]):
         type_token = self.pop()
         var_type = type_token.text
 
-        # list to collect all declarations
         declarations = []
 
-        # process variables until we hit a semicolon
         while True:
-            # get variable name
             if not self.check(CTokenKind.IDENTIFIER):
                 self.raise_error("Expected variable name")
 
             name_token = self.pop_token(CTokenKind.IDENTIFIER)
             var_name = name_token.text
             
-            # Check if variable is already declared in current scope
             if var_name in self.symbol_table.scopes[-1]:
                 self.raise_error(f"Redeclaration of variable '{var_name}' in the same scope")
 
-            # check for initialization
             expr = None
             initialized = False
             
@@ -751,49 +743,43 @@ class CParser(GenericParser[CTokenKind]):
                 self.pop_pattern("=")
                 expr = self.parseExpression()
                 initialized = True
-                
-                # Type compatibility check could be added here
 
-            # Register variable in symbol table
             self.symbol_table.declare(var_name, var_type, initialized)
             
-            # add declaration to the list
             declarations.append(
                 VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
             )
 
-            # if no comma follows, we're done with this declaration list
             if not self.check(","):
                 break
 
-            # consume the comma and continue to the next variable
             self.pop_pattern(",")
 
-        # expect a semicolon after all declarations
         self.pop_pattern(";")
 
         return declarations
 
     def parseBlock(self) -> tuple[ExprAST, ...]:
-        """
-        @brief Parse a C block: a list of statements wrapped in curly braces.
+        """Parse a C block: a list of statements wrapped in curly braces.
 
-        block ::= '{' statement_list '}'
-        statement_list ::= statement | statement statement_list
-        statement ::= declaration_list | expression_statement | return_statement
+        Grammar:
+            block ::= '{' statement_list '}'
+            statement_list ::= statement | statement statement_list
+            statement ::= declaration_list | expression_statement | return_statement
 
-        @return Tuple of ExprAST objects representing the statements in the block
-        @throws ParseError if the block syntax is invalid
+        Returns:
+            Tuple of ExprAST objects representing the statements in the block.
+            
+        Raises:
+            ParseError: If the block syntax is invalid.
         """
         self.pop_pattern("{")
         
-        # Create a new scope for this block
         self.symbol_table.enter_scope()
         
         exprList: list[ExprAST] = []
 
         while not self.check("}"):
-            # check for type declaration
             if (
                 self.check(CTokenKind.INT)
                 or self.check(CTokenKind.FLOAT)
@@ -801,38 +787,36 @@ class CParser(GenericParser[CTokenKind]):
                 or self.check(CTokenKind.CHAR)
                 or self.check(CTokenKind.VOID)
             ):
-                # this is a variable declaration list
                 declarations = self.parseDeclarationList()
                 exprList.extend(declarations)
             elif self.check("return"):
-                # return statement
                 exprList.append(self.parseReturn())
                 self.pop_pattern(";")
             else:
-                # expression statement
                 expr = self.parseExpression()
                 exprList.append(expr)
                 self.pop_pattern(";")
 
         self.pop_pattern("}")
         
-        # Exit the scope, checking for unused variables
         self.symbol_table.exit_scope()
         
         return tuple(exprList)
 
     def parsePrototype(self):
-        """
-        @brief Parse a C function prototype.
+        """Parse a C function prototype.
 
-        prototype ::= return_type id '(' param_list ')'
-        param_list ::= param | param, param_list
-        param ::= type id
+        Grammar:
+            prototype ::= return_type id '(' param_list ')'
+            param_list ::= param | param, param_list
+            param ::= type id
 
-        @return PrototypeAST representing the function prototype
-        @throws ParseError if the prototype syntax is invalid
+        Returns:
+            PrototypeAST representing the function prototype.
+            
+        Raises:
+            ParseError: If the prototype syntax is invalid.
         """
-        # parse return type
         if (
             not self.check(CTokenKind.INT)
             and not self.check(CTokenKind.FLOAT)
@@ -845,20 +829,17 @@ class CParser(GenericParser[CTokenKind]):
         returnTypeToken = self.pop()
         return_type = returnTypeToken.text
 
-        # parse function name
         if not self.check(CTokenKind.IDENTIFIER):
             self.raise_error("Expected function name")
 
         name_token = self.pop_token(CTokenKind.IDENTIFIER)
         fnName = name_token.text
 
-        # parse parameter list
         self.pop_pattern("(")
         args: list[VariableExprAST] = []
 
         if not self.check(")"):
             while True:
-                # parameter type
                 if (
                     not self.check(CTokenKind.INT)
                     and not self.check(CTokenKind.FLOAT)
@@ -871,17 +852,14 @@ class CParser(GenericParser[CTokenKind]):
                 param_type_token = self.pop()
                 param_type = param_type_token.text
 
-                # parameter name
                 if not self.check(CTokenKind.IDENTIFIER):
                     self.raise_error("Expected parameter name")
 
                 arg_token = self.pop_token(CTokenKind.IDENTIFIER)
                 arg_name = arg_token.text
 
-                # create variable expression with type information
                 args.append(VariableExprAST(loc(arg_token), arg_name, param_type))
 
-                # check for more parameters
                 if not self.check(","):
                     break
                 self.pop_pattern(",")
@@ -890,38 +868,33 @@ class CParser(GenericParser[CTokenKind]):
         return PrototypeAST(loc(returnTypeToken), fnName, args, return_type)
 
     def parseDefinition(self):
-        """
-        @brief Parse a C function definition.
+        """Parse a C function definition.
 
-        definition ::= prototype '{' statement_list '}'
+        Grammar: definition ::= prototype '{' statement_list '}'
 
-        @return FunctionAST representing the complete function definition
-        @throws ParseError if the function definition syntax is invalid
+        Returns:
+            FunctionAST representing the complete function definition.
+            
+        Raises:
+            ParseError: If the function definition syntax is invalid.
         """
         proto = self.parsePrototype()
         
-        # Set current function for return type checking
         self.symbol_table.enter_function(proto.name, proto.return_type)
         
-        # Create new scope for function parameters
         self.symbol_table.enter_scope()
         
-        # Register function parameters in symbol table
         for param in proto.args:
-            # All parameters are considered initialized
             type_name = param.type_name if param.type_name is not None else "int"
             self.symbol_table.declare(param.name, type_name, initialized=True)
         
         block = self.parseBlock()
         
-        # Check for missing return statement in non-void functions
         if proto.return_type != "void":
-            # Simple check - better would be control flow analysis
             has_return = any(isinstance(expr, ReturnExprAST) for expr in block)
             if not has_return:
                 self.raise_error(f"Function '{proto.name}' has non-void return type but no return statement")
         
-        # Exit function scope
         self.symbol_table.exit_function()
         
         return FunctionAST(proto.loc, proto, block)

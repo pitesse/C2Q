@@ -1,6 +1,4 @@
-"""
-@file lexer.py
-@brief Lexical analyzer for C source code in the C to Quantum compiler.
+"""Lexical analyzer for C source code in the C to Quantum compiler.
 
 This module implements a lexical analyzer (lexer) for a subset of the C
 programming language. It tokenizes C source code by breaking it into individual
@@ -21,8 +19,7 @@ from xdsl.utils.lexer import Lexer, Position, Span, Token
 
 
 class CTokenKind(Enum):
-    """
-    @brief Enumeration of token types recognized by the C lexer.
+    """Enumeration of token types recognized by the C lexer.
 
     This enum defines all the different types of tokens that the lexer can
     identify in the C source code, such as punctuation, operators, types,
@@ -93,8 +90,7 @@ CToken: TypeAlias = Token[CTokenKind]
 
 
 class CLexer(Lexer[CTokenKind]):
-    """
-    @brief Lexical analyzer for C source code.
+    """Lexical analyzer for C source code.
 
     This class implements a lexer for a subset of the C programming language.
     It processes C source code character by character and produces a stream of
@@ -102,60 +98,65 @@ class CLexer(Lexer[CTokenKind]):
 
     The lexer handles whitespace, comments, identifiers, keywords, numbers,
     and various operators and punctuation marks defined in the C language.
-
-    @see CTokenKind
-    @see CParser
     """
 
     def _is_in_bounds(self, size: Position = 1) -> bool:
-        """
-        @brief Check if the current position is within the bounds of the input.
+        """Check if the current position is within the bounds of the input.
 
-        @param size: Number of characters ahead to check
-        @return True if the position plus size is within bounds, False otherwise
+        Args:
+            size: Number of characters ahead to check.
+            
+        Returns:
+            True if the position plus size is within bounds, False otherwise.
         """
         return self.pos + size - 1 < self.input.len
 
     def _get_chars(self, size: int = 1) -> str | None:
-        """
-        @brief Get the character at the current location and advance the position.
+        """Get the character at the current location and advance the position.
 
         Retrieves one or more characters starting at the current position and
         advances the lexer position accordingly.
 
-        @param size: Number of characters to retrieve
-        @return The retrieved characters or None if position is out of bounds
+        Args:
+            size: Number of characters to retrieve.
+            
+        Returns:
+            The retrieved characters or None if position is out of bounds.
         """
         res = self.input.slice(self.pos, self.pos + size)
         self.pos += size
         return res
 
     def _peek_chars(self, size: int = 1) -> str | None:
-        """
-        @brief Peek at the character(s) at the current location without advancing.
+        """Peek at the character(s) at the current location without advancing.
 
-        @param size: Number of characters to peek at
-        @return The characters at the current position or None if out of bounds
+        Args:
+            size: Number of characters to peek at.
+            
+        Returns:
+            The characters at the current position or None if out of bounds.
         """
         return self.input.slice(self.pos, self.pos + size)
 
     def _consume_chars(self, size: int = 1) -> None:
-        """
-        @brief Advance the lexer position in the input by the given amount.
+        """Advance the lexer position in the input by the given amount.
 
-        @param size: Number of characters to skip
+        Args:
+            size: Number of characters to skip.
         """
         self.pos += size
 
     def _consume_regex(self, regex: re.Pattern[str]) -> re.Match[str] | None:
-        """
-        @brief Advance the lexer position to the end of the next regex match.
+        """Advance the lexer position to the end of the next regex match.
 
         Attempts to match the given regular expression at the current position
         and advances the position to the end of the match if successful.
 
-        @param regex: Regular expression pattern to match
-        @return The match object if matched, None otherwise
+        Args:
+            regex: Regular expression pattern to match.
+            
+        Returns:
+            The match object if matched, None otherwise.
         """
         match = regex.match(self.input.content, self.pos)
         if match is None:
@@ -168,8 +169,7 @@ class CLexer(Lexer[CTokenKind]):
     )
 
     def _consume_whitespace(self) -> None:
-        """
-        @brief Consume whitespace and comments.
+        """Consume whitespace and comments.
 
         Advances the lexer position past any whitespace characters and C-style
         comments (both // line comments and /* block comments */).
@@ -177,15 +177,17 @@ class CLexer(Lexer[CTokenKind]):
         self._consume_regex(self._whitespace_regex)
 
     def lex(self) -> CToken:
-        """
-        @brief Lex the next token from the input.
+        """Lex the next token from the input.
 
         This is the main lexing function that identifies and returns the next
         token from the input. It handles whitespace, identifiers, keywords,
         numbers, and single-character tokens.
 
-        @return The next token from the input
-        @throws ParseError if an unexpected character is encountered
+        Returns:
+            The next token from the input.
+            
+        Raises:
+            ParseError: If an unexpected character is encountered.
         """
         # first, skip whitespaces and comments
         self._consume_whitespace()
@@ -219,16 +221,18 @@ class CLexer(Lexer[CTokenKind]):
     bare_identifier_suffix_regex = re.compile(IDENTIFIER_SUFFIX)
 
     def _lex_bare_identifier(self, start_pos: Position) -> CToken:
-        """
-        @brief Lex a bare identifier or keyword.
+        """Lex a bare identifier or keyword.
 
         Processes an identifier or keyword according to the following grammar:
         `bare-id ::= (letter|[_]) (letter|digit|[_])*`
 
         The first character is expected to have already been consumed.
 
-        @param start_pos: Starting position of the identifier
-        @return A token of type IDENTIFIER or the appropriate keyword type
+        Args:
+            start_pos: Starting position of the identifier.
+            
+        Returns:
+            A token of type IDENTIFIER or the appropriate keyword type.
         """
         self._consume_regex(self.bare_identifier_suffix_regex)
 
@@ -246,8 +250,7 @@ class CLexer(Lexer[CTokenKind]):
     _fractional_suffix_regex = re.compile(r"\.[0-9]*([eE][+-]?[0-9]+)?")
 
     def _lex_number(self, start_pos: Position) -> CToken:
-        """
-        @brief Lex a numeric literal.
+        """Lex a numeric literal.
 
         Processes a numeric literal, which can be either:
         - A decimal number (possibly with fractional part)
@@ -255,8 +258,11 @@ class CLexer(Lexer[CTokenKind]):
 
         The first character is expected to have already been consumed.
 
-        @param start_pos: Starting position of the number
-        @return A token of type NUMBER
+        Args:
+            start_pos: Starting position of the number.
+            
+        Returns:
+            A token of type NUMBER.
         """
         first_digit = self.input.at(self.pos - 1)
 

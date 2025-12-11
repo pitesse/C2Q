@@ -57,7 +57,7 @@ class QuantumArithmetic:
         pass
 
     # =========================================================================
-    # NAMING HELPER
+    # naming helper
     # =========================================================================
     
     @staticmethod
@@ -76,7 +76,7 @@ class QuantumArithmetic:
                 target._name = f"q{register_num}_{version_num}"
 
     # =========================================================================
-    # BASIC QUANTUM GATES
+    # basic quantum gates
     # =========================================================================
 
     def apply_hadamard_gate(
@@ -256,7 +256,7 @@ class QuantumArithmetic:
         return result
 
     # =========================================================================
-    # COMPOSITE GATES
+    # composite gates
     # =========================================================================
 
     def reverse_qubit_order(
@@ -319,7 +319,6 @@ class QuantumArithmetic:
         """
         result = target_reg
         
-        # Step 1: CP(theta/2, control2, target)
         result = self.apply_controlled_phase_rotation(
             builder,
             control2_reg, control2_bit,
@@ -327,14 +326,12 @@ class QuantumArithmetic:
             phase_angle / 2
         )
         
-        # Step 2: CNOT(control1, control2)
         control2_reg = self.apply_cnot_on_bits(
             builder,
             control1_reg, control1_bit,
             control2_reg, control2_bit
         )
         
-        # Step 3: CP(-theta/2, control2, target)
         result = self.apply_controlled_phase_rotation(
             builder,
             control2_reg, control2_bit,
@@ -342,14 +339,12 @@ class QuantumArithmetic:
             -phase_angle / 2
         )
         
-        # Step 4: CNOT(control1, control2) - undo the CNOT
         control2_reg = self.apply_cnot_on_bits(
             builder,
             control1_reg, control1_bit,
             control2_reg, control2_bit
         )
         
-        # Step 5: CP(theta/2, control1, target)
         result = self.apply_controlled_phase_rotation(
             builder,
             control1_reg, control1_bit,
@@ -360,7 +355,7 @@ class QuantumArithmetic:
         return result
 
     # =========================================================================
-    # QUANTUM FOURIER TRANSFORM
+    # quantum fourier transform
     # =========================================================================
 
     def apply_qft(
@@ -387,12 +382,9 @@ class QuantumArithmetic:
         """
         result = register
         
-        # QFT processes from most significant qubit down to 0 (MSB -> LSB)
         for i in reversed(range(n_qubits)):
-            # 1. Apply Hadamard to the current qubit
             result = self.apply_hadamard_gate(builder, result, i)
             
-            # 2. Apply controlled rotations from all LOWER qubits (j < i)
             for j in reversed(range(i)):
                 k = i - j + 1
                 phase_angle = 2 * math.pi / (2 ** k)
@@ -422,163 +414,113 @@ class QuantumArithmetic:
         """
         result = register
         
-        # IQFT processes from 0 up to n-1 (Reverse of QFT's n-1 -> 0)
         for i in range(n_qubits):
-            # 1. Apply inverse controlled rotations first
             for j in range(i):
                 k = i - j + 1
-                phase_angle = -2 * math.pi / (2 ** k)  # Negative phase
+                phase_angle = -2 * math.pi / (2 ** k)
                 result = self.apply_controlled_phase_rotation(
                     builder, result, j, result, i, phase_angle
                 )
             
-            # 2. Apply Hadamard to the current qubit
             result = self.apply_hadamard_gate(builder, result, i)
         
         return result
 
     # =========================================================================
-    # DRAPER QUANTUM ARITHMETIC
+    # draper arithmetic (qft-based)
     # =========================================================================
 
-    def draper_quantum_addition(
+    def draper_addition(
         self,
         builder: 'Builder',
         a_reg: 'SSAValue',
-        b_reg: 'SSAValue',
         target_reg: 'SSAValue',
         width_a: int,
-        width_b: int,
-        op_width: int,
-        copy_b_to_target: bool = True
+        op_width: int
     ) -> 'SSAValue':
         """
-        Draper quantum addition using QFT approach with dynamic width support.
+        Draper quantum addition using QFT approach.
         
-        Supports mixed-width operands (e.g., adding an 8-bit number to a 16-bit number).
-        The result width is the maximum of the two operand widths.
+        Adds the value in a_reg to target_reg (which should already be in QFT basis
+        or will have QFT applied). The caller is responsible for:
+        - Copying operand B into target_reg before calling
+        - Applying QFT to target_reg before calling
+        - Applying inverse QFT after calling
         
         Algorithm:
-        1. (optionally) Copy B into the target register
-        2. Apply QFT to target register
-        3. Apply controlled phase rotations: for each bit i in A, if A[i] = 1,
-           apply phase rotation 2π/2^(j-i+1) to each bit j ≥ i in target
-        4. Apply inverse QFT to get the final result
+        For each bit i in A, if A[i] = 1, apply phase rotation 2π/2^(j-i+1)
+        to each bit j ≥ i in target register.
         
         Args:
             builder: The XDSL Builder for inserting operations (REQUIRED)
             a_reg: First operand register (addend)
-            b_reg: Second operand register (will be copied to target)
-            target_reg: Target register to store the result
-            width_a: Bit width of a_reg
-            width_b: Bit width of b_reg
-            op_width: Width of the operation (target register width)
-            copy_b_to_target: If True, copy B into target first
+            target_reg: Target register in Fourier basis (contains B, will become A+B)
+            width_a: Bit width of operand A
+            op_width: Operation width (width of target register)
             
         Returns:
-            The resulting register containing A + B
+            The target register with A added (still in Fourier basis)
         """
         result = target_reg
         
-        # Copy B into the target register if requested
-        if copy_b_to_target:
-            for i in range(min(width_b, op_width)):
-                result = self.apply_cnot_on_bits(builder, b_reg, i, result, i)
-        
-        # Step 1: Apply QFT to target register
-        result = self.apply_qft(builder, result, op_width)
-        
-        # Step 2: Apply Draper's controlled phase additions
-        # For each bit i in register A (up to width_a), and each bit j in target where j >= i:
-        # If A[i] = 1, apply phase rotation 2π/2^(j-i+1) to target[j]
-        for i in range(width_a):  # Only iterate up to actual width of a
-            for j in range(i, op_width):  # Target bits from i up to op_width
-                # Phase angle: 2π/2^(j-i+1)
-                # This is the key formula for Draper's algorithm
+        for i in range(width_a):
+            for j in range(i, op_width):
                 phase_angle = 2 * math.pi / (2 ** (j - i + 1))
-                
-                # Apply controlled phase rotation: A[i] controls target[j]
                 result = self.apply_controlled_phase_rotation(
                     builder,
-                    a_reg, i,        # Control: bit i of register A
-                    result, j,       # Target: bit j of target register (after QFT)
+                    a_reg, i,
+                    result, j,
                     phase_angle
                 )
         
-        # Step 3: Apply inverse QFT to get the final result
-        result = self.apply_inverse_qft(builder, result, op_width)
-        
         return result
 
-    def draper_quantum_subtraction(
+    def draper_subtraction(
         self,
         builder: 'Builder',
-        a_reg: 'SSAValue',
         b_reg: 'SSAValue',
         target_reg: 'SSAValue',
-        width_a: int,
         width_b: int,
-        op_width: int,
-        copy_a_to_target: bool = True
+        op_width: int
     ) -> 'SSAValue':
         """
-        Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
+        Draper quantum subtraction using QFT approach with negative phases.
         
-        Supports mixed-width operands (e.g., subtracting an 8-bit number from a 16-bit number).
-        Computes A - B.
+        Subtracts the value in b_reg from target_reg (which should already be in QFT basis).
+        The caller is responsible for:
+        - Copying operand A into target_reg before calling
+        - Applying QFT to target_reg before calling
+        - Applying inverse QFT after calling
         
         Algorithm:
-        1. (optionally) Copy A (minuend) into the target register
-        2. Apply QFT to target register
-        3. Apply controlled phase rotations with negative angles for subtraction
-        4. Apply inverse QFT to get final result
+        For each bit i in B, apply negative phase rotation -2π/2^(j-i+1)
+        to each bit j ≥ i in target register.
         
         Args:
             builder: The XDSL Builder for inserting operations (REQUIRED)
-            a_reg: Left operand register (minuend - what we subtract from)
-            b_reg: Right operand register (subtrahend - what we subtract)
-            target_reg: Target register for the result
-            width_a: Bit width of a_reg
-            width_b: Bit width of b_reg
-            op_width: Width of the operation (target register width)
-            copy_a_to_target: If True, copy A into target first
+            b_reg: Subtrahend register (value to subtract)
+            target_reg: Target register in Fourier basis (contains A, will become A-B)
+            width_b: Bit width of operand B
+            op_width: Operation width (width of target register)
             
         Returns:
-            The resulting quantum register containing A - B
+            The target register with B subtracted (still in Fourier basis)
         """
         result = target_reg
         
-        # Copy A into the target register if requested (A is the minuend)
-        if copy_a_to_target:
-            for i in range(min(width_a, op_width)):
-                result = self.apply_cnot_on_bits(builder, a_reg, i, result, i)
-        
-        # Step 1: Apply QFT to target register
-        result = self.apply_qft(builder, result, op_width)
-        
-        # Step 2: Apply Draper's controlled phase subtractions (negative phases)
-        # For each bit i in register B (subtrahend) up to width_b, and each bit j in target where j >= i:
-        # If B[i] = 1, apply phase rotation -2π/2^(j-i+1) to target[j]
-        for i in range(width_b):  # Only iterate up to actual width of b
-            for j in range(i, op_width):  # Target bits from i up to op_width
-                # Negative phase angle: -2π/2^(j-i+1)
-                # This is the key formula for Draper's subtraction algorithm
+        for i in range(width_b):
+            for j in range(i, op_width):
                 phase_angle = -2 * math.pi / (2 ** (j - i + 1))
-                
-                # Apply controlled phase rotation: B[i] controls target[j]
                 result = self.apply_controlled_phase_rotation(
                     builder,
-                    b_reg, i,        # Control: bit i of register B (subtrahend)
-                    result, j,       # Target: bit j of target register (after QFT)
+                    b_reg, i,
+                    result, j,
                     phase_angle
                 )
         
-        # Step 3: Apply inverse QFT to get the final result
-        result = self.apply_inverse_qft(builder, result, op_width)
-        
         return result
 
-    def draper_quantum_multiplication(
+    def draper_multiplication(
         self,
         builder: 'Builder',
         a_reg: 'SSAValue',
@@ -589,58 +531,42 @@ class QuantumArithmetic:
         width_product: int
     ) -> 'SSAValue':
         """
-        Generate quantum circuit for multiplication using Draper's QFT-based algorithm.
-        Computes A * B by accumulating doubly-controlled phase rotations in Fourier space.
+        Draper quantum multiplication using doubly-controlled phase rotations.
         
-        Supports dynamic operand widths - the product register width is the sum of operand widths.
+        Computes A * B by accumulating doubly-controlled phase rotations in Fourier space.
+        The caller is responsible for:
+        - Creating product_reg with appropriate width (width_a + width_b)
+        - Applying QFT to product_reg before calling
+        - Applying inverse QFT after calling
         
         Algorithm:
-        1. Apply QFT to product register
-        2. For each bit i in A and bit j in B:
-           - Apply doubly-controlled phase rotations to product bits
-           - Phase represents contribution of A[i] * B[j] * 2^(i+j)
-        3. Apply inverse QFT to get final product
+        For each bit i in A and bit j in B, apply doubly-controlled phase rotations
+        to product bits k ≥ i+j. The phase represents contribution of A[i] * B[j] * 2^(i+j).
         
         Args:
             builder: The XDSL Builder for inserting operations (REQUIRED)
             a_reg: First operand register (multiplicand)
             b_reg: Second operand register (multiplier)
-            product_reg: Pre-initialized product register (should be zeroed)
-            width_a: Bit width of a_reg
-            width_b: Bit width of b_reg
-            width_product: Width of product register (typically width_a + width_b)
+            product_reg: Product register in Fourier basis
+            width_a: Bit width of operand A
+            width_b: Bit width of operand B
+            width_product: Bit width of product register
             
         Returns:
-            The resulting quantum register containing A * B
+            The product register with A*B (still in Fourier basis)
         """
-        product = product_reg
+        result = product_reg
         
-        # Step 1: Apply QFT to product register
-        product = self.apply_qft(builder, product, width_product)
-        
-        # Step 2: Apply doubly-controlled phase rotations
-        # For each pair of bits (i from A, j from B), we add the contribution
-        # of A[i] * B[j] * 2^(i+j) to the product
         for i in range(width_a):
             for j in range(width_b):
-                # The contribution A[i]*B[j] is at bit position (i+j)
-                # We need to add this to all higher bits via phase rotations
                 for k in range(i + j, width_product):
-                    # Phase angle for adding 2^(i+j) to bit k
-                    # Formula: 2π / 2^(k - (i+j) + 1)
                     phase_angle = 2 * math.pi / (2 ** (k - (i + j) + 1))
-                    
-                    # Apply doubly-controlled phase:
-                    # Only adds when both A[i]=1 AND B[j]=1
-                    product = self.apply_ccphase(
+                    result = self.apply_ccphase(
                         builder,
-                        a_reg, i,      # Control 1: bit i of A
-                        b_reg, j,      # Control 2: bit j of B
-                        product, k,    # Target: bit k of product
+                        a_reg, i,
+                        b_reg, j,
+                        result, k,
                         phase_angle
                     )
         
-        # Step 3: Apply inverse QFT to get the final product
-        product = self.apply_inverse_qft(builder, product, width_product)
-        
-        return product
+        return result

@@ -754,7 +754,6 @@ def create_circuit(first_op, output_number):
             apply_t(circuit, current_op)
         elif current_op.name == "quantum.tdagger" and current_op.operands:
             apply_tdagger(circuit, current_op)
-            # TODO
         # elif current_op.name == "quantum.measure" and current_op.operands:
         #     circuit.measure(current_op.operands[0], c_reg[cbit_index])
         #     cbit_index += 1

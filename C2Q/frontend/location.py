@@ -1,6 +1,4 @@
-"""
-@file location.py
-@brief Source code location tracking for the C to Quantum compiler.
+"""Source code location tracking for the C to Quantum compiler.
 
 This module provides utilities for tracking and representing source code locations
 in the C to Quantum compiler. It's used primarily to map compiled quantum code
@@ -17,24 +15,28 @@ from xdsl.utils.lexer import Token
 
 @dataclass
 class Location:
-    """
-    @brief Structure representing a location in a source file.
+    """Structure representing a location in a source file.
 
     This dataclass stores the file path, line number, and column number
     that pinpoints a specific location in the source code. It's used for
     error reporting and debugging to provide precise information about
     where issues occur in the original source.
+    
+    Attributes:
+        file: Path to the source file.
+        line: Line number (1-based).
+        col: Column number (1-based).
     """
 
-    file: str  #!< Path to the source file
-    line: int  #!< Line number (1-based)
-    col: int  #!< Column number (1-based)
+    file: str
+    line: int
+    col: int
 
     def __repr__(self):
-        """
-        @brief String representation of the location.
+        """String representation of the location.
 
-        @return String in the format "file:line:column"
+        Returns:
+            String in the format "file:line:column".
         """
         return f"{self.file}:{self.line}:{self.col}"
 
@@ -43,19 +45,22 @@ _NEWLINE = re.compile(r"\n")
 
 
 def loc(token: Token[Any]) -> Location:
-    """
-    @brief Convert a lexer token to a source code location.
+    """Convert a lexer token to a source code location.
 
     This function calculates the line and column numbers for a token
     by counting newlines in the source text. It's used to map tokens
     from the lexer to their original positions in the source file.
 
-    @param token: The token whose location needs to be determined
-    @return A Location object with file, line, and column information
-    @throws AssertionError if the token's location cannot be determined
+    Args:
+        token: The token whose location needs to be determined.
+        
+    Returns:
+        A Location object with file, line, and column information.
+        
+    Raises:
+        AssertionError: If the token's location cannot be determined.
     """
     file = token.span.input.name
-    # Could be much faster
 
     remaining = token.span.start
     prev_end = 0
