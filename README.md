@@ -23,23 +23,25 @@ C2Q is a complete compilation infrastructure designed to bridge classical progra
 │  C Source     ┌───────────┐    ┌───────────┐    ┌───────────────────────┐   │
 │  Code    ───► │  Frontend │───►│  IR Gen   │───►│  Quantum MLIR Dialect │   │
 │  (.c)         │  (Lexer/  │    │  (Draper  │    │  (xDSL Framework)     │   │
-│               │  Parser)  │    │  QFT Arith)│    │                       │   │
+│               │  Parser)  │    │  QFT).    │    │                       │   │
 │               └───────────┘    └───────────┘    └───────────┬───────────┘   │
 │                                                             │               │
 │                                                             ▼               │
 │               ┌───────────────────────────────────────────────────────────┐ │
 │               │              OPTIMIZATION PIPELINE                        │ │
-│               │  ┌─────────────┐ ┌─────────────┐ ┌──────────────────────┐ │ │
-│               │  │ Phase       │ │ Dead Code   │ │ Iterative            │ │ │
-│               │  │ Precision   │ │ Elimination │ │ Phase Peeling        │ │ │
-│               │  │ Filtering   │ │ (Quantum-   │ │ (Hadamard            │ │ │
-│               │  │             │ │ Safe)       │ │ Cancellation)        │ │ │
-│               │  └─────────────┘ └─────────────┘ └──────────────────────┘ │ │
-│               │  ┌─────────────┐ ┌─────────────┐ ┌──────────────────────┐ │ │
-│               │  │ CCNOT       │ │ In-Place    │ │ Redundant SWAP       │ │ │
-│               │  │ Decomp.     │ │ CNOT Chain  │ │ Elimination          │ │ │
-│               │  │ (Barenco)   │ │ Optimization│ │                      │ │ │
-│               │  └─────────────┘ └─────────────┘ └──────────────────────┘ │ │
+│               │                                                           │ │
+│               │  ┌──────────────────────────────────────────────────────┐ │ │
+│               │  │  Phase Precision Filtering (Primary)                 │ │ │
+│               │  │  • Eliminates negligible phase rotations < threshold │ │ │
+│               │  │  • Iterative convergence (typically 2 iterations)    │ │ │
+│               │  │  • Average: 20-56% phase gate reduction              │ │ │
+│               │  └──────────────────────────────────────────────────────┘ │ │
+│               │                                                           │ │
+│               │  Supporting Passes (Circuit-Dependent):                   │ │
+│               │  • Dead Code Elimination • CCNOT Decomposition            │ │
+│               │  • Adjacent Phase Consolidation • QFT Depth Analysis      │ │
+│               │  • Hadamard Cancellation • Redundant SWAP Elimination     │ │
+│               │                                                           │ │
 │               └───────────────────────────────────────────────────────────┘ │
 │                                                             │               │
 │                                                             ▼               │
@@ -72,16 +74,33 @@ int c = a + b;  // Draper addition in Fourier basis
 Supports **mixed-precision arithmetic** with automatic width detection and promotion. The compiler correctly handles operations between operands of different bit widths (e.g., 8-bit + 16-bit) and determines appropriate result register sizes.
 
 ### Advanced Optimization Pipeline
-Multi-pass optimization framework with **iterative convergence**:
+Multi-pass optimization framework with **iterative convergence**, achieving 15-36% gate count reduction across test cases.
+
+#### Primary Optimization: Phase Precision Filtering
+The dominant optimization pass that drives circuit improvements:
+
+- **Eliminates negligible phase rotations** below a configurable threshold (default: 0.1 radians in benchmarks)
+- **Iterative refinement**: Typically converges in 2 iterations
+- **Impact**: Reduces phase gates by 19-56% depending on circuit complexity
+  - Simple arithmetic (8-bit add/sub): ~20% reduction
+  - Multiplication circuits: ~55% reduction
+  - Mixed-width operations: ~55% reduction
+
+The Draper QFT arithmetic inherently generates many fine-grained phase rotations. For practical integer operands, high-precision rotations (< 0.1 rad ≈ 5.7°) have negligible effect on measurement outcomes and can be safely eliminated without affecting computational correctness.
+
+#### Supporting Optimization Passes
+Additional passes available in the pipeline (impact varies by circuit structure):
 
 | Optimization Pass | Description |
 |:---|:---|
-| **Iterative Phase Peeling** | Cancels adjacent Hadamard gates at QFT/IQFT boundaries across multiple iterations until convergence |
-| **Phase Precision Filtering** | Eliminates negligible phase rotations below configurable threshold (default: 10⁻⁴ radians) |
 | **Dead Code Elimination** | Quantum-safe removal of unused operations preserving measurement dependencies |
 | **CCNOT Decomposition** | Barenco construction decomposing Toffoli gates into 1- and 2-qubit gates |
 | **Adjacent Phase Consolidation** | Merges consecutive phase gates acting on the same qubit |
+| **QFT Depth Analysis** | Reduces QFT depth when operands use fewer bits than register width |
+| **Hadamard Cancellation** | Cancels adjacent Hadamard gates at QFT/IQFT boundaries |
 | **Redundant SWAP Elimination** | Removes unnecessary SWAP operations in QFT circuits |
+
+> **Note**: The supporting passes show circuit-dependent effectiveness. In the benchmark suite, phase precision filtering is the primary contributor to gate count and depth reductions.
 
 ### Robust Backend
 **SSA-aware circuit generation** that correctly handles aggressive optimization and register renaming. The backend traces SSA value chains to maintain correct qubit mappings even after extensive IR transformations.
@@ -318,13 +337,25 @@ This SSA-style naming enables precise tracking through optimization passes.
 
 ### Optimization Convergence
 
-The Draper optimizer uses iterative refinement:
+The Draper optimizer uses iterative refinement, typically converging in 2 iterations:
 
 ```
-Iteration 1: Cancel outer Hadamards at QFT/IQFT boundaries
-Iteration 2: Merge now-adjacent phase gates from inner layers  
-Iteration 3+: Continue until no further improvements
+Iteration 1: Eliminate negligible phase rotations (primary reduction)
+            • Simple arithmetic: ~18 phase gates eliminated
+            • Multiplication: ~1100+ phase gates eliminated
+            
+Iteration 2: Verify no additional optimizations possible
+            • Apply supporting passes
+            • Check for convergence (typically 0 changes)
 ```
+
+**Example from benchmark output (Mult 2×3 circuit):**
+```
+Draper Iteration 1: Eliminated 1104/1968 phase rotations (56% reduction)
+Draper Iteration 2: Eliminated 0/864 phase rotations → Converged
+```
+
+The iterative approach ensures all optimization opportunities are explored while avoiding unnecessary passes once convergence is reached.
 
 ---
 
