@@ -91,14 +91,17 @@ The Draper QFT arithmetic inherently generates many fine-grained phase rotations
 #### Supporting Optimization Passes
 Additional passes available in the pipeline (impact varies by circuit structure):
 
-| Optimization Pass | Description |
-|:---|:---|
-| **Dead Code Elimination** | Quantum-safe removal of unused operations preserving measurement dependencies |
-| **CCNOT Decomposition** | Barenco construction decomposing Toffoli gates into 1- and 2-qubit gates |
-| **Adjacent Phase Consolidation** | Merges consecutive phase gates acting on the same qubit |
-| **QFT Depth Analysis** | Reduces QFT depth when operands use fewer bits than register width |
-| **Hadamard Cancellation** | Cancels adjacent Hadamard gates at QFT/IQFT boundaries |
-| **Redundant SWAP Elimination** | Removes unnecessary SWAP operations in QFT circuits |
+| Optimization Pass | Implementation | Description |
+|:---|:---|:---|
+| **Phase Precision Filtering** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L108-L140) · `_optimize_phase_precision()` | Eliminates negligible phase rotations below threshold (primary optimization) |
+| **Dead Code Elimination** | [remove_unused_op.py](C2Q/middle_end/optimizations/remove_unused_op.py) · `RemoveUnusedOperations` | Quantum-safe removal of unused operations preserving measurement dependencies |
+| **CCNOT Decomposition** | [ccnot_decomposition.py](C2Q/middle_end/optimizations/ccnot_decomposition.py) · `CCnot_decomposition` | Barenco construction decomposing Toffoli gates into 1- and 2-qubit gates |
+| **Adjacent Phase Consolidation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L187-L240) · `_consolidate_adjacent_phases()` | Merges consecutive phase gates acting on the same qubit |
+| **QFT Depth Analysis** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L142-L155) · `_optimize_qft_depth()` | Reduces QFT depth when operands use fewer bits than register width |
+| **Hadamard Cancellation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L246-L283) · `_cancel_hadamard_pairs()` | Cancels adjacent Hadamard gates at QFT/IQFT boundaries |
+| **Redundant SWAP Elimination** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L157-L185) · `_eliminate_redundant_swaps()` | Removes unnecessary SWAP operations in QFT circuits |
+
+**Orchestration**: All passes are coordinated by [integrated_optimizer.py](C2Q/middle_end/optimizations/integrated_optimizer.py) · `IntegratedQuantumOptimizer.optimize_circuit()`, which applies the Draper optimizer iteratively until convergence.
 
 > **Note**: The supporting passes show circuit-dependent effectiveness. In the benchmark suite, phase precision filtering is the primary contributor to gate count and depth reductions.
 
