@@ -121,7 +121,6 @@ Benchmark results from the integrated optimization pipeline across 9 test cases:
 |:---|:---:|:---:|
 | **Gate Count** | -22.5% | -36.4% |
 | **Circuit Depth** | -27.7% | -51.4% |
-| **Phase Gates** | -22.0% | -56.1% |
 | **MLIR Operations** | -22.2% | -36.4% |
 
 ### Detailed Benchmark Results
@@ -322,11 +321,11 @@ The compiler implements Thomas Draper's quantum arithmetic algorithms:
 ```
 Addition: |a⟩|b⟩ → |a⟩|a+b⟩
 
-     ┌─────┐                    ┌──────┐
-|a⟩──┤     ├─── controlled ────┤      ├── |a⟩
-     │     │    phase gates    │      │
-|b⟩──┤ QFT ├──────────────────┤ IQFT ├── |a+b⟩
-     └─────┘                    └──────┘
+     ┌─────┐                     ┌──────┐
+|a⟩──┤     ├─── controlled ──────┤      ├── |a⟩
+     │     │    phase gates      │      │
+|b⟩──┤ QFT ├─────────────────────┤ IQFT ├── |a+b⟩
+     └─────┘                     └──────┘
 ```
 
 ### Register Naming Convention
@@ -336,28 +335,6 @@ Quantum registers follow the `qX_Y` naming scheme:
 - `Y`: Version number (incremented on each operation)
 
 This SSA-style naming enables precise tracking through optimization passes.
-
-### Optimization Convergence
-
-The Draper optimizer uses iterative refinement, typically converging in 2 iterations:
-
-```
-Iteration 1: Eliminate negligible phase rotations (primary reduction)
-            • Simple arithmetic: ~18 phase gates eliminated
-            • Multiplication: ~1100+ phase gates eliminated
-            
-Iteration 2: Verify no additional optimizations possible
-            • Apply supporting passes
-            • Check for convergence (typically 0 changes)
-```
-
-**Example from benchmark output (Mult 2×3 circuit):**
-```
-Draper Iteration 1: Eliminated 1104/1968 phase rotations (56% reduction)
-Draper Iteration 2: Eliminated 0/864 phase rotations → Converged
-```
-
-The iterative approach ensures all optimization opportunities are explored while avoiding unnecessary passes once convergence is reached.
 
 ---
 
