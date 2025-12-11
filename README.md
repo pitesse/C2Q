@@ -129,7 +129,6 @@ Benchmark results from the integrated optimization pipeline across 9 test cases:
 | Sub (8-bit) | 119 | 101 | -15.1% | 39 | 36 | -7.7% |
 | Mult (2×3) | 3,155 | 2,051 | -35.0% | 2,051 | 1,002 | -51.1% |
 | Complex Math | 3,573 | 2,271 | -36.4% | 2,083 | 1,012 | -51.4% |
-| Stress Test | 699 | 591 | -15.5% | 142 | 112 | -21.1% |
 
 > **Note**: All 9/9 test cases pass validation, confirming functional correctness after optimization.
 
