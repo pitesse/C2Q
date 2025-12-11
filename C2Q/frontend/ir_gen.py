@@ -6,7 +6,7 @@ corresponding quantum IR operations using the quantum dialect.
 
 The generator supports basic C constructs including:
 - Variable declarations and assignments
-- Arithmetic operations (addition, subtraction, multiplication) 
+- Arithmetic operations (addition, subtraction, multiplication)
 - Function calls and return statements
 - Quantum register management and operations
 
@@ -68,6 +68,7 @@ class IRGenError(Exception):
     - Undefined variables or functions
     - Type mismatches or invalid register operations
     """
+
     pass
 
 
@@ -75,8 +76,8 @@ class QuantumIRGen:
     """
     IR Generator for C AST to Quantum IR conversion.
 
-    This class transforms C Abstract Syntax Trees into quantum intermediate 
-    representation using quantum gate operations. It implements Draper's 
+    This class transforms C Abstract Syntax Trees into quantum intermediate
+    representation using quantum gate operations. It implements Draper's
     QFT-based algorithms for arithmetic operations.
 
     Key Features:
@@ -111,7 +112,7 @@ class QuantumIRGen:
 
     n_qubit: int = 0
     """Number of qubits used when generating initial IR."""
-    
+
     function_map: dict[str, FunctionAST] = {}
     """Maps function names to their AST representations for inlining."""
 
@@ -132,7 +133,7 @@ class QuantumIRGen:
         self.module = ModuleOp([])
         self.builder = Builder(InsertPoint.at_end(self.module.body.blocks[0]))
         self.function_map = {}
-        
+
         # note: it pass self.builder to each quantum_arith method call, not storing it here
         self.quantum_arith = QuantumArithmetic()
 
@@ -298,17 +299,20 @@ class QuantumIRGen:
             IRGenError: If assignment target is not a variable or operation is unsupported
         """
         # handle special case: 0 - constant (negative literal from parser)
-        if (expr.op == "-" and 
-            isinstance(expr.lhs, NumberExprAST) and expr.lhs.val == 0 and
-            isinstance(expr.rhs, NumberExprAST)):
+        if (
+            expr.op == "-"
+            and isinstance(expr.lhs, NumberExprAST)
+            and expr.lhs.val == 0
+            and isinstance(expr.rhs, NumberExprAST)
+        ):
             # This is a negative literal, handle it directly
             negative_expr = NumberExprAST(expr.rhs.loc, -expr.rhs.val)
             return self.ir_gen_number_expr(negative_expr)
-    
+
         # handle cases where operands might be None
         if expr.lhs is None or expr.rhs is None:
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
-    
+
         # handle binary operations
         if expr.op == "+":
             return self.draper_quantum_addition(expr.lhs, expr.rhs)
@@ -319,22 +323,24 @@ class QuantumIRGen:
         elif expr.op == "=":
             if not isinstance(expr.lhs, VariableExprAST):
                 raise IRGenError("Assignment target must be a variable")
-            
+
             var_name = expr.lhs.name
-            
+
             # self-assignment like a = a + b: evaluate normally and update symbol table
-            if (isinstance(expr.rhs, BinaryExprAST) and 
-                isinstance(expr.rhs.lhs, VariableExprAST) and 
-                expr.rhs.lhs.name == var_name):
+            if (
+                isinstance(expr.rhs, BinaryExprAST)
+                and isinstance(expr.rhs.lhs, VariableExprAST)
+                and expr.rhs.lhs.name == var_name
+            ):
                 rhs_value = self.ir_gen_expr(expr.rhs)
             else:
                 rhs_value = self.ir_gen_expr(expr.rhs)
-            
+
             if self.symbol_table is not None and rhs_value is not None:
                 if var_name in self.symbol_table._local_scope:
                     del self.symbol_table._local_scope[var_name]
                 self.symbol_table[var_name] = rhs_value
-            
+
             return rhs_value
         else:
             raise IRGenError(f"Unsupported binary operation: {expr.op}")
@@ -347,13 +353,13 @@ class QuantumIRGen:
     #     """
     #     Apply Hadamard gate to a specific qubit in the register.
     #     H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
-        
+
     #     Delegates to QuantumArithmetic, passing the current builder.
     #     """
     #     return self.quantum_arith.apply_hadamard_gate(self.builder, register, qubit_index)
 
     # def apply_controlled_phase_rotation(self, control_register: SSAValue, control_index: int,
-    #                                    target_register: SSAValue, target_index: int, 
+    #                                    target_register: SSAValue, target_index: int,
     #                                    phase_angle: float) -> SSAValue:
     #     """
     #     Apply controlled phase rotation.
@@ -403,36 +409,40 @@ class QuantumIRGen:
     #         phase_angle
     #     )
 
-    def apply_cnot_on_bits(self, control_register: SSAValue, control_index: int, 
-                          target_register: SSAValue, target_index: int) -> SSAValue:
+    def apply_cnot_on_bits(
+        self,
+        control_register: SSAValue,
+        control_index: int,
+        target_register: SSAValue,
+        target_index: int,
+    ) -> SSAValue:
         """
         Apply a CNOT gate directly between bits in two registers.
-        
+
         Args:
             control_register: The register containing the control qubit
             control_index: The index of the control bit
             target_register: The register containing the target qubit
             target_index: The index of the target bit
-            
+
         Returns:
             The updated target register after applying CNOT
         """
         # use OnQubitCNotOp to apply CNOT directly
         result = self.builder.insert(
             OnQubitCNotOp.from_values(
-                control_register, control_index, 
-                target_register, target_index
+                control_register, control_index, target_register, target_index
             )
         ).res
-        
+
         # maintain the naming convention
-        if hasattr(target_register, '_name') and target_register._name:
-            parts = target_register._name.split('_')
+        if hasattr(target_register, "_name") and target_register._name:
+            parts = target_register._name.split("_")
             if len(parts) == 2:
-                register_num = parts[0].lstrip('q')
+                register_num = parts[0].lstrip("q")
                 version_num = int(parts[1]) + 1
                 result._name = f"q{register_num}_{version_num}"
-        
+
         return result
 
     def apply_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
@@ -449,27 +459,31 @@ class QuantumIRGen:
         """
         return self.quantum_arith.apply_inverse_qft(self.builder, register, n_qubits)
 
-    def draper_quantum_addition(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None) -> SSAValue:
+    def draper_quantum_addition(
+        self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None
+    ) -> SSAValue:
         """
         Draper quantum addition using QFT approach with dynamic width support.
-        
+
         Supports mixed-width operands (e.g., adding an 8-bit number to a 16-bit number).
         The result width is the maximum of the two operand widths.
-        
+
         Args:
             a_expr: First operand expression
-            b_expr: Second operand expression  
+            b_expr: Second operand expression
             target_reg: Optional target register to store the result. If None, creates new register.
-            
+
         Returns:
             The resulting register containing A + B
         """
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
-        
+
         if a is None or b is None:
-            raise IRGenError("Failed to generate quantum register for addition operands")
-        
+            raise IRGenError(
+                "Failed to generate quantum register for addition operands"
+            )
+
         # handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
             if not isinstance(a.type, VectorType):
@@ -495,35 +509,41 @@ class QuantumIRGen:
             for i in range(min(width_b, target_width)):
                 target = self.apply_cnot_on_bits(b, i, target, i)
             op_width = target_width
-        
+
         # apply qft, draper addition, inverse qft
         result = self.apply_qft(target, op_width)
-        result = self.quantum_arith.draper_addition(self.builder, a, result, width_a, op_width)
+        result = self.quantum_arith.draper_addition(
+            self.builder, a, result, width_a, op_width
+        )
         result = self.apply_inverse_qft(result, op_width)
-        
+
         return result
 
-    def draper_quantum_subtraction(self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None) -> SSAValue:
+    def draper_quantum_subtraction(
+        self, a_expr: ExprAST, b_expr: ExprAST, target_reg: SSAValue | None = None
+    ) -> SSAValue:
         """
         Generate quantum circuit for subtraction using Draper's QFT-based subtractor.
-        
+
         Supports mixed-width operands (e.g., subtracting an 8-bit number from a 16-bit number).
         The result width is the maximum of the two operand widths.
-        
+
         Args:
             a_expr: Left operand expression (minuend)
             b_expr: Right operand expression (subtrahend)
             target_reg: Optional target register for in-place operation
-            
+
         Returns:
             The resulting quantum register containing the difference
         """
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
-        
+
         if a is None or b is None:
-            raise IRGenError("Failed to generate quantum register for subtraction operands")
-        
+            raise IRGenError(
+                "Failed to generate quantum register for subtraction operands"
+            )
+
         # handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
             if not isinstance(a.type, VectorType):
@@ -534,11 +554,11 @@ class QuantumIRGen:
                 b_temp = self.ir_gen_init(None)
                 b_temp = self.apply_cnot_on_bits(b, 0, b_temp, 0)
                 b = b_temp
-        
+
         width_a = self.get_bit_width(a)
         width_b = self.get_bit_width(b)
         op_width = max(width_a, width_b)
-        
+
         if target_reg is None:
             target = self.ir_gen_init_with_width(op_width)
             for i in range(min(width_a, op_width)):
@@ -549,34 +569,40 @@ class QuantumIRGen:
             for i in range(min(width_a, target_width)):
                 target = self.apply_cnot_on_bits(a, i, target, i)
             op_width = target_width
-        
+
         # apply qft, draper subtraction, inverse qft
         result = self.apply_qft(target, op_width)
-        result = self.quantum_arith.draper_subtraction(self.builder, b, result, width_b, op_width)
+        result = self.quantum_arith.draper_subtraction(
+            self.builder, b, result, width_b, op_width
+        )
         result = self.apply_inverse_qft(result, op_width)
-        
+
         return result
 
-    def draper_quantum_multiplication(self, a_expr: ExprAST, b_expr: ExprAST) -> SSAValue:
+    def draper_quantum_multiplication(
+        self, a_expr: ExprAST, b_expr: ExprAST
+    ) -> SSAValue:
         """
         Generate quantum circuit for multiplication using Draper's QFT-based algorithm.
         Computes A * B by accumulating doubly-controlled phase rotations in Fourier space.
-        
+
         Supports dynamic operand widths - the product register width is the sum of operand widths.
-        
+
         Args:
             a_expr: First operand expression (multiplicand)
             b_expr: Second operand expression (multiplier)
-            
+
         Returns:
             The resulting quantum register containing A * B
         """
         a = self.ir_gen_expr(a_expr)
         b = self.ir_gen_expr(b_expr)
-        
+
         if a is None or b is None:
-            raise IRGenError("Failed to generate quantum register for multiplication operands")
-        
+            raise IRGenError(
+                "Failed to generate quantum register for multiplication operands"
+            )
+
         # handle single qubit inputs
         if not isinstance(a.type, VectorType) or not isinstance(b.type, VectorType):
             if not isinstance(a.type, VectorType):
@@ -591,16 +617,16 @@ class QuantumIRGen:
         width_a = self.get_bit_width(a)
         width_b = self.get_bit_width(b)
         width_product = width_a + width_b
-        
+
         product = self.ir_gen_init_with_width(width_product)
-        
+
         # apply qft, draper multiplication, inverse qft
         product = self.apply_qft(product, width_product)
         product = self.quantum_arith.draper_multiplication(
             self.builder, a, b, product, width_a, width_b, width_product
         )
         product = self.apply_inverse_qft(product, width_product)
-        
+
         return product
 
     # =========================================================================
@@ -610,22 +636,22 @@ class QuantumIRGen:
     def get_bit_width(self, register: SSAValue) -> int:
         """
         Get the bit width of a quantum register.
-        
+
         Inspects the register's VectorType to determine how many qubits it contains.
         This is essential for supporting mixed-width arithmetic operations.
-        
+
         Args:
             register: The SSA value representing a quantum register
-            
+
         Returns:
             The number of qubits (bits) in the register, defaults to 8 if unable to determine
         """
         try:
-            if hasattr(register, 'type') and isinstance(register.type, VectorType):
+            if hasattr(register, "type") and isinstance(register.type, VectorType):
                 shape = register.type.shape
-                if hasattr(shape, 'data') and len(shape.data) > 0:
+                if hasattr(shape, "data") and len(shape.data) > 0:
                     first_dim = shape.data[0]
-                    if hasattr(first_dim, 'data'):
+                    if hasattr(first_dim, "data"):
                         return int(first_dim.data)
                     else:
                         return 8
@@ -633,14 +659,13 @@ class QuantumIRGen:
             pass
         return 8
 
-
     def ir_gen_init_with_width(self, width: int) -> SSAValue:
         """
         Initialize a new multi-qubit register with specified width.
-        
+
         Args:
             width: Number of qubits in the register
-            
+
         Returns:
             SSA value representing the multi-qubit register
         """
@@ -648,7 +673,7 @@ class QuantumIRGen:
         status_num = 0
 
         register_name = f"q{register_num}_{status_num}"
-        
+
         register = self.builder.insert(
             InitOp.from_value(VectorType(IntegerType(1), [width]))
         )
@@ -659,11 +684,9 @@ class QuantumIRGen:
 
         return register.res
 
-
     # =========================================================================
     # declarations and assignment
     # =========================================================================
-
 
     def ir_gen_variable_expr(self, expr: VariableExprAST) -> SSAValue:
         """
@@ -674,7 +697,7 @@ class QuantumIRGen:
 
         Args:
             expr: The VariableExprAST node representing a variable reference
-            
+
         Returns:
             The SSA value associated with the variable
         """
@@ -695,7 +718,7 @@ class QuantumIRGen:
 
         Args:
             expr: Optional expression for context (typically a NumberExprAST)
-            
+
         Returns:
             SSA value representing the multi-qubit register
         """
@@ -719,25 +742,24 @@ class QuantumIRGen:
     def ir_gen_number_expr(self, expr: NumberExprAST) -> SSAValue:
         """Generate IR for a number literal using binary representation across multiple qubits."""
         register = self.ir_gen_init(expr)
-    
+
         if expr.val != 0:
             value = int(expr.val)
             bit_width = 8
-            
+
             # use two's complement for negative numbers
             if value < 0:
                 value = (1 << bit_width) + value
-            
+
             value = value & ((1 << bit_width) - 1)
-            
+
             binary_str = bin(value)[2:].zfill(bit_width)[-bit_width:]
-    
+
             for i, bit in enumerate(reversed(binary_str)):
                 if bit == "1":
                     register = self.flip_qubit(register, i)
-    
-        return register
 
+        return register
 
     def ir_gen_var_decl_expr(self, expr: VarDeclExprAST) -> SSAValue:
         """
@@ -749,7 +771,7 @@ class QuantumIRGen:
 
         Args:
             expr: The VarDeclExprAST node representing a variable declaration
-            
+
         Returns:
             The SSA value representing the new quantum register
         """
@@ -772,11 +794,17 @@ class QuantumIRGen:
             elif isinstance(expr.expr, BinaryExprAST):
                 # let operations auto-detect widths and create appropriately-sized registers
                 if expr.expr.op == "+":
-                    expr_result = self.draper_quantum_addition(expr.expr.lhs, expr.expr.rhs)
+                    expr_result = self.draper_quantum_addition(
+                        expr.expr.lhs, expr.expr.rhs
+                    )
                 elif expr.expr.op == "-":
-                    expr_result = self.draper_quantum_subtraction(expr.expr.lhs, expr.expr.rhs)
+                    expr_result = self.draper_quantum_subtraction(
+                        expr.expr.lhs, expr.expr.rhs
+                    )
                 elif expr.expr.op == "*":
-                    expr_result = self.draper_quantum_multiplication(expr.expr.lhs, expr.expr.rhs)
+                    expr_result = self.draper_quantum_multiplication(
+                        expr.expr.lhs, expr.expr.rhs
+                    )
                 else:
                     expr_result = self.ir_gen_expr(expr.expr)
                     if expr_result is None:
@@ -795,7 +823,10 @@ class QuantumIRGen:
         else:
             qubit = self.ir_gen_init(None)
 
-        if self.symbol_table is not None and expr.name in self.symbol_table._local_scope:
+        if (
+            self.symbol_table is not None
+            and expr.name in self.symbol_table._local_scope
+        ):
             self.symbol_table = ScopedDict(parent=self.symbol_table)
 
         if self.symbol_table is not None:
@@ -812,7 +843,7 @@ class QuantumIRGen:
 
         Args:
             expr: The ReturnExprAST node representing a return statement
-            
+
         Returns:
             The quantum value to be returned
         """
@@ -839,7 +870,7 @@ class QuantumIRGen:
         Args:
             register: The multi-qubit register to modify
             index: The index of the qubit to flip (0 is LSB)
-            
+
         Returns:
             The updated register with the flipped bit
         """
@@ -850,7 +881,7 @@ class QuantumIRGen:
             OnQubitNotOp.from_value(register, index)
         ).res
 
-        if hasattr(register, '_name') and register._name:
+        if hasattr(register, "_name") and register._name:
             parts = register._name.split("_")
             if len(parts) == 2:
                 register_num = parts[0].lstrip("q")
@@ -858,7 +889,6 @@ class QuantumIRGen:
                 flipped_register._name = f"q{register_num}_{version_num}"
 
         return flipped_register
-    
 
 
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀

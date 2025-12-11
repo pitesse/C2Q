@@ -9,11 +9,12 @@
  * Expected computation: (3 * 2) + 5 = 6 + 5 = 11
  */
 
-int main() {
+int main()
+{
     int a = 3;
     int b = 2;
     int c = 5;
-    int res = a * b;  // 6 (stored in 16-bit register)
-    res = res + c;    // 11 (16-bit + 8-bit → 16-bit)
+    int res = a * b; // 6 (stored in 16-bit register)
+    res = res + c;   // 11 (16-bit + 8-bit → 16-bit)
     return res;
 }

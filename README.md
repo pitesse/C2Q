@@ -1,7 +1,7 @@
 # C2Q: C-to-Quantum Compilation Infrastructure
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-9%2F9%20passing-brightgreen)
 
@@ -140,13 +140,15 @@ Benchmark results from the integrated optimization pipeline across 9 test cases:
 
 ### Installation
 
+**Python Version Requirement:** Python 3.11 or 3.12 is required. Python 3.13+ is not yet supported by qiskit-aer.
+
 ```bash
 # Clone repository
-git clone https://github.com/pitesse/C_to_Quantum.git
-cd C_to_Quantum
+git clone https://github.com/pitesse/C2Q.git
+cd C2Q
 
-# Create virtual environment
-python -m venv .venv
+# Create virtual environment with Python 3.12
+python3.12 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
@@ -156,6 +158,8 @@ pip install xdsl qiskit qiskit-aer matplotlib
 ### Basic Usage
 
 The compiler is invoked as a Python module with various options:
+
+> **Note:** All commands below assume the virtual environment is activated. Use `python` (not `python3.12`) when running inside the venv.
 
 ```bash
 # Basic compilation: generates AST, MLIR, and circuit visualization

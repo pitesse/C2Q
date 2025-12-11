@@ -18,7 +18,14 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from xdsl.dialects.builtin import IntegerType, StringAttr, VectorType, IntegerAttr, FloatAttr, Float64Type
+from xdsl.dialects.builtin import (
+    IntegerType,
+    StringAttr,
+    VectorType,
+    IntegerAttr,
+    FloatAttr,
+    Float64Type,
+)
 from xdsl.ir import Dialect, OpResult, SSAValue, Region, Attribute
 from xdsl.irdl import (
     IRDLOperation,
@@ -51,10 +58,10 @@ class InitOp(IRDLOperation):
     def __init__(self, values):
         """
         Initialize a qubit or vector of qubits to zero.
-        
+
         Args:
             values: An IntegerType for a single qubit or a VectorType for multiple qubits
-            
+
         Raises:
             TypeError: If values is not an IntegerType or VectorType of IntegerType
         """
@@ -93,7 +100,7 @@ class InitOp(IRDLOperation):
 
         Args:
             value: The value to initialize qubits from
-            
+
         Returns:
             A new InitOp instance
         """
@@ -114,7 +121,7 @@ class NotOp(IRDLOperation):
 
     def __init__(self, target: SSAValue):
         """Apply a NOT gate to target qubit(s).
-        
+
         Args:
             target: The qubit or vector of qubits to flip.
         """
@@ -137,10 +144,10 @@ class NotOp(IRDLOperation):
     @staticmethod
     def from_value(value: SSAValue) -> NotOp:
         """Create a NotOp from a value.
-        
+
         Args:
             value: The target qubit or vector of qubits.
-            
+
         Returns:
             A new NotOp instance.
         """
@@ -167,7 +174,7 @@ class CNotOp(IRDLOperation):
 
     def __init__(self, control: SSAValue, target: SSAValue):
         """Apply a CNOT gate between control and target qubits.
-        
+
         Args:
             control: The control qubit or vector.
             target: The target qubit or vector.
@@ -193,11 +200,11 @@ class CNotOp(IRDLOperation):
     @staticmethod
     def from_value(control: SSAValue, target: SSAValue) -> CNotOp:
         """Create a CNotOp from control and target values.
-        
+
         Args:
             control: The control qubit or vector.
             target: The target qubit or vector.
-            
+
         Returns:
             A new CNotOp instance.
         """
@@ -220,7 +227,7 @@ class CCNotOp(IRDLOperation):
 
     def __init__(self, control1: SSAValue, control2: SSAValue, target: SSAValue):
         """Apply a CCNOT gate with two controls and one target.
-        
+
         Args:
             control1: The first control qubit or vector.
             control2: The second control qubit or vector.
@@ -251,12 +258,12 @@ class CCNotOp(IRDLOperation):
     @staticmethod
     def from_value(control1: SSAValue, control2: SSAValue, target: SSAValue) -> CCNotOp:
         """Create a CCNotOp from control and target values.
-        
+
         Args:
             control1: The first control qubit or vector.
             control2: The second control qubit or vector.
             target: The target qubit or vector.
-            
+
         Returns:
             A new CCNotOp instance.
         """
@@ -277,7 +284,7 @@ class MeasureOp(IRDLOperation):
 
     def __init__(self, target: SSAValue):
         """Measure target qubit(s).
-        
+
         Args:
             target: The qubit or vector of qubits to measure.
         """
@@ -300,10 +307,10 @@ class MeasureOp(IRDLOperation):
     @staticmethod
     def from_value(target: SSAValue) -> MeasureOp:
         """Create a MeasureOp from a target value.
-        
+
         Args:
             target: The qubit or vector of qubits to measure.
-            
+
         Returns:
             A new MeasureOp instance.
         """
@@ -326,7 +333,7 @@ class FuncOp(IRDLOperation):
         self, name: str, region: Region | type[Region.DEFAULT] = Region.DEFAULT
     ):
         """Define a quantum function.
-        
+
         Args:
             name: The function name.
             region: The region containing the function body operations.
@@ -350,7 +357,7 @@ class TGateOp(IRDLOperation):
 
     def __init__(self, target: SSAValue):
         """Apply a T gate to target qubit(s).
-        
+
         Args:
             target: The qubit or vector to apply the gate to.
         """
@@ -373,10 +380,10 @@ class TGateOp(IRDLOperation):
     @staticmethod
     def from_value(target: SSAValue) -> TGateOp:
         """Create a TGateOp from a target value.
-        
+
         Args:
             target: The qubit or vector to apply the T gate to.
-            
+
         Returns:
             A new TGateOp instance.
         """
@@ -397,7 +404,7 @@ class TDaggerGateOp(IRDLOperation):
 
     def __init__(self, target: SSAValue):
         """Apply a T-dagger gate to target qubit(s).
-        
+
         Args:
             target: The qubit or vector to apply the gate to.
         """
@@ -420,10 +427,10 @@ class TDaggerGateOp(IRDLOperation):
     @staticmethod
     def from_value(target: SSAValue) -> TDaggerGateOp:
         """Create a TDaggerGateOp from a target value.
-        
+
         Args:
             target: The qubit or vector to apply the T-dagger gate to.
-            
+
         Returns:
             A new TDaggerGateOp instance.
         """
@@ -444,7 +451,7 @@ class HadamardOp(IRDLOperation):
 
     def __init__(self, target: SSAValue):
         """Apply a Hadamard gate to target qubit(s).
-        
+
         Args:
             target: The qubit or vector to apply the gate to.
         """
@@ -467,10 +474,10 @@ class HadamardOp(IRDLOperation):
     @staticmethod
     def from_value(target: SSAValue) -> HadamardOp:
         """Create a HadamardOp from a target value.
-        
+
         Args:
             target: The qubit or vector to apply the Hadamard gate to.
-            
+
         Returns:
             A new HadamardOp instance.
         """
@@ -490,7 +497,7 @@ class CommentOp(IRDLOperation):
 
     def __init__(self, text: str):
         """Create a comment operation.
-        
+
         Args:
             text: The comment text.
         """
@@ -499,10 +506,10 @@ class CommentOp(IRDLOperation):
     @staticmethod
     def from_string(text: str) -> "CommentOp":
         """Create a CommentOp from a string.
-        
+
         Args:
             text: The comment text.
-            
+
         Returns:
             A new CommentOp instance.
         """
@@ -523,7 +530,7 @@ class ExtractBitOp(IRDLOperation):
 
     def __init__(self, vector: SSAValue, index: int):
         """Extract a single qubit from a vector.
-        
+
         Args:
             vector: The vector of qubits.
             index: The index to extract.
@@ -537,11 +544,11 @@ class ExtractBitOp(IRDLOperation):
     @staticmethod
     def from_value(vector: SSAValue, index: int) -> "ExtractBitOp":
         """Create an ExtractBitOp.
-        
+
         Args:
             vector: The vector to extract from.
             index: The bit index to extract.
-            
+
         Returns:
             A new ExtractBitOp instance.
         """
@@ -583,12 +590,12 @@ class InsertBitOp(IRDLOperation):
     @staticmethod
     def from_values(vector: SSAValue, value: SSAValue, index: int) -> "InsertBitOp":
         """Create an InsertBitOp.
-        
+
         Args:
             vector: The vector to insert into.
             value: The qubit value to insert.
             index: The bit position.
-            
+
         Returns:
             A new InsertBitOp instance.
         """
@@ -615,7 +622,7 @@ class OnQubitNotOp(IRDLOperation):
 
     def __init__(self, vector: SSAValue, bit_index: int):
         """Apply NOT gate to a specific bit in a vector.
-        
+
         Args:
             vector: The vector of qubits.
             bit_index: The index of the bit to flip.
@@ -633,11 +640,11 @@ class OnQubitNotOp(IRDLOperation):
     @staticmethod
     def from_value(vector: SSAValue, bit_index: int) -> "OnQubitNotOp":
         """Create a OnQubitNotOp from a vector and bit index.
-        
+
         Args:
             vector: The vector of qubits.
             bit_index: The index of the bit to flip.
-            
+
         Returns:
             A new OnQubitNotOp instance.
         """
@@ -667,7 +674,7 @@ class OnQubitCNotOp(IRDLOperation):
         target_index: int,
     ):
         """Apply CNOT gate between specific bits in vectors.
-        
+
         Args:
             control_vector: The vector containing the control qubit.
             control_index: The index of the control bit.
@@ -697,13 +704,13 @@ class OnQubitCNotOp(IRDLOperation):
         target_index: int,
     ) -> "OnQubitCNotOp":
         """Create a OnQubitCNotOp.
-        
+
         Args:
             control_vector: Vector containing the control qubit.
             control_index: Index of the control bit.
             target_vector: Vector containing the target qubit.
             target_index: Index of the target bit.
-            
+
         Returns:
             A new OnQubitCNotOp instance.
         """
@@ -737,7 +744,7 @@ class OnQubitCCnotOp(IRDLOperation):
         target_index: int,
     ):
         """Apply CCNOT gate between specific bits in vectors.
-        
+
         Args:
             control1_vector: Vector containing the first control qubit.
             control1_index: Index of the first control bit.
@@ -774,7 +781,7 @@ class OnQubitCCnotOp(IRDLOperation):
         target_index: int,
     ) -> "OnQubitCCnotOp":
         """Create a OnQubitCCnotOp.
-        
+
         Args:
             control1_vector: Vector containing the first control qubit.
             control1_index: Index of the first control bit.
@@ -782,7 +789,7 @@ class OnQubitCCnotOp(IRDLOperation):
             control2_index: Index of the second control bit.
             target_vector: Vector containing the target qubit.
             target_index: Index of the target bit.
-            
+
         Returns:
             A new OnQubitCCnotOp instance.
         """
@@ -799,19 +806,19 @@ class OnQubitCCnotOp(IRDLOperation):
 @irdl_op_definition
 class OnQubitHadamardOp(IRDLOperation):
     """Apply Hadamard gate to a specific qubit in a register.
-    
+
     Applies Hadamard to a specific qubit within a vector register,
     creating superposition: H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2.
     """
-    
+
     name = "quantum.OnQubit_hadamard"
     register: Operand = operand_def(VectorType)
     index: IntegerAttr = attr_def(IntegerAttr)
     res: OpResult = result_def(VectorType)
-    
+
     def __init__(self, register: SSAValue, index: int):
         """Apply Hadamard gate to a specific qubit.
-        
+
         Args:
             register: The vector containing the qubit.
             index: The index of the qubit.
@@ -827,15 +834,15 @@ class OnQubitHadamardOp(IRDLOperation):
             )
         else:
             raise TypeError("Expected VectorType for register parameter")
-    
+
     @staticmethod
     def from_value(register: SSAValue, index: int) -> "OnQubitHadamardOp":
         """Create a OnQubitHadamardOp.
-        
+
         Args:
             register: Vector containing the qubit.
             index: Index of the qubit.
-            
+
         Returns:
             A new OnQubitHadamardOp instance.
         """
@@ -845,19 +852,19 @@ class OnQubitHadamardOp(IRDLOperation):
 @irdl_op_definition
 class OnQubitPhaseOp(IRDLOperation):
     """Apply phase gate to a specific qubit in a register.
-    
+
     Applies phase rotation to a specific qubit: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩.
     """
-    
+
     name = "quantum.OnQubit_phase"
     register: Operand = operand_def(VectorType)
     index: IntegerAttr = attr_def(IntegerAttr)
     phase: FloatAttr = attr_def(FloatAttr)
     res: OpResult = result_def(VectorType)
-    
+
     def __init__(self, register: SSAValue, index: int, phase: float):
         """Apply phase gate to a specific qubit.
-        
+
         Args:
             register: The vector containing the qubit.
             index: The index of the qubit.
@@ -875,16 +882,16 @@ class OnQubitPhaseOp(IRDLOperation):
             )
         else:
             raise TypeError("Expected VectorType for register parameter")
-    
+
     @staticmethod
     def from_value(register: SSAValue, index: int, phase: float) -> "OnQubitPhaseOp":
         """Create a OnQubitPhaseOp.
-        
+
         Args:
             register: Vector containing the qubit.
             index: Index of the qubit.
             phase: The phase angle in radians.
-            
+
         Returns:
             A new OnQubitPhaseOp instance.
         """
@@ -894,10 +901,10 @@ class OnQubitPhaseOp(IRDLOperation):
 @irdl_op_definition
 class OnQubitControlledPhaseOp(IRDLOperation):
     """Apply controlled phase rotation to qubits in registers.
-    
+
     Applies phase to target qubit only if control qubit is |1⟩.
     """
-    
+
     name = "quantum.OnQubit_controlled_phase"
     control_register: Operand = operand_def(VectorType)
     target_register: Operand = operand_def(VectorType)
@@ -905,11 +912,17 @@ class OnQubitControlledPhaseOp(IRDLOperation):
     target_index: IntegerAttr = attr_def(IntegerAttr)
     phase: FloatAttr = attr_def(FloatAttr)
     res: OpResult = result_def(VectorType)
-    
-    def __init__(self, control_register: SSAValue, control_index: int,
-                 target_register: SSAValue, target_index: int, phase: float):
+
+    def __init__(
+        self,
+        control_register: SSAValue,
+        control_index: int,
+        target_register: SSAValue,
+        target_index: int,
+        phase: float,
+    ):
         """Apply controlled phase rotation between specific qubits.
-        
+
         Args:
             control_register: Vector containing the control qubit.
             control_index: Index of the control qubit.
@@ -917,7 +930,9 @@ class OnQubitControlledPhaseOp(IRDLOperation):
             target_index: Index of the target qubit.
             phase: The phase angle in radians.
         """
-        if isinstance(control_register.type, VectorType) and isinstance(target_register.type, VectorType):
+        if isinstance(control_register.type, VectorType) and isinstance(
+            target_register.type, VectorType
+        ):
             size = target_register.type.shape.data[0]  # type: ignore
             super().__init__(
                 result_types=[VectorType(IntegerType(1), [size])],
@@ -930,43 +945,48 @@ class OnQubitControlledPhaseOp(IRDLOperation):
             )
         else:
             raise TypeError("Expected VectorType for both register parameters")
-    
+
     @staticmethod
-    def from_values(control_register: SSAValue, control_index: int,
-                   target_register: SSAValue, target_index: int, 
-                   phase: float) -> "OnQubitControlledPhaseOp":
+    def from_values(
+        control_register: SSAValue,
+        control_index: int,
+        target_register: SSAValue,
+        target_index: int,
+        phase: float,
+    ) -> "OnQubitControlledPhaseOp":
         """Create a OnQubitControlledPhaseOp.
-        
+
         Args:
             control_register: Vector containing the control qubit.
             control_index: Index of the control qubit.
             target_register: Vector containing the target qubit.
             target_index: Index of the target qubit.
             phase: The phase angle in radians.
-            
+
         Returns:
             A new OnQubitControlledPhaseOp instance.
         """
-        return OnQubitControlledPhaseOp(control_register, control_index, 
-                                       target_register, target_index, phase)
+        return OnQubitControlledPhaseOp(
+            control_register, control_index, target_register, target_index, phase
+        )
 
 
 @irdl_op_definition
 class OnQubitSwapOp(IRDLOperation):
     """Swap two qubits within a register.
-    
+
     Exchanges the quantum states of two qubits within the same vector register.
     """
-    
+
     name = "quantum.OnQubit_swap"
     register: Operand = operand_def(VectorType)
     qubit1_index: IntegerAttr = attr_def(IntegerAttr)
     qubit2_index: IntegerAttr = attr_def(IntegerAttr)
     res: OpResult = result_def(VectorType)
-    
+
     def __init__(self, register: SSAValue, qubit1_index: int, qubit2_index: int):
         """Swap two qubits within a vector register.
-        
+
         Args:
             register: The vector containing both qubits.
             qubit1_index: Index of the first qubit.
@@ -984,16 +1004,18 @@ class OnQubitSwapOp(IRDLOperation):
             )
         else:
             raise TypeError("Expected VectorType for register parameter")
-    
+
     @staticmethod
-    def from_values(register: SSAValue, qubit1_index: int, qubit2_index: int) -> "OnQubitSwapOp":
+    def from_values(
+        register: SSAValue, qubit1_index: int, qubit2_index: int
+    ) -> "OnQubitSwapOp":
         """Create a OnQubitSwapOp.
-        
+
         Args:
             register: Vector containing both qubits.
             qubit1_index: Index of the first qubit.
             qubit2_index: Index of the second qubit.
-            
+
         Returns:
             A new OnQubitSwapOp instance.
         """

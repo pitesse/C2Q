@@ -17,7 +17,13 @@ from qiskit.circuit import QuantumRegister
 
 from xdsl.parser import Parser
 from xdsl.context import Context
-from xdsl.dialects.builtin import Builtin, IntegerAttr, IntegerType, FloatAttr, Float64Type
+from xdsl.dialects.builtin import (
+    Builtin,
+    IntegerAttr,
+    IntegerType,
+    FloatAttr,
+    Float64Type,
+)
 
 from C2Q.dialects.quantum_dialect import Quantum
 
@@ -178,18 +184,22 @@ def apply_onqubit_not(circuit, op):
             if qreg is not None:
                 # apply the NOT gate directly to the bit
                 circuit.x(qreg[bit_index])
-                
+
                 if hasattr(op, "results") and op.results:
                     propagate_ssa_mapping(vector, op.results[0])
                 return
             else:
                 # SSA mapping must exist
-                ssa_name = vector._name if hasattr(vector, '_name') else str(vector)
-                raise ValueError(f"SSA mapping failed for operand in OnQubit NOT: {ssa_name}")
+                ssa_name = vector._name if hasattr(vector, "_name") else str(vector)
+                raise ValueError(
+                    f"SSA mapping failed for operand in OnQubit NOT: {ssa_name}"
+                )
         else:
             raise ValueError("bit index attribute not found for OnQubit NOT operation")
     else:
-        raise ValueError(f"invalid number of operands for OnQubit NOT operation: expected 1, got {len(op.operands)}")
+        raise ValueError(
+            f"invalid number of operands for OnQubit NOT operation: expected 1, got {len(op.operands)}"
+        )
 
 
 def apply_onqubit_cnot(circuit, op):
@@ -203,7 +213,7 @@ def apply_onqubit_cnot(circuit, op):
         # get the control and target vectors via SSA mapping
         control_vector = op.operands[0]
         target_vector = op.operands[1]
-        
+
         control_qreg, _ = get_register_for_ssa(control_vector)
         target_qreg, _ = get_register_for_ssa(target_vector)
 
@@ -219,7 +229,7 @@ def apply_onqubit_cnot(circuit, op):
             if control_qreg is not None and target_qreg is not None:
                 # apply CNOT directly between the bits
                 circuit.cx(control_qreg[control_index], target_qreg[target_index])
-                
+
                 # propagate SSA mapping for both results if they exist
                 if hasattr(op, "results") and len(op.results) >= 2:
                     propagate_ssa_mapping(control_vector, op.results[0])
@@ -227,16 +237,30 @@ def apply_onqubit_cnot(circuit, op):
                 return
             else:
                 # SSA mapping must exist
-                ctrl_name = control_vector._name if hasattr(control_vector, '_name') else str(control_vector)
-                tgt_name = target_vector._name if hasattr(target_vector, '_name') else str(target_vector)
+                ctrl_name = (
+                    control_vector._name
+                    if hasattr(control_vector, "_name")
+                    else str(control_vector)
+                )
+                tgt_name = (
+                    target_vector._name
+                    if hasattr(target_vector, "_name")
+                    else str(target_vector)
+                )
                 if control_qreg is None:
-                    raise ValueError(f"SSA mapping failed for control operand in OnQubit CNOT: {ctrl_name}")
+                    raise ValueError(
+                        f"SSA mapping failed for control operand in OnQubit CNOT: {ctrl_name}"
+                    )
                 if target_qreg is None:
-                    raise ValueError(f"SSA mapping failed for target operand in OnQubit CNOT: {tgt_name}")
+                    raise ValueError(
+                        f"SSA mapping failed for target operand in OnQubit CNOT: {tgt_name}"
+                    )
         else:
             raise ValueError("index attributes not found for OnQubit CNOT operation")
     else:
-        raise ValueError(f"invalid number of operands for OnQubit CNOT operation: expected 2, got {len(op.operands)}")
+        raise ValueError(
+            f"invalid number of operands for OnQubit CNOT operation: expected 2, got {len(op.operands)}"
+        )
 
 
 def apply_cnot(circuit, op):
@@ -297,7 +321,7 @@ def apply_ccnot(circuit, op):
         c2_qreg = None
         t_qreg = None
 
-        # extract control and target qubits 
+        # extract control and target qubits
         if hasattr(control_qubit1, "_name") and control_qubit1._name:
             c1_name = control_qubit1._name
             c1_base = c1_name.split("_")[0]
@@ -376,7 +400,7 @@ def apply_onqubit_ccnot(circuit, op):
         control1_vector = op.operands[0]
         control2_vector = op.operands[1]
         target_vector = op.operands[2]
-        
+
         control1_qreg, _ = get_register_for_ssa(control1_vector)
         control2_qreg, _ = get_register_for_ssa(control2_vector)
         target_qreg, _ = get_register_for_ssa(target_vector)
@@ -399,28 +423,48 @@ def apply_onqubit_ccnot(circuit, op):
                     control2_qreg[control2_index],
                     target_qreg[target_index],
                 )
-                
+
                 # propagate SSA mappings
                 if hasattr(op, "results") and len(op.results) >= 3:
                     propagate_ssa_mapping(control1_vector, op.results[0])
                     propagate_ssa_mapping(control2_vector, op.results[1])
                     propagate_ssa_mapping(target_vector, op.results[2])
                 return
-            
+
             # SSA mapping must exist
             if control1_qreg is None:
-                c1_name = control1_vector._name if hasattr(control1_vector, '_name') else str(control1_vector)
-                raise ValueError(f"SSA mapping failed for control1 operand in OnQubit CCNOT: {c1_name}")
+                c1_name = (
+                    control1_vector._name
+                    if hasattr(control1_vector, "_name")
+                    else str(control1_vector)
+                )
+                raise ValueError(
+                    f"SSA mapping failed for control1 operand in OnQubit CCNOT: {c1_name}"
+                )
             if control2_qreg is None:
-                c2_name = control2_vector._name if hasattr(control2_vector, '_name') else str(control2_vector)
-                raise ValueError(f"SSA mapping failed for control2 operand in OnQubit CCNOT: {c2_name}")
+                c2_name = (
+                    control2_vector._name
+                    if hasattr(control2_vector, "_name")
+                    else str(control2_vector)
+                )
+                raise ValueError(
+                    f"SSA mapping failed for control2 operand in OnQubit CCNOT: {c2_name}"
+                )
             if target_qreg is None:
-                tgt_name = target_vector._name if hasattr(target_vector, '_name') else str(target_vector)
-                raise ValueError(f"SSA mapping failed for target operand in OnQubit CCNOT: {tgt_name}")
+                tgt_name = (
+                    target_vector._name
+                    if hasattr(target_vector, "_name")
+                    else str(target_vector)
+                )
+                raise ValueError(
+                    f"SSA mapping failed for target operand in OnQubit CCNOT: {tgt_name}"
+                )
         else:
             raise ValueError("index attributes not found for OnQubit CCNOT operation")
     else:
-        raise ValueError(f"Invalid number of operands for OnQubit CCNOT operation: expected 3, got {len(op.operands)}")
+        raise ValueError(
+            f"Invalid number of operands for OnQubit CCNOT operation: expected 3, got {len(op.operands)}"
+        )
 
 
 def apply_onqubit_hadamard(circuit, op):
@@ -434,21 +478,26 @@ def apply_onqubit_hadamard(circuit, op):
         # get the register via SSA mapping
         operand = op.operands[0]
         qreg, _ = get_register_for_ssa(operand)
-        bit_index = op.attributes.get("index", IntegerAttr(0, IntegerType(32))).value.data
-        
+        bit_index = op.attributes.get(
+            "index", IntegerAttr(0, IntegerType(32))
+        ).value.data
+
         if qreg is not None:
             circuit.h(qreg[bit_index])
-            
+
             # propagate SSA mapping if this op produces a result
             if hasattr(op, "results") and op.results:
                 propagate_ssa_mapping(operand, op.results[0])
             return
-        
+
         # SSA mapping must exist
-        ssa_name = operand._name if hasattr(operand, '_name') else str(operand)
-        raise ValueError(f"SSA mapping failed for operand in OnQubit Hadamard: {ssa_name}")
+        ssa_name = operand._name if hasattr(operand, "_name") else str(operand)
+        raise ValueError(
+            f"SSA mapping failed for operand in OnQubit Hadamard: {ssa_name}"
+        )
     else:
         raise ValueError(f"OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
+
 
 def apply_onqubit_phase(circuit, op):
     """Apply a phase gate to a specific bit in a register.
@@ -461,21 +510,24 @@ def apply_onqubit_phase(circuit, op):
         # get the register via SSA mapping
         operand = op.operands[0]
         qreg, _ = get_register_for_ssa(operand)
-        bit_index = op.attributes.get("index", IntegerAttr(0, IntegerType(32))).value.data
+        bit_index = op.attributes.get(
+            "index", IntegerAttr(0, IntegerType(32))
+        ).value.data
         phase = op.attributes.get("phase", FloatAttr(0.0, Float64Type())).value.data
-        
+
         if qreg is not None:
             circuit.p(phase, qreg[bit_index])
-            
+
             # propagate SSA mapping if this op produces a result
             if hasattr(op, "results") and op.results:
                 propagate_ssa_mapping(operand, op.results[0])
             return
-        
-        # SSA mapping required 
+
+        # SSA mapping required
         raise ValueError("SSA mapping failed for Phase operand")
     else:
         print(f"[WARN] OnQubitPhaseOp expects 1 operand, got {len(op.operands)}")
+
 
 def apply_onqubit_controlled_phase(circuit, op):
     """Apply a controlled phase gate between specific bits.
@@ -488,31 +540,38 @@ def apply_onqubit_controlled_phase(circuit, op):
         # get the control and target operands via SSA mapping
         control_operand = op.operands[0]
         target_operand = op.operands[1]
-        
+
         control_reg, _ = get_register_for_ssa(control_operand)
         target_reg, _ = get_register_for_ssa(target_operand)
-        
+
         # get indices and phase
-        control_index = op.attributes.get("control_index", IntegerAttr(0, IntegerType(32))).value.data
-        target_index = op.attributes.get("target_index", IntegerAttr(0, IntegerType(32))).value.data
+        control_index = op.attributes.get(
+            "control_index", IntegerAttr(0, IntegerType(32))
+        ).value.data
+        target_index = op.attributes.get(
+            "target_index", IntegerAttr(0, IntegerType(32))
+        ).value.data
         phase = op.attributes.get("phase", FloatAttr(0.0, Float64Type())).value.data
-        
+
         if control_reg is not None and target_reg is not None:
             # apply controlled phase rotation
             circuit.cp(phase, control_reg[control_index], target_reg[target_index])
-            
+
             # propagate SSA mapping for results
             if hasattr(op, "results") and len(op.results) >= 2:
                 propagate_ssa_mapping(control_operand, op.results[0])
                 propagate_ssa_mapping(target_operand, op.results[1])
             return
-        
+
         # SSA mapping is required
         if control_reg is None:
             raise ValueError("SSA mapping failed for Controlled Phase control operand")
         raise ValueError("SSA mapping failed for Controlled Phase target operand")
     else:
-        print(f"[WARN] OnQubitControlledPhaseOp expects 2 operands, got {len(op.operands)}")
+        print(
+            f"[WARN] OnQubitControlledPhaseOp expects 2 operands, got {len(op.operands)}"
+        )
+
 
 def apply_onqubit_swap(circuit, op):
     """Apply a SWAP gate between specific bits in a register.
@@ -525,21 +584,26 @@ def apply_onqubit_swap(circuit, op):
         # get the register via SSA mapping
         operand = op.operands[0]
         qreg, _ = get_register_for_ssa(operand)
-        qubit1_index = op.attributes.get("qubit1_index", IntegerAttr(0, IntegerType(32))).value.data
-        qubit2_index = op.attributes.get("qubit2_index", IntegerAttr(0, IntegerType(32))).value.data
-        
+        qubit1_index = op.attributes.get(
+            "qubit1_index", IntegerAttr(0, IntegerType(32))
+        ).value.data
+        qubit2_index = op.attributes.get(
+            "qubit2_index", IntegerAttr(0, IntegerType(32))
+        ).value.data
+
         if qreg is not None:
             circuit.swap(qreg[qubit1_index], qreg[qubit2_index])
-            
+
             # propagate SSA mapping if this op produces a result
             if hasattr(op, "results") and op.results:
                 propagate_ssa_mapping(operand, op.results[0])
             return
-        
+
         # SSA mapping is required
         raise ValueError("SSA mapping failed for SWAP operand")
     else:
         print(f"[WARN] OnQubitSwapOp expects 1 operand, got {len(op.operands)}")
+
 
 def apply_hadamard(circuit, op):
     """Apply a Hadamard gate to the circuit.
@@ -628,39 +692,61 @@ def build_ssa_mapping(first_op, quantum_registers):
         quantum_registers: Dict mapping register names to Qiskit QuantumRegister objects
     """
     current_op = first_op
-    
+
     while current_op is not None:
         op_name = current_op.name
-        
+
         # for init operations, the result is the initial register SSA value
-        if op_name == "quantum.init" and hasattr(current_op, "results") and current_op.results:
+        if (
+            op_name == "quantum.init"
+            and hasattr(current_op, "results")
+            and current_op.results
+        ):
             result = current_op.results[0]
             if hasattr(result, "_name") and result._name:
                 base_name = result._name.split("_")[0]
                 if base_name in quantum_registers:
-                    register_ssa_mapping(result, quantum_registers[base_name], base_name)
-        
+                    register_ssa_mapping(
+                        result, quantum_registers[base_name], base_name
+                    )
+
         # for gate operations that produce results, propagate from operand to result
         # single-operand gates (NOT, Hadamard, Phase, etc.)
-        elif op_name in ["quantum.OnQubit_not", "quantum.OnQubit_hadamard", 
-                         "quantum.OnQubit_phase", "quantum.OnQubit_swap"]:
-            if len(current_op.operands) >= 1 and hasattr(current_op, "results") and current_op.results:
+        elif op_name in [
+            "quantum.OnQubit_not",
+            "quantum.OnQubit_hadamard",
+            "quantum.OnQubit_phase",
+            "quantum.OnQubit_swap",
+        ]:
+            if (
+                len(current_op.operands) >= 1
+                and hasattr(current_op, "results")
+                and current_op.results
+            ):
                 propagate_ssa_mapping(current_op.operands[0], current_op.results[0])
-        
+
         # two-operand gates with single result (CNOT, Controlled Phase)
         # the result represents the TARGET qubit (operand[1]), not the control
         elif op_name in ["quantum.OnQubit_cnot", "quantum.OnQubit_controlled_phase"]:
-            if len(current_op.operands) >= 2 and hasattr(current_op, "results") and current_op.results:
+            if (
+                len(current_op.operands) >= 2
+                and hasattr(current_op, "results")
+                and current_op.results
+            ):
                 # the single result is the new value of the target qubit (operand[1])
                 propagate_ssa_mapping(current_op.operands[1], current_op.results[0])
-        
+
         # three-operand gates with single result (CCNOT)
         # the result represents the TARGET qubit (operand[2])
         elif op_name == "quantum.OnQubit_ccnot":
-            if len(current_op.operands) >= 3 and hasattr(current_op, "results") and current_op.results:
+            if (
+                len(current_op.operands) >= 3
+                and hasattr(current_op, "results")
+                and current_op.results
+            ):
                 # the single result is the new value of the target qubit (operand[2])
                 propagate_ssa_mapping(current_op.operands[2], current_op.results[0])
-        
+
         current_op = current_op.next_op
 
 
@@ -674,13 +760,13 @@ def create_circuit(first_op, output_number):
     """
     # clear any previous SSA mappings
     clear_ssa_mappings()
-    
+
     quantum_registers = {}
     reg_counter = 0
     current_op = first_op
 
     circuit = QuantumCircuit()
-    
+
     # pass 1: create all quantum registers first
     while current_op is not None:
         if (
@@ -694,10 +780,10 @@ def create_circuit(first_op, output_number):
                 reg_counter += 1
                 circuit.add_register(new_reg)
         current_op = current_op.next_op
-    
+
     # build full SSA mapping by walking through all operations
     build_ssa_mapping(first_op, quantum_registers)
-    
+
     # pass 2: apply all gates
     current_op = first_op
     while current_op is not None:

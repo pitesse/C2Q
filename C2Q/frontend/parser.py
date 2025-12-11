@@ -36,19 +36,21 @@ from .c_ast import (
 
 class ParseError(Exception):
     """Exception raised when a parsing error occurs."""
+
     pass
 
 
 @dataclass
 class Symbol:
     """Represents a variable symbol in the symbol table.
-    
+
     Attributes:
         name: Variable name.
         type: Variable type.
         initialized: Whether the variable has been initialized.
         used: Whether the variable has been used.
     """
+
     name: str
     type: str
     initialized: bool = False
@@ -57,57 +59,58 @@ class Symbol:
 
 class SymbolTable:
     """A symbol table that manages variable declarations with nested scopes.
-    
+
     Manages variable scoping, tracks variable usage and initialization,
     and provides semantic validation for variable declarations and references.
     """
+
     def __init__(self):
         self.scopes: List[Dict[str, Symbol]] = [{}]
         self.current_function: Optional[Tuple[str, str]] = None
-        
+
     def enter_scope(self):
         """Create a new scope for block-level variable declarations."""
         self.scopes.append({})
-        
+
     def exit_scope(self):
         """Exit the current scope and check for unused variables.
-        
+
         Raises:
             RuntimeError: If attempting to exit the global scope.
         """
         if len(self.scopes) <= 1:
             raise RuntimeError("Cannot exit global scope")
-            
+
         scope = self.scopes[-1]
         for name, symbol in scope.items():
             if not symbol.used:
                 print(f"Warning: Unused variable '{name}' declared but never used")
-                
+
         self.scopes.pop()
-        
+
     def declare(self, name: str, type_str: str, initialized: bool = False) -> bool:
         """Declare a variable in the current scope.
-        
+
         Args:
             name: Variable name.
             type_str: Variable type.
             initialized: Whether the variable is initialized.
-            
+
         Returns:
             True if successful, False if already declared in this scope.
         """
         if name in self.scopes[-1]:
             return False
-            
+
         self.scopes[-1][name] = Symbol(name, type_str, initialized)
         return True
-        
+
     def lookup(self, name: str) -> Optional[Symbol]:
         """Look up a variable, starting from the innermost scope.
-        
+
         Args:
             name: Variable name to look up.
-            
+
         Returns:
             Symbol if found, None otherwise.
         """
@@ -115,13 +118,13 @@ class SymbolTable:
             if name in scope:
                 return scope[name]
         return None
-        
+
     def mark_used(self, name: str) -> bool:
         """Mark a variable as used.
-        
+
         Args:
             name: Variable name.
-            
+
         Returns:
             True if found and marked, False if not found.
         """
@@ -130,13 +133,13 @@ class SymbolTable:
                 scope[name].used = True
                 return True
         return False
-        
+
     def mark_initialized(self, name: str) -> bool:
         """Mark a variable as initialized.
-        
+
         Args:
             name: Variable name.
-            
+
         Returns:
             True if found and marked, False if not found.
         """
@@ -145,23 +148,23 @@ class SymbolTable:
                 scope[name].initialized = True
                 return True
         return False
-        
+
     def enter_function(self, name: str, return_type: str):
         """Set the current function context.
-        
+
         Args:
             name: Function name.
             return_type: Function return type.
         """
         self.current_function = (name, return_type)
-        
+
     def exit_function(self):
         """Clear the current function context."""
         self.current_function = None
-        
+
     def get_current_function(self) -> Optional[Tuple[str, str]]:
         """Get the current function name and return type.
-        
+
         Returns:
             Tuple of (name, return_type) if in a function, None otherwise.
         """
@@ -227,7 +230,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Args:
             pattern: String or token kind to match against.
-            
+
         Returns:
             The matching token or None if no match.
         """
@@ -245,7 +248,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Args:
             pattern: String or token kind to match against.
-            
+
         Returns:
             True if the current token matches the pattern, False otherwise.
         """
@@ -264,10 +267,10 @@ class CParser(GenericParser[CTokenKind]):
 
         Args:
             pattern: String pattern to match against.
-            
+
         Returns:
             The consumed token.
-            
+
         Raises:
             ParseError: If the current token doesn't match the pattern.
         """
@@ -281,10 +284,10 @@ class CParser(GenericParser[CTokenKind]):
 
         Args:
             tokenType: Expected token kind.
-            
+
         Returns:
             The consumed token.
-            
+
         Raises:
             ParseError: If the current token is not of the expected type.
         """
@@ -297,7 +300,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             ModuleAST object containing the parsed functions.
-            
+
         Raises:
             ParseError: If the global scope contains syntax errors.
         """
@@ -317,7 +320,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             ReturnExprAST representing the return statement.
-            
+
         Raises:
             ParseError: If the return type doesn't match function declaration.
         """
@@ -327,16 +330,20 @@ class CParser(GenericParser[CTokenKind]):
         current_function = self.symbol_table.get_current_function()
         if not current_function:
             self.raise_error("Return statement outside of function")
-            
+
         func_name, return_type = current_function
 
         if not self.check(";"):
             expr = self.parseExpression()
-            
+
             if return_type == "void" and expr is not None:
-                self.raise_error(f"Function '{func_name}' has void return type but returns a value")
+                self.raise_error(
+                    f"Function '{func_name}' has void return type but returns a value"
+                )
             elif return_type != "void" and expr is None:
-                self.raise_error(f"Function '{func_name}' must return a value of type {return_type}")
+                self.raise_error(
+                    f"Function '{func_name}' must return a value of type {return_type}"
+                )
 
         return ReturnExprAST(loc(returnToken), expr)
 
@@ -360,7 +367,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             LiteralExprAST or NumberExprAST representing the parsed tensor/array.
-            
+
         Raises:
             ParseError: If the tensor literal is malformed.
         """
@@ -430,32 +437,32 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             VariableExprAST, CallExprAST, or PrintExprAST for the parsed expression.
-            
+
         Raises:
             ParseError: If the variable is used before declaration.
         """
         name = self.pop_token(CTokenKind.IDENTIFIER)
-        
+
         if not self.check("("):
             symbol = self.symbol_table.lookup(name.text)
             if not symbol:
                 self.raise_error(f"Use of undeclared variable '{name.text}'")
-            
+
             # usage/initialization checking deferred to parseBinOpRHS to distinguish assignment from usage
             return VariableExprAST(loc(name), name.text, symbol.type)
-        
+
         self.pop_pattern("(")
         args: list[ExprAST] = []
         while True:
             if self.check(")"):
                 break
-                
+
             arg_expr = self.parseExpression()
             args.append(arg_expr)
-            
+
             if self.check(")"):
                 break
-                
+
             self.pop_pattern(",")
 
         self.pop_pattern(")")
@@ -469,16 +476,18 @@ class CParser(GenericParser[CTokenKind]):
 
     def _check_variable_usage(self, expr):
         """Recursively check variable usage in an expression tree.
-        
+
         Args:
             expr: Expression AST node to check.
         """
         if isinstance(expr, VariableExprAST):
             self.symbol_table.mark_used(expr.name)
-            
+
             symbol = self.symbol_table.lookup(expr.name)
             if symbol and not symbol.initialized:
-                self.raise_error(f"Variable '{expr.name}' is used before being initialized")
+                self.raise_error(
+                    f"Variable '{expr.name}' is used before being initialized"
+                )
         elif isinstance(expr, BinaryExprAST):
             self._check_variable_usage(expr.lhs)
             self._check_variable_usage(expr.rhs)
@@ -488,14 +497,14 @@ class CParser(GenericParser[CTokenKind]):
 
     def parsePrimary(self) -> ExprAST | None:
         """Parse a primary expression.
-    
+
         Grammar:
             primary ::= identifierexpr
                     ::= numberexpr
                     ::= parenexpr
                     ::= tensorliteral
                     ::= unary_expr
-    
+
         Returns:
             ExprAST representing the parsed expression or None if end of block.
         """
@@ -526,10 +535,10 @@ class CParser(GenericParser[CTokenKind]):
             return None
         else:
             self.raise_error("Expected expression or one of `;`, `}`")
-    
+
     def parsePrimaryNotNone(self) -> ExprAST:
         """Parse a primary expression, requiring a valid expression.
-        
+
         Returns:
             ExprAST representing the parsed expression.
         """
@@ -566,10 +575,10 @@ class CParser(GenericParser[CTokenKind]):
         Args:
             exprPrec: Current precedence level.
             lhs: Left-hand side expression.
-            
+
         Returns:
             Complete binary expression with correct precedence handling.
-            
+
         Raises:
             ParseError: If assignment target is not a variable or types are incompatible.
         """
@@ -581,10 +590,10 @@ class CParser(GenericParser[CTokenKind]):
 
             if self.check(CTokenKind.ASSIGN):
                 binOp = self.pop_token(CTokenKind.ASSIGN).text
-                
+
                 if not isinstance(lhs, VariableExprAST):
                     self.raise_error("Left side of assignment must be a variable")
-                    
+
                 var_name = lhs.name
                 symbol = self.symbol_table.lookup(var_name)
                 if not symbol:
@@ -593,18 +602,22 @@ class CParser(GenericParser[CTokenKind]):
                 current_token = self.getToken()
                 if current_token.text in ["+", "-", "*", "/", "%"]:
                     binOp = self.pop().text
-                    
+
                     if isinstance(lhs, VariableExprAST):
                         self.symbol_table.mark_used(lhs.name)
                         symbol = self.symbol_table.lookup(lhs.name)
                         if symbol and not symbol.initialized:
-                            self.raise_error(f"Variable '{lhs.name}' is used before being initialized")
+                            self.raise_error(
+                                f"Variable '{lhs.name}' is used before being initialized"
+                            )
                 else:
                     if isinstance(lhs, VariableExprAST):
                         self.symbol_table.mark_used(lhs.name)
                         symbol = self.symbol_table.lookup(lhs.name)
                         if symbol and not symbol.initialized:
-                            self.raise_error(f"Variable '{lhs.name}' is used before being initialized")
+                            self.raise_error(
+                                f"Variable '{lhs.name}' is used before being initialized"
+                            )
                     return lhs
 
             rhs = self.parsePrimary()
@@ -618,7 +631,7 @@ class CParser(GenericParser[CTokenKind]):
             if binOp == "=" and isinstance(lhs, VariableExprAST):
                 self.symbol_table.mark_initialized(lhs.name)
                 self._check_variable_usage(rhs)
-                
+
             nextPrec = self.getTokenPrecedence()
             if tokPrec < nextPrec:
                 rhs = self.parseBinOpRHS(tokPrec + 1, rhs)
@@ -666,7 +679,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             VarDeclExprAST representing the variable declaration.
-            
+
         Raises:
             ParseError: If variable is redeclared or has invalid initialization.
         """
@@ -686,20 +699,22 @@ class CParser(GenericParser[CTokenKind]):
 
         name_token = self.pop_token(CTokenKind.IDENTIFIER)
         var_name = name_token.text
-        
+
         if var_name in self.symbol_table.scopes[-1]:
-            self.raise_error(f"Redeclaration of variable '{var_name}' in the same scope")
+            self.raise_error(
+                f"Redeclaration of variable '{var_name}' in the same scope"
+            )
 
         expr = None
         initialized = False
-        
+
         if self.check("="):
             self.pop_pattern("=")
             expr = self.parseExpression()
             initialized = True
-        
+
         self.symbol_table.declare(var_name, var_type, initialized)
-        
+
         return VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
 
     def parseDeclarationList(self):
@@ -709,7 +724,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             List of VarDeclExprAST objects representing the variable declarations.
-            
+
         Raises:
             ParseError: If declaration syntax is invalid or variables are redeclared.
         """
@@ -732,20 +747,22 @@ class CParser(GenericParser[CTokenKind]):
 
             name_token = self.pop_token(CTokenKind.IDENTIFIER)
             var_name = name_token.text
-            
+
             if var_name in self.symbol_table.scopes[-1]:
-                self.raise_error(f"Redeclaration of variable '{var_name}' in the same scope")
+                self.raise_error(
+                    f"Redeclaration of variable '{var_name}' in the same scope"
+                )
 
             expr = None
             initialized = False
-            
+
             if self.check("="):
                 self.pop_pattern("=")
                 expr = self.parseExpression()
                 initialized = True
 
             self.symbol_table.declare(var_name, var_type, initialized)
-            
+
             declarations.append(
                 VarDeclExprAST(loc(type_token), var_name, var_type, expr=expr)
             )
@@ -769,14 +786,14 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             Tuple of ExprAST objects representing the statements in the block.
-            
+
         Raises:
             ParseError: If the block syntax is invalid.
         """
         self.pop_pattern("{")
-        
+
         self.symbol_table.enter_scope()
-        
+
         exprList: list[ExprAST] = []
 
         while not self.check("}"):
@@ -798,9 +815,9 @@ class CParser(GenericParser[CTokenKind]):
                 self.pop_pattern(";")
 
         self.pop_pattern("}")
-        
+
         self.symbol_table.exit_scope()
-        
+
         return tuple(exprList)
 
     def parsePrototype(self):
@@ -813,7 +830,7 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             PrototypeAST representing the function prototype.
-            
+
         Raises:
             ParseError: If the prototype syntax is invalid.
         """
@@ -874,27 +891,29 @@ class CParser(GenericParser[CTokenKind]):
 
         Returns:
             FunctionAST representing the complete function definition.
-            
+
         Raises:
             ParseError: If the function definition syntax is invalid.
         """
         proto = self.parsePrototype()
-        
+
         self.symbol_table.enter_function(proto.name, proto.return_type)
-        
+
         self.symbol_table.enter_scope()
-        
+
         for param in proto.args:
             type_name = param.type_name if param.type_name is not None else "int"
             self.symbol_table.declare(param.name, type_name, initialized=True)
-        
+
         block = self.parseBlock()
-        
+
         if proto.return_type != "void":
             has_return = any(isinstance(expr, ReturnExprAST) for expr in block)
             if not has_return:
-                self.raise_error(f"Function '{proto.name}' has non-void return type but no return statement")
-        
+                self.raise_error(
+                    f"Function '{proto.name}' has non-void return type but no return statement"
+                )
+
         self.symbol_table.exit_function()
-        
+
         return FunctionAST(proto.loc, proto, block)

@@ -21,7 +21,7 @@ class Location:
     that pinpoints a specific location in the source code. It's used for
     error reporting and debugging to provide precise information about
     where issues occur in the original source.
-    
+
     Attributes:
         file: Path to the source file.
         line: Line number (1-based).
@@ -53,10 +53,10 @@ def loc(token: Token[Any]) -> Location:
 
     Args:
         token: The token whose location needs to be determined.
-        
+
     Returns:
         A Location object with file, line, and column information.
-        
+
     Raises:
         AssertionError: If the token's location cannot be determined.
     """

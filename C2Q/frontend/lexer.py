@@ -105,7 +105,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Args:
             size: Number of characters ahead to check.
-            
+
         Returns:
             True if the position plus size is within bounds, False otherwise.
         """
@@ -119,7 +119,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Args:
             size: Number of characters to retrieve.
-            
+
         Returns:
             The retrieved characters or None if position is out of bounds.
         """
@@ -132,7 +132,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Args:
             size: Number of characters to peek at.
-            
+
         Returns:
             The characters at the current position or None if out of bounds.
         """
@@ -154,7 +154,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Args:
             regex: Regular expression pattern to match.
-            
+
         Returns:
             The match object if matched, None otherwise.
         """
@@ -185,7 +185,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Returns:
             The next token from the input.
-            
+
         Raises:
             ParseError: If an unexpected character is encountered.
         """
@@ -230,7 +230,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Args:
             start_pos: Starting position of the identifier.
-            
+
         Returns:
             A token of type IDENTIFIER or the appropriate keyword type.
         """
@@ -260,7 +260,7 @@ class CLexer(Lexer[CTokenKind]):
 
         Args:
             start_pos: Starting position of the number.
-            
+
         Returns:
             A token of type NUMBER.
         """
