@@ -31,41 +31,41 @@ def validate_circuit(circuit: QuantumCircuit, expected_result: int, verbose: boo
         True if validation passes, False otherwise
     """
     try:
-        # Simulate the circuit
+        # simulate the circuit
         if verbose:
-            print(f"🔬 Simulating the generated circuit...")
-            print(f"   Circuit has {circuit.num_qubits} qubits, {circuit.depth()} depth, {len(circuit)} gates")
+            print(f"[INFO] simulating the generated circuit...")
+            print(f"   circuit has {circuit.num_qubits} qubits, {circuit.depth()} depth, {len(circuit)} gates")
         
         counts = simulate_circuit(circuit, shots=1024)
         
-        # Extract result
+        # extract result
         actual_result = extract_result_value(counts, target_width=result_width, signed=signed)
         
         if verbose:
-            print(f"\n📊 Results:")
-            print(f"   Expected: {expected_result}")
-            print(f"   Actual:   {actual_result}")
+            print(f"\n[INFO] results:")
+            print(f"   expected: {expected_result}")
+            print(f"   actual:   {actual_result}")
             
-            # Show measurement distribution
-            print(f"\n📈 Measurement distribution (top 5):")
+            # show measurement distribution
+            print(f"\n[INFO] measurement distribution (top 5):")
             sorted_counts = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:5]
             for bits, count in sorted_counts:
                 print(f"   {bits}: {count} times ({count/sum(counts.values())*100:.1f}%)")
         
-        # Validate
+        # validate
         passed = (actual_result == expected_result)
         
         if verbose:
             if passed:
-                print(f"\n✅ PASSED: Circuit produces correct result!")
+                print(f"\n[PASS] circuit produces correct result!")
             else:
-                print(f"\n❌ FAILED: Expected {expected_result}, got {actual_result}")
+                print(f"\n[FAIL] expected {expected_result}, got {actual_result}")
         
         return passed
         
     except Exception as e:
         if verbose:
-            print(f"\n❌ ERROR during validation: {e}")
+            print(f"\n[ERROR] during validation: {e}")
             import traceback
             traceback.print_exc()
         return False
@@ -86,20 +86,20 @@ def simulate_circuit(circuit: QuantumCircuit, shots: int = 1024) -> Dict[str, in
     Returns:
         Dictionary mapping measurement bitstrings to occurrence counts
     """
-    # Create a copy and add measurements if needed
+    # create a copy and add measurements if needed
     sim_circuit = circuit.copy()
     if sim_circuit.num_clbits == 0:
         sim_circuit.measure_all()
     
-    # Use matrix_product_state for efficiency with QFT circuits
+    # use matrix_product_state
     try:
         simulator = AerSimulator(method='matrix_product_state')
         job = simulator.run(sim_circuit, shots=shots, seed_simulator=42)
         result = job.result()
         return result.get_counts()
     except Exception as e:
-        # Fallback to automatic method
-        print(f"⚠️  MPS simulation failed, using automatic method: {e}")
+        # fallback to automatic method -- MAY HANG OR FAIL ON LARGE CIRCUITS ---
+        print(f"[WARN] MPS simulation failed, using automatic method: {e}")
         simulator = AerSimulator(method='automatic')
         job = simulator.run(sim_circuit, shots=shots, seed_simulator=42)
         result = job.result()
@@ -130,25 +130,25 @@ def extract_result_value(counts: Dict[str, int], target_width: int = 8, signed: 
     if not counts:
         return None
     
-    # Get the most common measurement outcome
+    # get the most common measurement outcome
     most_common = max(counts.items(), key=lambda x: x[1])[0]
     
-    # Remove spaces from bitstring
+    # remove spaces from bitstring
     bitstring = most_common.replace(' ', '')
     
-    # Extract the leftmost target_width bits (result register is created last)
+    # extract the leftmost target_width bits (result register is created last)
     result_bits = bitstring[:target_width]
     
-    # Convert to integer
+    # convert to integer
     unsigned_value = int(result_bits, 2)
     
-    # Handle signed two's complement if requested
+    # handle signed two's complement if requested
     if signed:
-        # Check if the sign bit (MSB) is set
+        # check if the sign bit (MSB) is set
         sign_bit = int(result_bits[0])
         if sign_bit == 1:
-            # Negative number: compute two's complement
-            # Formula: value - 2^n where n is the bit width
+            # negative number: compute two's complement
+            # formula: value - 2^n where n is the bit width
             signed_value = unsigned_value - (1 << target_width)
             return signed_value
         else:

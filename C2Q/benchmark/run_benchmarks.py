@@ -444,10 +444,10 @@ def print_comparison_table(results: List[Tuple[BenchmarkResult, BenchmarkResult]
             ("MLIR Operations", "mlir_op_count"),
             ("Total Gates", "total_gates"),
             ("Circuit Depth", "circuit_depth"),
-            ("Qubit Count", "qubit_count"),
-            ("CNOT Gates", "cnot_count"),
+            #("Qubit Count", "qubit_count"),
+            #("CNOT Gates", "cnot_count"),
             ("Hadamard Gates", "hadamard_count"),
-            ("SWAP Gates", "swap_count"),
+            #("SWAP Gates", "swap_count"),
             ("Phase Gates", "phase_gates"),
         ]
         
