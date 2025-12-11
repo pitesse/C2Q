@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+.DS_Store
+
 # C extensions
 *.so
 
@@ -172,3 +174,27 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+.vscode
+
+# Generated outputs - only ignore in tests/outputs
+tests/outputs/*.mlir
+tests/outputs/*.ast
+*.qasm
+circuit.png
+
+# LaTeX build artifacts
+paper/build/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.toc
+paper/*.synctex.gz
+paper/*.fdb_latexmk
+paper/*.fls
+paper/main.pdf
+
+# Doxygen documentation
+docs/html/
+docs/latex/
