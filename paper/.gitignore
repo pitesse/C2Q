@@ -37,8 +37,6 @@
 build/
 out/
 
-# Generated PDFs (you may want to keep these, comment out if needed)
-*.pdf
 
 # macOS
 .DS_Store
