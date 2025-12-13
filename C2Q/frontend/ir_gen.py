@@ -165,7 +165,7 @@ class QuantumIRGen:
         if main_func:
             self.ir_gen_main_function(main_func)
         else:
-            raise IRGenError("No main function found in the module")
+            raise IRGenError("No main function found in the C module")
 
         return self.module
 
@@ -184,8 +184,8 @@ class QuantumIRGen:
             FuncOp: The generated quantum function operation
         """
         self.symbol_table = ScopedDict[str, SSAValue]()
-        region = Region()
-        block = Block()
+        region = Region() # control flow graph of blocks
+        block = Block() # sequence of operations
         region.add_block(block)
 
         func_op = self.builder.insert(FuncOp("main", region))

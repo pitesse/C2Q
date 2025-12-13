@@ -13,6 +13,7 @@ and provides visualization and metrics of the generated quantum circuits.
 import argparse
 from io import StringIO
 from pathlib import Path
+import sys
 
 # Third-party imports
 from xdsl.printer import Printer
@@ -41,8 +42,8 @@ def parse_c_to_ast(path: Path):
         The parsed AST module.
     """
     with open(path) as f:
-        parser = CParser(path, f.read())
-        ast = parser.parseModule()
+        Cparser = CParser(path, f.read())
+        ast = Cparser.parseModule()
 
     output_path = get_output_path(path, ".ast")
 
@@ -65,16 +66,16 @@ def generate_quantum_ir(
         precision: Phase precision threshold for optimizations.
 
     Returns:
-        Tuple of (module_op, mlir_string) containing the IR module and its string representation.
+        Tuple of (ir_module, mlir_string) containing the IR module and its string representation.
     """
     ir_gen = QuantumIRGen()
-    module_op = ir_gen.ir_gen_module(ast)
+    ir_module = ir_gen.ir_gen_module(ast)
 
     if optimize:
         print("[OPTIMIZE] Starting Integrated Quantum Circuit Optimization...")
 
-        module_op = optimize_quantum_circuit(
-            module_op,
+        ir_module = optimize_quantum_circuit(
+            ir_module,
             optimization_level="default",
             analysis_only=False,
             verbose=True,
@@ -83,12 +84,12 @@ def generate_quantum_ir(
 
         print("[PASS] Optimization pipeline completed")
 
-    # create a StringIO buffer to capture output
-    ir_buffer = StringIO()
-    printer = Printer(stream=ir_buffer, print_generic_format=print_generic)
-    printer.print(module_op)
+    # StringIO buffer to capture mlir dump output as a string and save it to disk
+    mlir_dump = StringIO()
+    printer = Printer(stream=mlir_dump, print_generic_format=print_generic)
+    printer.print_op(ir_module)
 
-    return module_op, ir_buffer.getvalue()
+    return ir_module, mlir_dump.getvalue()
 
 
 def get_output_path(input_path: Path, suffix: str) -> Path:
@@ -146,7 +147,7 @@ def print_banner():
     print("=========================================")
 
 
-def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
+def display_circuit_and_metrics(circuit_metrics, circuit_info, circuit):
     """Display circuit metrics and visualization.
 
     Args:
@@ -158,12 +159,6 @@ def display_circuit_metrics(circuit_metrics, circuit_info, circuit):
     for key, value in circuit_metrics.items():
         if key != "Gate Distribution":
             print(f"{key}: {value}")
-
-    print("\nCircuit Information:")
-    print(f"Input qubits: {circuit_info['input_number']}")
-    print(f"Support qubits: {circuit_info['init_number']}")
-    print(f"Total qubits used: {circuit_info['qubit_number']}")
-    print(f"Output bits: {circuit_info['output_number']}")
 
     print("\nCircuit Visualization:")
     print(circuit.draw(output="text"))
@@ -212,36 +207,35 @@ def main(
 
     match path.suffix:
         case ".c":
+
             ast = parse_c_to_ast(path)
 
             if emit == "ast":
                 print(ast.dump())
                 return None
 
-            module_op, mlir = generate_quantum_ir(
-                ast, print_generic, optimize, precision
-            )
+            ir_module, mlir_dump = generate_quantum_ir(ast, print_generic, optimize, precision)
 
-            save_ir_to_file(path, mlir)
+            save_ir_to_file(path, mlir_dump)
 
             if ir:
                 print("\nGenerated Quantum IR:")
-                print(mlir)
+                print(mlir_dump)
 
-            # find the quantum.func operation in the module
-            funcOp = None
-            for op in module_op.body.block.ops:
+            # find the quantum.func operation in the mlir module
+            funcOp_mlir = None
+            for op in ir_module.body.block.ops:
                 if op.name == "quantum.func":
-                    funcOp = op
+                    funcOp_mlir = op
                     break
 
-            if funcOp is None:
+            if funcOp_mlir is None:
                 print("Error: No quantum.func operation found in the module")
                 return None
 
-            input_args = funcOp.regions[0].blocks[0]._args
-            first_op = funcOp.regions[0].blocks[0]._first_op
-            print(f"First operation: {first_op}")
+            input_args = funcOp_mlir.regions[0].blocks[0]._args
+            first_op = funcOp_mlir.regions[0].blocks[0]._first_op
+            # print(f"First operation: {first_op}")
             circuit_info = get_quantum_circuit_info(input_args, first_op)
 
             try:
@@ -252,7 +246,7 @@ def main(
 
                 circuit_metrics = metrics(circuit)
 
-                display_circuit_metrics(circuit_metrics, circuit_info, circuit)
+                display_circuit_and_metrics(circuit_metrics, circuit_info, circuit)
 
                 return circuit
 
@@ -264,7 +258,7 @@ def main(
                 return None
 
         case _:
-            print(f"Unknown file format {path}")
+            print(f"Unsupported file format {path.suffix}")
             return None
 
 
@@ -272,6 +266,7 @@ def main(
 # ENTRY POINT
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
+
     # set up command-line argument parser
     parser = argparse.ArgumentParser(description="C to Quantum Compiler")
     parser.add_argument("source", type=Path, help="C source file to compile")
@@ -334,7 +329,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # determine optimization setting
+    # determine optimization settings from arguments
     optimize = not args.no_optimize
     if args.validate is not None and not args.force_optimize:
         optimize = False
@@ -346,6 +341,7 @@ if __name__ == "__main__":
         optimize = True
         print("[INFO] Validating OPTIMIZED circuit (--force-optimize enabled)")
 
+    # main loop generates the circuit
     circuit = main(
         args.source, args.emit, args.ir, args.print_generic, optimize, args.precision
     )
@@ -366,6 +362,5 @@ if __name__ == "__main__":
             result_width=args.result_width,
         )
 
-        import sys
-
         sys.exit(0 if passed else 1)
+    sys.exit(0 if circuit is not None else 1)

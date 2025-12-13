@@ -198,3 +198,8 @@ paper/*.fls
 # Doxygen documentation
 docs/html/
 docs/latex/
+
+# Ignore everything in benchmarks_data except results.csv
+benchmarks_data/*
+!benchmarks_data/results.csv
+
