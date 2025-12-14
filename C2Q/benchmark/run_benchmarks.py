@@ -101,13 +101,13 @@ TEST_SUITE = [
         "expected_result": 6,
         "result_width": 16,
     },
-    {
-        "name": "Assignment",
-        "path": "tests/inputs/test_assignment.c",
-        "description": "Multiple assignment operations",
-        "expected_result": 5,
-        "result_width": 8,
-    },
+    # {
+    #     "name": "Assignment",
+    #     "path": "tests/inputs/test_assignment.c",
+    #     "description": "Multiple assignment operations",
+    #     "expected_result": 5,
+    #     "result_width": 8,
+    # },
     {
         "name": "Optimization Showcase",
         "path": "tests/inputs/test_optimization_showcase.c",

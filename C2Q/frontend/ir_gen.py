@@ -2,7 +2,7 @@
 
 This module implements the IR generation phase of the C-to-Quantum compiler.
 It takes an Abstract Syntax Tree (AST) produced by the parser and generates
-corresponding quantum IR operations using the quantum dialect.
+corresponding quantum IR operations using the quantum dialect and xDSL.
 
 The generator supports basic C constructs including:
 - Variable declarations and assignments
@@ -33,6 +33,7 @@ from xdsl.utils.scoped_dict import ScopedDict
 
 from .c_ast import *
 from .quantum_arithmetic import QuantumArithmetic
+from ..middle_end.passes import QuantumRegisterNamer
 from ..dialects.quantum_dialect import (
     InitOp,
     NotOp,
@@ -167,6 +168,9 @@ class QuantumIRGen:
         else:
             raise IRGenError("No main function found in the C module")
 
+        namer = QuantumRegisterNamer()
+        namer.apply(self.module)
+
         return self.module
 
     def ir_gen_main_function(self, main_func: FunctionAST) -> FuncOp:
@@ -188,16 +192,19 @@ class QuantumIRGen:
         block = Block() # sequence of operations
         region.add_block(block)
 
-        func_op = self.builder.insert(FuncOp("main", region))
+        func_op = self.builder.insert(FuncOp("main", region)) # mlir function insertion using builder
 
         self.builder = Builder(InsertPoint.at_end(block))
 
+        # initializes quantum registers for the arguments of 
+        # the main function and updates the symbol table to track these registers, 
+        # enabling their use in subsequent quantum operations
+        # register are treated as vectors of qubits
         for arg in func_op.regions[0].blocks[0]._args:
             qubit = self.builder.insert(InitOp.from_value(IntegerType(1)))
             if self.symbol_table is not None and arg._name is not None:
                 self.symbol_table[arg._name] = qubit.res
 
-        result = None
         for expr in main_func.body:
             self.ir_gen_expr(expr)
 
@@ -266,20 +273,21 @@ class QuantumIRGen:
         Raises:
             IRGenError: If the expression type is unsupported
         """
-        if isinstance(expr, BinaryExprAST):
-            return self.ir_gen_binary_expr(expr)
-        elif isinstance(expr, NumberExprAST):
-            return self.ir_gen_number_expr(expr)
-        elif isinstance(expr, VarDeclExprAST):
-            return self.ir_gen_var_decl_expr(expr)
-        elif isinstance(expr, ReturnExprAST):
-            return self.ir_gen_return_expr(expr)
-        elif isinstance(expr, CallExprAST):
-            return self.ir_gen_call_expr(expr)
-        elif isinstance(expr, VariableExprAST):
-            return self.ir_gen_variable_expr(expr)
-        else:
-            raise IRGenError(f"Unsupported expression type: {type(expr)}")
+        match expr:
+            case BinaryExprAST():
+                return self.ir_gen_binary_expr(expr)
+            case NumberExprAST():
+                return self.ir_gen_number_expr(expr)
+            case VarDeclExprAST():
+                return self.ir_gen_var_decl_expr(expr)
+            case ReturnExprAST():
+                return self.ir_gen_return_expr(expr)
+            case CallExprAST():
+                return self.ir_gen_call_expr(expr)
+            case VariableExprAST():
+                return self.ir_gen_variable_expr(expr)
+            case _:
+                raise IRGenError(f"Unsupported expression type: {type(expr)}")
 
     def ir_gen_binary_expr(self, expr: BinaryExprAST):
         """
@@ -305,7 +313,7 @@ class QuantumIRGen:
             and expr.lhs.val == 0
             and isinstance(expr.rhs, NumberExprAST)
         ):
-            # This is a negative literal, handle it directly
+            # negative literal, handle it directly
             negative_expr = NumberExprAST(expr.rhs.loc, -expr.rhs.val)
             return self.ir_gen_number_expr(negative_expr)
 
@@ -314,36 +322,53 @@ class QuantumIRGen:
             return self.builder.insert(InitOp.from_value(IntegerType(1))).res
 
         # handle binary operations
-        if expr.op == "+":
-            return self.draper_quantum_addition(expr.lhs, expr.rhs)
-        elif expr.op == "-":
-            return self.draper_quantum_subtraction(expr.lhs, expr.rhs)
-        elif expr.op == "*":
-            return self.draper_quantum_multiplication(expr.lhs, expr.rhs)
-        elif expr.op == "=":
-            if not isinstance(expr.lhs, VariableExprAST):
-                raise IRGenError("Assignment target must be a variable")
+        match expr.op:
+            case "+":
+                return self.draper_quantum_addition(expr.lhs, expr.rhs)
+            case "-":
+                return self.draper_quantum_subtraction(expr.lhs, expr.rhs)
+            case "*":
+                return self.draper_quantum_multiplication(expr.lhs, expr.rhs)
+            case "/":
+                raise IRGenError("Division operation is not supported yet in quantum IR")
+            case "%":
+                raise IRGenError("Modulo operation is not supported yet in quantum IR")
+            case "==":
+                raise IRGenError("Equality operation is not supported yet in quantum IR")
+            case "!=":
+                raise IRGenError("Inequality operation is not supported yet in quantum IR")
+            case "<":
+                raise IRGenError("Less-than operation is not supported yet in quantum IR")
+            case "<=":
+                raise IRGenError("Less-than-equal operation is not supported yet in quantum IR")
+            case ">":
+                raise IRGenError("Greater-than operation is not supported yet in quantum IR")
+            case ">=":
+                raise IRGenError("Greater-than-equal operation is not supported yet in quantum IR")
+            case "=":
+                if not isinstance(expr.lhs, VariableExprAST):
+                    raise IRGenError("Assignment target must be a variable")
 
-            var_name = expr.lhs.name
+                var_name = expr.lhs.name
 
-            # self-assignment like a = a + b: evaluate normally and update symbol table
-            if (
-                isinstance(expr.rhs, BinaryExprAST)
-                and isinstance(expr.rhs.lhs, VariableExprAST)
-                and expr.rhs.lhs.name == var_name
-            ):
-                rhs_value = self.ir_gen_expr(expr.rhs)
-            else:
-                rhs_value = self.ir_gen_expr(expr.rhs)
+                # self-assignment like a = a + b: evaluate normally and update symbol table
+                if (
+                    isinstance(expr.rhs, BinaryExprAST)
+                    and isinstance(expr.rhs.lhs, VariableExprAST)
+                    and expr.rhs.lhs.name == var_name
+                ):
+                    rhs_value = self.ir_gen_expr(expr.rhs)
+                else:
+                    rhs_value = self.ir_gen_expr(expr.rhs)
 
-            if self.symbol_table is not None and rhs_value is not None:
-                if var_name in self.symbol_table._local_scope:
-                    del self.symbol_table._local_scope[var_name]
-                self.symbol_table[var_name] = rhs_value
+                if self.symbol_table is not None and rhs_value is not None:
+                    if var_name in self.symbol_table._local_scope:
+                        del self.symbol_table._local_scope[var_name]
+                    self.symbol_table[var_name] = rhs_value
 
-            return rhs_value
-        else:
-            raise IRGenError(f"Unsupported binary operation: {expr.op}")
+                return rhs_value
+            case _:
+                raise IRGenError(f"Unsupported binary operation: {expr.op}")
 
     # =========================================================================
     # quantum operations (delegated to quantumarithmetic)
@@ -428,22 +453,11 @@ class QuantumIRGen:
         Returns:
             The updated target register after applying CNOT
         """
-        # use OnQubitCNotOp to apply CNOT directly
-        result = self.builder.insert(
+        return self.builder.insert(
             OnQubitCNotOp.from_values(
                 control_register, control_index, target_register, target_index
             )
         ).res
-
-        # maintain the naming convention
-        if hasattr(target_register, "_name") and target_register._name:
-            parts = target_register._name.split("_")
-            if len(parts) == 2:
-                register_num = parts[0].lstrip("q")
-                version_num = int(parts[1]) + 1
-                result._name = f"q{register_num}_{version_num}"
-
-        return result
 
     def apply_qft(self, register: SSAValue, n_qubits: int) -> SSAValue:
         """
@@ -669,16 +683,9 @@ class QuantumIRGen:
         Returns:
             SSA value representing the multi-qubit register
         """
-        register_num = self.n_qubit // 8
-        status_num = 0
-
-        register_name = f"q{register_num}_{status_num}"
-
         register = self.builder.insert(
             InitOp.from_value(VectorType(IntegerType(1), [width]))
         )
-
-        register.res._name = register_name
 
         self.n_qubit += width
 
@@ -712,9 +719,7 @@ class QuantumIRGen:
         """
         Initialize a new multi-qubit register for integer representation.
 
-        Creates a vector of qubits with proper naming convention qx_y where:
-        - x is the register number
-        - y is the version tracking write operations
+        Creates a vector of qubits for integer values.
 
         Args:
             expr: Optional expression for context (typically a NumberExprAST)
@@ -724,16 +729,9 @@ class QuantumIRGen:
         """
         bit_width = 8
 
-        register_num = self.n_qubit // bit_width
-        status_num = 0
-
-        register_name = f"q{register_num}_{status_num}"
-
         register = self.builder.insert(
             InitOp.from_value(VectorType(IntegerType(1), [bit_width]))
         )
-
-        register.res._name = register_name
 
         self.n_qubit += bit_width
 
@@ -747,7 +745,7 @@ class QuantumIRGen:
             value = int(expr.val)
             bit_width = 8
 
-            # use two's complement for negative numbers
+            # two's complement for negative numbers
             if value < 0:
                 value = (1 << bit_width) + value
 
@@ -776,50 +774,46 @@ class QuantumIRGen:
             The SSA value representing the new quantum register
         """
         if expr.expr is not None:
-            if isinstance(expr.expr, NumberExprAST):
-                qubit = self.ir_gen_number_expr(expr.expr)
-
-            elif isinstance(expr.expr, VariableExprAST):
-                var_name = expr.expr.name
-                if self.symbol_table is not None and var_name in self.symbol_table:
-                    source = self.symbol_table[var_name]
-                    qubit = self.ir_gen_init(None)
-                    bit_width = 8
-                    for i in range(bit_width):
-                        qubit = self.apply_cnot_on_bits(source, i, qubit, i)
-                    return qubit
-                else:
-                    raise IRGenError(f"Referenced undefined variable: {var_name}")
-
-            elif isinstance(expr.expr, BinaryExprAST):
-                # let operations auto-detect widths and create appropriately-sized registers
-                if expr.expr.op == "+":
-                    expr_result = self.draper_quantum_addition(
-                        expr.expr.lhs, expr.expr.rhs
-                    )
-                elif expr.expr.op == "-":
-                    expr_result = self.draper_quantum_subtraction(
-                        expr.expr.lhs, expr.expr.rhs
-                    )
-                elif expr.expr.op == "*":
-                    expr_result = self.draper_quantum_multiplication(
-                        expr.expr.lhs, expr.expr.rhs
-                    )
-                else:
-                    expr_result = self.ir_gen_expr(expr.expr)
-                    if expr_result is None:
-                        raise IRGenError("Binary expression evaluation failed")
-
-                qubit = expr_result
-
-            else:
-                try:
-                    qubit = self.ir_gen_expr(expr.expr)
-                    if qubit is None:
-                        raise IRGenError("Expression evaluation returned None")
-                except Exception as e:
-                    raise IRGenError(f"Failed to initialize {expr.name}: {str(e)}")
-
+            match expr.expr:
+                case NumberExprAST():
+                    qubit = self.ir_gen_number_expr(expr.expr)
+                case VariableExprAST():
+                    var_name = expr.expr.name
+                    if self.symbol_table is not None and var_name in self.symbol_table:
+                        source = self.symbol_table[var_name]
+                        qubit = self.ir_gen_init(None)
+                        bit_width = 8
+                        for i in range(bit_width):
+                            qubit = self.apply_cnot_on_bits(source, i, qubit, i)
+                        return qubit
+                    else:
+                        raise IRGenError(f"Referenced undefined variable: {var_name}")
+                case BinaryExprAST() as bin_expr:
+                    match bin_expr.op:
+                        case "+":
+                            expr_result = self.draper_quantum_addition(
+                                bin_expr.lhs, bin_expr.rhs
+                            )
+                        case "-":
+                            expr_result = self.draper_quantum_subtraction(
+                                bin_expr.lhs, bin_expr.rhs
+                            )
+                        case "*":
+                            expr_result = self.draper_quantum_multiplication(
+                                bin_expr.lhs, bin_expr.rhs
+                            )
+                        case _:
+                            expr_result = self.ir_gen_expr(bin_expr)
+                            if expr_result is None:
+                                raise IRGenError("Binary expression evaluation failed")
+                    qubit = expr_result
+                case _:
+                    try:
+                        qubit = self.ir_gen_expr(expr.expr)
+                        if qubit is None:
+                            raise IRGenError("Expression evaluation returned None")
+                    except Exception as e:
+                        raise IRGenError(f"Failed to initialize {expr.name}: {str(e)}")
         else:
             qubit = self.ir_gen_init(None)
 
@@ -877,18 +871,9 @@ class QuantumIRGen:
         if not isinstance(register.type, VectorType):
             return self.builder.insert(NotOp.from_value(register)).res
 
-        flipped_register = self.builder.insert(
+        return self.builder.insert(
             OnQubitNotOp.from_value(register, index)
         ).res
-
-        if hasattr(register, "_name") and register._name:
-            parts = register._name.split("_")
-            if len(parts) == 2:
-                register_num = parts[0].lstrip("q")
-                version_num = int(parts[1]) + 1
-                flipped_register._name = f"q{register_num}_{version_num}"
-
-        return flipped_register
 
 
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -904,25 +889,26 @@ class QuantumIRGen:
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⢀⣶⣶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣶⣦⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⣿⣿⠻⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠈⠻⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⡟⠁⠀⠸⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⢸⣿⣿⠃⠀⠀⠈⢻⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⣿⠟⠀⠀⠀⠀⠹⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⠙⢿⣿⣷⣀⣀⣀⣀⣀⣀⣾⣿⡿⠋⠀⠀⠀⠀⠀⠀⢻⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-# ⠀⠀⠀⠀⠀⠀⣿⣿⡏⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠀⣿⣿⡏⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⢀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣷⡀⠀⠀⠀⠀⠀⠀
-# ⠀⠀⠀⠀⠀⠘⠿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣄⠀⠀⠀⠀⠀
+# ⠀⠀⠀⠀⠀⠘⠿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣄⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⣠⣶⣶⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠿⣿⣿⣆⠀⠀⠀⠀
 # ⠀⠀⢀⣼⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠹⣿⣿⣆⠀⠀⠀
 # ⠀⢠⣿⣿⡟⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣶⣆⠀⠀⠀⠀⠀⠀⠈⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠹⣿⣿⡆⠀⠀
 # ⢀⣿⣿⡏⠀⠀⠀⠀⢠⣴⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠛⠋⠀⠀⠀⠀⠀⠀⢠⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡿⠀⠀⠀⢹⣿⣿⡄⠀
 # ⢸⣿⣿⠀⠀⠀⠀⠀⠘⠻⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣾⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⢻⣿⣷⠀
-# ⠘⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⣿⣁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠃⠀⠀⠀⠀⢸⣿⣿⠆
-# ⠀⠹⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣴⣿⣿⠿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⢸⣿⣿⠃
-# ⠀⠀⠹⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣴⣾⣿⣿⠟⠁⠀⠀⠉⠛⢿⣿⣿⣶⣄⠀⠀⠀⠀⣼⣿⣿⠀⠀⠀⠀⠀⣾⣿⡿⠀
-# ⠀⠀⠀⠈⠻⣿⣿⣶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣤⣶⣿⣿⣿⡿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠈⠛⢿⣿⣷⣄⠀⠀⣿⣿⣿⠀⠀⠀⢀⣼⣿⣿⠃⠀
-# ⠀⠀⠀⠀⠀⠈⠛⠿⣿⣿⣿⣷⣶⣶⣶⣶⣶⣦⣶⣶⣶⣶⣶⣿⣿⣿⣿⠿⠿⠛⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣿⣿⣷⡀⢻⣿⣿⠀⢀⣴⣿⣿⠟⠁⠀⠀
-# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣩⣽⡛⠛⠛⠻⠿⠿⠿⠿⠿⠛⠛⠛⠋⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣆⠉⠉⠀⠈⠻⠛⠁⠀⠀⠀⠀
+# ⠀⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣾⣿⣿⣁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠃⠀⠀⠀⠀⢸⣿⣿⠆
+# ⠀⠸⣿⣿⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣴⣿⣿⠿⣿⣿⣿⣶⣄⡀⠀⠀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀⠀⠀⢸⣿⣿⠃
+# ⠀⠀⠹⣿⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣴⣾⣿⣿⠟⠁⠀⠀⠉⠛⢿⣿⣿⣶⣄⠀⠀⠀⠀⣿⣿⣿⠀⠀⠀⢀⣼⣿⣿⠃⠀
+# ⠀⠀⠀⠈⠻⣿⣿⣶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣠⣤⣶⣿⣿⣿⡿⠟⠋⠁⠀⠀⠀⠀⠀⠀⠀⠈⠛⢿⣿⣷⣄⠀⠀⣿⣿⣿⠀⠀⠀⣀⣾⣿⣿⠃⠀
+# ⠀⠀⠀⠀⠀⠈⠛⠿⣿⣿⣿⣷⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣿⣿⣿⣿⠿⠿⠛⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣿⣿⣷⡀⢻⣿⣿⠀⢀⣴⣿⣿⠟⠁⠀⠀
+# ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣩⣽⡛⠛⠛⠻⠿⠿⠿⠿⠿⠿⠛⠛⠛⠋⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⣆⠉⠉⠀⠈⠻⠛⠁⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢿⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⣿⣷⡀⠀⠀⠀⠀⠀⠀⠀⠀
 # ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣤⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢻⣿⣿⡄⠀⠀⠀⠀⠀⠀⠀
