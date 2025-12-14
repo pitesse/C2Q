@@ -16,15 +16,12 @@ Draper's QFT-based arithmetic algorithms.
 
 from __future__ import annotations
 
-import math
 from xdsl.context import Context
 from xdsl.ir import Block, Region, SSAValue
 from xdsl.dialects.builtin import (
     ModuleOp,
     IntegerType,
     VectorType,
-    IntegerAttr,
-    StringAttr,
 )
 from xdsl.builder import Builder
 from xdsl.rewriter import InsertPoint
@@ -37,25 +34,11 @@ from ..middle_end.passes import QuantumRegisterNamer
 from ..dialects.quantum_dialect import (
     InitOp,
     NotOp,
-    CNotOp,
-    CCNotOp,
-    MeasureOp,
-    HadamardOp,
-    TGateOp,
-    TDaggerGateOp,
     FuncOp,
-    CommentOp,
-    ExtractBitOp,
-    InsertBitOp,
     OnQubitNotOp,
     OnQubitCNotOp,
-    OnQubitCCnotOp,
-    OnQubitHadamardOp,
-    OnQubitControlledPhaseOp,
-    OnQubitSwapOp,
 )
 
-# Import Quantum dialect separately to avoid registration issues
 from ..dialects import quantum_dialect
 
 
@@ -69,7 +52,6 @@ class IRGenError(Exception):
     - Undefined variables or functions
     - Type mismatches or invalid register operations
     """
-
     pass
 
 
@@ -210,6 +192,7 @@ class QuantumIRGen:
 
         return func_op
 
+    # should handle functions call better, for the current implementation is fine anyway
     def ir_gen_func_call(self, func_ast: FunctionAST, args: list[ExprAST]):
         """
         Generate IR for a function call by inlining the function body.
@@ -371,68 +354,8 @@ class QuantumIRGen:
                 raise IRGenError(f"Unsupported binary operation: {expr.op}")
 
     # =========================================================================
-    # quantum operations (delegated to quantumarithmetic)
+    # quantum operations (mostly delegated to quantumarithmetic)
     # =========================================================================
-
-    # def apply_hadamard_gate(self, register: SSAValue, qubit_index: int) -> SSAValue:
-    #     """
-    #     Apply Hadamard gate to a specific qubit in the register.
-    #     H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
-
-    #     Delegates to QuantumArithmetic, passing the current builder.
-    #     """
-    #     return self.quantum_arith.apply_hadamard_gate(self.builder, register, qubit_index)
-
-    # def apply_controlled_phase_rotation(self, control_register: SSAValue, control_index: int,
-    #                                    target_register: SSAValue, target_index: int,
-    #                                    phase_angle: float) -> SSAValue:
-    #     """
-    #     Apply controlled phase rotation.
-    #     Delegates to QuantumArithmetic, passing the current builder.
-    #     """
-    #     return self.quantum_arith.apply_controlled_phase_rotation(
-    #         self.builder, control_register, control_index,
-    #         target_register, target_index, phase_angle
-    #     )
-
-    # def apply_swap_gate(self, register: SSAValue, qubit1: int, qubit2: int) -> SSAValue:
-    #     """
-    #     Swap two qubits using the dedicated swap operation.
-    #     Delegates to QuantumArithmetic, passing the current builder.
-    #     """
-    #     return self.quantum_arith.apply_swap_gate(self.builder, register, qubit1, qubit2)
-
-    # def apply_phase_gate(self, register: SSAValue, qubit_index: int, phase: float) -> SSAValue:
-    #     """
-    #     Apply a phase gate to a specific qubit in a register.
-    #     Phase gate: |0⟩ → |0⟩, |1⟩ → e^(iθ)|1⟩
-    #     Delegates to QuantumArithmetic, passing the current builder.
-    #     """
-    #     return self.quantum_arith.apply_phase_gate(self.builder, register, qubit_index, phase)
-
-    # def reverse_qubit_order(self, register: SSAValue, n_qubits: int) -> SSAValue:
-    #     """
-    #     Reverse the order of qubits in the register using SWAP operations.
-    #     Delegates to QuantumArithmetic, passing the current builder.
-    #     """
-    #     return self.quantum_arith.reverse_qubit_order(self.builder, register, n_qubits)
-
-    # def apply_ccphase(self, control1_reg: SSAValue, control1_bit: int,
-    #                  control2_reg: SSAValue, control2_bit: int,
-    #                  target_reg: SSAValue, target_bit: int,
-    #                  phase_angle: float) -> SSAValue:
-    #     """
-    #     Apply doubly-controlled phase gate: CCPhase(theta).
-    #     Only applies phase if BOTH control qubits are |1⟩.
-    #     Delegates to QuantumArithmetic, passing the current builder.
-    #     """
-    #     return self.quantum_arith.apply_ccphase(
-    #         self.builder,
-    #         control1_reg, control1_bit,
-    #         control2_reg, control2_bit,
-    #         target_reg, target_bit,
-    #         phase_angle
-    #     )
 
     def apply_cnot_on_bits(
         self,

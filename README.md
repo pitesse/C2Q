@@ -342,6 +342,15 @@ This SSA-style naming enables precise tracking through optimization passes.
 
 ---
 
+## Limitations
+
+### Dynamic Control Flow (Loops & Conditionals)
+The current implementation supports linear sequences of operations but excludes dynamic control flow constructs (such as `while` loops and `if/else` conditionals). Implementing these in a quantum context presents fundamental theoretical challenges:
+
+1.  **Measurement Collapse**: In classical C, a loop condition (e.g., `while(x > 0)`) is evaluated to decide the control path. In a quantum circuit, `x` exists in superposition. Measuring it to make a branching decision would instantly collapse the quantum state, destroying the superposition and halting any parallelism.
+2.  **Coherent Control Overhead**: To avoid measurement, the compiler would need to implement *coherent control* (quantum multiplexing), executing **both** branches for every run. For loops, this requires unrolling to the worst-case depth, leading to an exponential explosion in gate count ($O(2^n)$) that exceeds the capacity of current NISQ hardware.
+3.  **Reversibility & Garbage Collection**: Quantum operations must be unitary (reversible). Merging control paths after an `if` statement is inherently irreversible without retaining "path information" in ancilla qubits. Managing the uncomputation of this "garbage" state to preserve interference patterns adds significant complexity to the IR generation.
+
 ## Citation
 
 If you use C2Q in academic research, please cite:

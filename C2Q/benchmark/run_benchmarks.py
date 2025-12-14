@@ -8,7 +8,6 @@ Usage:
     python -m C2Q.benchmark.run_benchmarks
 """
 
-import os
 import csv
 from pathlib import Path
 from dataclasses import dataclass, asdict

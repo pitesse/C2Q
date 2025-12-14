@@ -11,7 +11,7 @@ Reference:
 CRITICAL DESIGN NOTE:
     Every method accepts `builder` as its FIRST argument to ensure operations
     are inserted at the correct insertion point (inside the current function block).
-    DO NOT store builder in __init__ - this causes the "stale builder" bug where
+    DO NOT store builder in __init__, this causes the "stale builder" bug where
     operations get inserted at module scope instead of inside the function.
 """
 
