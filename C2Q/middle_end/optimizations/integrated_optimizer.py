@@ -13,8 +13,7 @@ This module integrates:
 """
 
 from xdsl.dialects.builtin import ModuleOp
-from xdsl.rewriter import Rewriter
-from xdsl.pattern_rewriter import GreedyRewritePatternApplier
+from xdsl.pattern_rewriter import GreedyRewritePatternApplier, PatternRewriteWalker
 
 # existing optimization passes
 from .remove_unused_op import RemoveUnusedOperations
@@ -142,8 +141,7 @@ class IntegratedQuantumOptimizer:
         Returns:
             Optimized MLIR module.
         """
-        rewriter = Rewriter()
-        patterns = []
+        patterns = []        
 
         if self.enable_draper_opt:
             if verbose:
@@ -180,21 +178,8 @@ class IntegratedQuantumOptimizer:
 
             try:
                 applier = GreedyRewritePatternApplier(patterns)
-                # try xdsl api methods (version-dependent)
-                if hasattr(applier, "rewrite_module"):
-                    applier.rewrite_module(module)  # type: ignore[attr-defined]
-                elif hasattr(applier, "apply_patterns"):
-                    applier.apply_patterns(module)  # type: ignore[attr-defined]
-                else:  # fallback: apply patterns manually
-                    for pattern in patterns:
-                        if hasattr(pattern, "apply_to_module"):
-                            pattern.apply_to_module(module)
-                        elif hasattr(pattern, "match_and_rewrite"):
-                            for op in list(module.walk()):
-                                try:
-                                    pattern.match_and_rewrite(op, rewriter)
-                                except:
-                                    continue
+                walker = PatternRewriteWalker(applier)
+                walker.rewrite_module(module)
 
                 self.stats["passes_applied"] = [type(p).__name__ for p in patterns]
 
