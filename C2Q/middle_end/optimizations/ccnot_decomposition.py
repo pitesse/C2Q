@@ -16,6 +16,7 @@ Technical Implementation:
 """
 
 from xdsl.ir import SSAValue
+from xdsl.rewriter import InsertPoint
 from xdsl.pattern_rewriter import (
     PatternRewriter,
     RewritePattern,
@@ -94,61 +95,77 @@ class CCnot_decomposition(RewritePattern):
         control2 = op.control2  # type: ignore
         target = op.target  # type: ignore
 
-        h1 = rewriter.insert_op_before_matched_op(HadamardOp.from_value(target))
+        h1 = rewriter.insert_op(HadamardOp.from_value(target), InsertPoint.before(rewriter.current_operation))
         self._propagate_name(target, h1.res)
-
-        cnot1 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control2, h1.res)
+        
+        cnot1 = rewriter.insert_op(
+            CNotOp.from_value(control2, h1.res), InsertPoint.before(rewriter.current_operation)
         )
         self._propagate_name(h1.res, cnot1.res)
 
-        tdg1 = rewriter.insert_op_before_matched_op(TDaggerGateOp.from_value(cnot1.res))
+        tdg1 = rewriter.insert_op(
+            TDaggerGateOp.from_value(cnot1.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(cnot1.res, tdg1.res)
 
-        cnot2 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, tdg1.res)
+        cnot2 = rewriter.insert_op(
+            CNotOp.from_value(control1, tdg1.res), InsertPoint.before(rewriter.current_operation)
         )
         self._propagate_name(tdg1.res, cnot2.res)
 
-        t1 = rewriter.insert_op_before_matched_op(TGateOp.from_value(cnot2.res))
+        t1 = rewriter.insert_op(
+            TGateOp.from_value(cnot2.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(cnot2.res, t1.res)
 
-        cnot3 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control2, t1.res)
+        cnot3 = rewriter.insert_op(
+            CNotOp.from_value(control2, t1.res), InsertPoint.before(rewriter.current_operation)
         )
         self._propagate_name(t1.res, cnot3.res)
 
-        tdg2 = rewriter.insert_op_before_matched_op(TDaggerGateOp.from_value(cnot3.res))
+        tdg2 = rewriter.insert_op(
+            TDaggerGateOp.from_value(cnot3.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(cnot3.res, tdg2.res)
 
-        cnot4 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, tdg2.res)
+        cnot4 = rewriter.insert_op(
+            CNotOp.from_value(control1, tdg2.res), InsertPoint.before(rewriter.current_operation)
         )
         self._propagate_name(tdg2.res, cnot4.res)
 
-        cnot5 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, control2)
+        cnot5 = rewriter.insert_op(
+            CNotOp.from_value(control1, control2), InsertPoint.before(rewriter.current_operation)
         )
         self._propagate_name(control2, cnot5.res)
 
-        tdg3 = rewriter.insert_op_before_matched_op(TDaggerGateOp.from_value(cnot5.res))
+        tdg3 = rewriter.insert_op(
+            TDaggerGateOp.from_value(cnot5.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(cnot5.res, tdg3.res)
 
-        cnot6 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, tdg3.res)
+        cnot6 = rewriter.insert_op(
+            CNotOp.from_value(control1, tdg3.res), InsertPoint.before(rewriter.current_operation)
         )
         self._propagate_name(tdg3.res, cnot6.res)
 
-        t2 = rewriter.insert_op_before_matched_op(TGateOp.from_value(control1))
+        t2 = rewriter.insert_op(
+            TGateOp.from_value(control1), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(control1, t2.res)
 
-        t3 = rewriter.insert_op_before_matched_op(TGateOp.from_value(cnot6.res))
+        t3 = rewriter.insert_op(
+            TGateOp.from_value(cnot6.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(cnot6.res, t3.res)
 
-        t4 = rewriter.insert_op_before_matched_op(TGateOp.from_value(cnot4.res))
+        t4 = rewriter.insert_op(
+            TGateOp.from_value(cnot4.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(cnot4.res, t4.res)
 
-        h2 = rewriter.insert_op_before_matched_op(HadamardOp.from_value(t4.res))
+        h2 = rewriter.insert_op(
+            HadamardOp.from_value(t4.res), InsertPoint.before(rewriter.current_operation)
+        )
         self._propagate_name(t4.res, h2.res)
 
         rewriter.replace_matched_op([], [h2.res])

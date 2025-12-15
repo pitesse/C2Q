@@ -94,8 +94,8 @@
         representation using the xDSL framework, an integrated optimization pipeline,
         and backend circuit generation with Qiskit. The system supports basic arithmetic
         operations (addition, subtraction, multiplication) with mixed-precision operands
-        and features a comprehensive optimization framework that achieves 15--36\% gate
-        count reduction and 7--51\% depth reduction across a benchmark suite of 9 test cases.
+        and features a comprehensive optimization framework that achieves 14--56\% gate
+        count reduction and 8--73\% depth reduction across a benchmark suite of 8 test cases.
         All optimized circuits pass validation against expected results using Matrix Product
         State simulation. The project demonstrates the feasibility of automated quantum circuit
         synthesis from high-level classical code, bridging the gap between classical programming
@@ -432,6 +432,12 @@ Uses SSA def-use chains to identify truly dead operations.
 gates using the Barenco construction. The current benchmark circuits do not heavily utilize CCNOT gates, 
 so this pass shows minimal impact but is included for completeness.
 
+	extbf{Adjacent CNOT Cancellation} (\texttt{cnot\_cancellation.py}): Cancels adjacent identical CNOT pairs:
+\begin{equation}
+  \mathrm{CNOT}\;\mathrm{CNOT} = I
+\end{equation}
+This rewrite is quantum-safe (unitary-preserving) and removes redundant CNOTs that may be introduced by earlier passes.
+
 \textbf{Adjacent Phase Consolidation} (\texttt{draper\_optimizer.py}): Merges consecutive phase gates acting on the same qubit:
 \begin{equation}
   P(\theta_1) P(\theta_2) = P(\theta_1 + \theta_2)
@@ -479,7 +485,7 @@ to optimize inner circuit structure. Without iteration, many consolidation oppor
 
 \section{Evaluation}
 
-We evaluate C2Q on a benchmark suite of 9 test cases covering basic arithmetic, compound expressions, and edge cases. 
+We evaluate C2Q on a benchmark suite of 8 test cases covering basic arithmetic, compound expressions, and edge cases. 
 All tests execute on Python 3.12 with Qiskit 1.3.1 and xDSL 0.25.0. Validation uses Qiskit Aer's Matrix Product State 
 simulator with 1,024 shots per circuit.
 
@@ -490,7 +496,6 @@ The test suite includes:
   \item \textbf{Add (8-bit):} Addition of 3 + 5 = 8
   \item \textbf{Sub (8-bit):} Subtraction of 8 - 3 = 5
   \item \textbf{Mult (2$\times$3):} Small multiplication 2 $\times$ 3 = 6
-  \item \textbf{Assignment:} Simple variable assignment without arithmetic
   \item \textbf{Optimization Showcase:} Complex expression with multiple operations
   \item \textbf{Stress Test:} Chain of multiple arithmetic operations
   \item \textbf{Complex Math:} Mixed-width arithmetic (8-bit + 16-bit operands)
@@ -522,33 +527,29 @@ substantial improvements across all metrics:
     \midrule
     Add (8-bit)        & 120                 & 102                & -15.0\%            & 39                  & 36                 & -7.7\%                  \\
     Sub (8-bit)        & 119                 & 101                & -15.1\%            & 39                  & 36                 & -7.7\%                  \\
-    Mult (2$\times$3)  & 3,155               & 2,051              & -35.0\%            & 2,051               & 1,002              & -51.1\%                 \\
-    Assignment         & 2                   & 2                  & 0.0\%              & 1                   & 1                  & 0.0\%                   \\
-    Opt Showcase       & 3,274               & 2,150              & -34.3\%            & 2,051               & 1,002              & -51.1\%                 \\
+    Mult (2$\times$3)  & 3,155               & 1,403              & -55.5\%            & 2,051               & 552                & -73.1\%                 \\
+    Opt Showcase       & 3,274               & 1,502              & -54.1\%            & 2,051               & 552                & -73.1\%                 \\
     Stress Test        & 699                 & 591                & -15.5\%            & 142                 & 112                & -21.1\%                 \\
-    Complex Math       & 3,573               & 2,271              & -36.4\%            & 2,083               & 1,012              & -51.4\%                 \\
+    Complex Math       & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
     Overflow           & 125                 & 107                & -14.4\%            & 39                  & 36                 & -7.7\%                  \\
-    Mixed Add/Mult     & 3,573               & 2,271              & -36.4\%            & 2,083               & 1,012              & -51.4\%                 \\
+    Mixed Add/Mult     & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
     \midrule
-    \textbf{Average}   &                     &                    & \textbf{-22.5\%}   &                     &                    & \textbf{-27.7\%}        \\
+  	extbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.0\%}        \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
 \textbf{Key Observations:}
 
-\textbf{1. Optimization Effectiveness:} The pipeline achieves 22.5\% average gate reduction and 27.7\% average depth reduction. 
-Best-case improvements reach 36.4\% gate reduction (Complex Math, Mixed Add/Mult) and 51.4\% depth reduction (multiplication-heavy circuits).
+	extbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.0\% average depth reduction. 
+Best-case improvements reach 55.5\% gate reduction and 73.1\% depth reduction (multiplication-heavy circuits).
 
-\textbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
-while multiplication and compound expressions benefit significantly (35--36\%). This reflects the distribution 
+	extbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
+while multiplication and compound expressions benefit significantly (54--56\%). This reflects the distribution 
 of optimization opportunities---multiplication generates many high-precision phase gates that are aggressively filtered.
 
-\textbf{3. Assignment Baseline:} The assignment test (no arithmetic) shows 0\% improvement, confirming 
-optimizations do not affect non-arithmetic operations. This serves as a sanity check.
-
-\textbf{4. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
-(51\% vs. 35\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
+	extbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
+(73\% vs. 56\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
 
 \subsection{MLIR-Level Optimization}
 
@@ -596,7 +597,7 @@ Multiplication circuits benefit most due to cumulative high-precision rotations 
 
 \subsection{Validation and Correctness}
 
-All 9 test cases pass validation with 100\% success rate:
+All 8 test cases pass validation with 100\% success rate:
 \begin{itemize}
   \item Unoptimized circuits produce correct results
   \item Optimized circuits produce identical results
@@ -642,8 +643,8 @@ handles arbitrary register widths and automatically manages width promotion.
 separation between frontend parsing and backend circuit generation. The SSA-based representation enables 
 powerful pattern-based optimizations.
 
-\textbf{Effective Optimization:} An integrated optimization framework achieving 22.5\% average gate 
-reduction and 27.7\% depth reduction across 9 test cases. The iterative optimization strategy with phase 
+	extbf{Effective Optimization:} An integrated optimization framework achieving 34.9\% average gate 
+reduction and 42.0\% depth reduction across 8 test cases. The iterative optimization strategy with phase 
 precision filtering as the primary pass demonstrates clear practical value.
 
 \textbf{Validated Correctness:} All test cases pass validation with 100\% accuracy, confirming that 

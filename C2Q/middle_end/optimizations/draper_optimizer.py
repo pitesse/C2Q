@@ -210,12 +210,13 @@ class DraperOptimizer:
         print("  [INFO] Consolidating adjacent phase rotations...")
 
         operations = list(module.walk())
-        to_remove = set()
+        to_remove: Set[Operation] = set()
         consolidated = 0
 
         i = 0
         while i < len(operations) - 1:
             op = operations[i]
+            # print(type(op))
 
             if op in to_remove:
                 i += 1
@@ -273,7 +274,7 @@ class DraperOptimizer:
         print("  [INFO] Cancelling Hadamard pairs (H·H = I)...")
 
         operations = list(module.walk())
-        to_remove = set()
+        to_remove: Set[Operation] = set()
         cancelled = 0
 
         for i in range(len(operations) - 1):
@@ -429,6 +430,7 @@ class DraperOptimizer:
                                 val = int(attr.data)  # type: ignore[attr-defined]
                                 used_bits.add(val)
                 except:
+                    print(f"    [WARN] Failed to analyze bit usage for operation: {op}")
                     pass
 
         return used_bits

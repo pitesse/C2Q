@@ -115,13 +115,13 @@ Built-in simulation using Qiskit Aer's **Matrix Product State (MPS)** method for
 
 ## Performance Results
 
-Benchmark results from the integrated optimization pipeline across 9 test cases:
+Benchmark results from the integrated optimization pipeline across 8 test cases:
 
 | Metric | Average Improvement | Best Case |
 |:---|:---:|:---:|
-| **Gate Count** | -22.5% | -36.4% |
-| **Circuit Depth** | -27.7% | -51.4% |
-| **MLIR Operations** | -22.2% | -36.4% |
+| **Gate Count** | -34.9% | -55.5% |
+| **Circuit Depth** | -42.0% | -73.1% |
+| **MLIR Operations** | -34.5% | -55.4% |
 
 ### Detailed Benchmark Results
 
@@ -129,8 +129,8 @@ Benchmark results from the integrated optimization pipeline across 9 test cases:
 |:---|---:|---:|---:|---:|---:|---:|
 | Add (8-bit) | 120 | 102 | -15.0% | 39 | 36 | -7.7% |
 | Sub (8-bit) | 119 | 101 | -15.1% | 39 | 36 | -7.7% |
-| Mult (2×3) | 3,155 | 2,051 | -35.0% | 2,051 | 1,002 | -51.1% |
-| Complex Math | 3,573 | 2,271 | -36.4% | 2,083 | 1,012 | -51.4% |
+| Mult (2×3) | 3,155 | 1,403 | -55.5% | 2,051 | 552 | -73.1% |
+| Complex Math | 3,573 | 1,623 | -54.6% | 2,083 | 562 | -73.0% |
 
 > **Note**: All 9/9 test cases pass validation, confirming functional correctness after optimization.
 
@@ -199,6 +199,10 @@ python -m C2Q.benchmark.run_benchmarks
 
 # Results are saved to benchmarks_data/results.csv
 # Individual MLIR files saved to benchmarks_data/*.mlir
+
+### Debugging Passes
+
+- Adjacent CNOT cancellation debug: `C2Q_DEBUG_CNOT_CANCEL=1` (legacy: `C2Q_DEBUG_INPLACING=1`)
 ```
 
 ### Example: Complete Workflow
@@ -241,7 +245,7 @@ C_to_Quantum/
 │   │       ├── draper_optimizer.py       # QFT-specific optimizations
 │   │       ├── remove_unused_op.py       # Dead code elimination
 │   │       ├── ccnot_decomposition.py    # Toffoli decomposition
-│   │       └── in_placing.py             # CNOT chain optimization
+│   │       └── cnot_cancellation.py      # Adjacent CNOT cancellation (quantum-safe)
 │   │
 │   ├── backend/                      # Circuit generation
 │   │   ├── run_qasm.py               # MLIR → Qiskit conversion

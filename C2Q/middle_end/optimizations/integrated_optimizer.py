@@ -7,7 +7,7 @@ optimization levels and precision thresholds for QFT-based arithmetic circuits.
 This module integrates:
 - Dead code elimination (quantum-safe)
 - CCNOT decomposition (Barenco construction)
-- In-place CNOT chain optimization
+- Adjacent CNOT cancellation (quantum-safe)
 - Draper QFT arithmetic optimizations
 - Phase precision filtering
 """
@@ -19,7 +19,7 @@ from xdsl.pattern_rewriter import GreedyRewritePatternApplier
 # existing optimization passes
 from .remove_unused_op import RemoveUnusedOperations
 from .ccnot_decomposition import CCnot_decomposition
-from .in_placing import InPlacing
+from .cnot_cancellation import CNotPairCancellation
 from .draper_optimizer import DraperOptimizer
 
 
@@ -34,7 +34,7 @@ class IntegratedQuantumOptimizer:
         enable_decomposition: Whether to decompose CCNOT gates.
         enable_cse: Whether to apply common subexpression elimination.
         enable_dead_code: Whether to remove unused operations.
-        enable_in_place: Whether to optimize CNOT chains in-place.
+        enable_in_place: Whether to enable quantum-safe adjacent CNOT cancellation.
         enable_draper_opt: Whether to apply Draper QFT optimizations.
         precision_threshold: Minimum phase angle to retain.
         stats: Dictionary tracking optimization statistics.
@@ -56,7 +56,7 @@ class IntegratedQuantumOptimizer:
             enable_decomposition: Enable CCNOT decomposition pass
             enable_cse: Enable common subexpression elimination
             enable_dead_code: Enable removal of unused operations
-            enable_in_place: Enable in-place computation optimization
+            enable_in_place: Enable adjacent CNOT cancellation
             enable_draper_opt: Enable Draper QFT arithmetic optimizations
             precision_threshold: Threshold for phase precision optimization
         """
@@ -91,7 +91,6 @@ class IntegratedQuantumOptimizer:
         if verbose:
             print("[INFO] Starting integrated quantum circuit optimization")
 
-        self._collect_initial_stats(module)
         self._collect_initial_stats(module)
 
         if analysis_only:
@@ -171,9 +170,9 @@ class IntegratedQuantumOptimizer:
                 print("  [PASS] Added: CCNOT decomposition")
 
         if self.enable_in_place:
-            patterns.append(InPlacing())
+            patterns.append(CNotPairCancellation())
             if verbose:
-                print("  [PASS] Added: In-place computation")
+                print("  [PASS] Added: Adjacent CNOT cancellation")
 
         if patterns:
             if verbose:
@@ -266,44 +265,45 @@ def create_optimizer_pipeline(
     Returns:
         Configured IntegratedQuantumOptimizer instance.
     """
-    if optimization_level == "conservative":
-        return IntegratedQuantumOptimizer(
-            enable_decomposition=False,
-            enable_cse=False,
-            enable_dead_code=True,
-            enable_in_place=False,
-            enable_draper_opt=False,
-            precision_threshold=max(precision_threshold, 1e-3),
-        )
+    match optimization_level:
+        case "conservative":
+            return IntegratedQuantumOptimizer(
+                enable_decomposition=False,
+                enable_cse=False,
+                enable_dead_code=True,
+                enable_in_place=False,
+                enable_draper_opt=False,
+                precision_threshold=max(precision_threshold, 1e-3),
+            )
 
-    elif optimization_level == "aggressive":
-        return IntegratedQuantumOptimizer(
-            enable_decomposition=True,
-            enable_cse=True,
-            enable_dead_code=True,
-            enable_in_place=True,
-            enable_draper_opt=True,
-            precision_threshold=precision_threshold,
-        )
+        case "aggressive":
+            return IntegratedQuantumOptimizer(
+                enable_decomposition=True,
+                enable_cse=True,
+                enable_dead_code=True,
+                enable_in_place=True,
+                enable_draper_opt=True,
+                precision_threshold=precision_threshold,
+            )
 
-    elif optimization_level == "analysis_only":
-        return IntegratedQuantumOptimizer(
-            enable_decomposition=False,
-            enable_cse=False,
-            enable_dead_code=False,
-            enable_in_place=False,
-            enable_draper_opt=False,
-        )
+        case "analysis_only":
+            return IntegratedQuantumOptimizer(
+                enable_decomposition=False,
+                enable_cse=False,
+                enable_dead_code=False,
+                enable_in_place=False,
+                enable_draper_opt=False,
+            )
 
-    else:
-        return IntegratedQuantumOptimizer(
-            enable_decomposition=True,
-            enable_cse=False,
-            enable_dead_code=True,
-            enable_in_place=True,
-            enable_draper_opt=True,
-            precision_threshold=precision_threshold,
-        )
+        case _:
+            return IntegratedQuantumOptimizer(
+                enable_decomposition=True,
+                enable_cse=False,
+                enable_dead_code=True,
+                enable_in_place=True,
+                enable_draper_opt=True,
+                precision_threshold=precision_threshold,
+            )
 
 
 def optimize_quantum_circuit(
