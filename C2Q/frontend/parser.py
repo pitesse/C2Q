@@ -1,7 +1,8 @@
-"""C language parser implementation for the C to Quantum compiler.
+"""C language parser implementation for the C to Quantum compiler using 
+xDSL GenericParser, to create an AST using c_ast.py dataclasses and CLexer for tokenization.
 
 This module implements a recursive descent parser for a subset of the C programming
-language. It uses the CtoQ lexer to tokenize C source code and builds an Abstract
+language. It uses the C2Q lexer to tokenize C source code and builds an Abstract
 Syntax Tree (AST) representation that can be further transformed into quantum IR.
 
 The parser supports basic C constructs such as function definitions, variable
@@ -9,7 +10,7 @@ declarations, expressions, function calls, and return statements.
 """
 
 from pathlib import Path
-from typing import cast, Dict, List, Optional, Set, Tuple
+from typing import cast, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from xdsl.parser import GenericParser, ParserState
@@ -55,7 +56,6 @@ class Symbol:
     type: str
     initialized: bool = False
     used: bool = False
-
 
 class SymbolTable:
     """A symbol table that manages variable declarations with nested scopes.
@@ -169,7 +169,6 @@ class SymbolTable:
             Tuple of (name, return_type) if in a function, None otherwise.
         """
         return self.current_function
-
 
 class CParser(GenericParser[CTokenKind]):
     """Parser for C language source code with semantic validation.
@@ -307,7 +306,7 @@ class CParser(GenericParser[CTokenKind]):
         functions: list[FunctionAST] = []
 
         while not self.check(CTokenKind.EOF):
-            functions.append(self.parseDefinition())
+            functions.append(self.parseFuncDefinition())
 
         self.pop_token(CTokenKind.EOF)
 
@@ -884,7 +883,7 @@ class CParser(GenericParser[CTokenKind]):
         self.pop_pattern(")")
         return PrototypeAST(loc(returnTypeToken), fnName, args, return_type)
 
-    def parseDefinition(self):
+    def parseFuncDefinition(self):
         """Parse a C function definition.
 
         Grammar: definition ::= prototype '{' statement_list '}'

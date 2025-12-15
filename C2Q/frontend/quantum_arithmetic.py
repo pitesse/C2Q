@@ -11,19 +11,18 @@ Reference:
 CRITICAL DESIGN NOTE:
     Every method accepts `builder` as its FIRST argument to ensure operations
     are inserted at the correct insertion point (inside the current function block).
-    DO NOT store builder in __init__ - this causes the "stale builder" bug where
+    DO NOT store builder in __init__, this causes the "stale builder" bug where
     operations get inserted at module scope instead of inside the function.
 """
 
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from xdsl.ir import SSAValue
     from xdsl.builder import Builder
-    from xdsl.dialects.builtin import VectorType
 
 from ..dialects.quantum_dialect import (
     OnQubitHadamardOp,
@@ -57,31 +56,14 @@ class QuantumArithmetic:
         pass
 
     # =========================================================================
-    # naming helper
-    # =========================================================================
-
-    @staticmethod
-    def _propagate_name(source: "SSAValue", target: "SSAValue") -> None:
-        """
-        Propagate and increment SSA naming from source to target register.
-
-        Maintains the qX_Y naming convention where X is the register number
-        and Y is the version number (incremented on each operation).
-        """
-        if hasattr(source, "_name") and source._name:
-            parts = source._name.split("_")
-            if len(parts) == 2:
-                register_num = parts[0].lstrip("q")
-                version_num = int(parts[1]) + 1
-                target._name = f"q{register_num}_{version_num}"
-
-    # =========================================================================
     # basic quantum gates
     # =========================================================================
 
     def apply_hadamard_gate(
         self, builder: "Builder", register: "SSAValue", qubit_index: int
-    ) -> "SSAValue":
+    ) -> (
+        "SSAValue"
+    ):  # quoted type because of TYPE_CHECKING, to keep runtime imports minimal and prevent import cycles
         """
         Apply Hadamard gate to a specific qubit in the register.
         H|0⟩ = (|0⟩ + |1⟩)/√2, H|1⟩ = (|0⟩ - |1⟩)/√2
@@ -94,9 +76,7 @@ class QuantumArithmetic:
         Returns:
             The updated register after applying the Hadamard gate
         """
-        result = builder.insert(OnQubitHadamardOp.from_value(register, qubit_index)).res
-        self._propagate_name(register, result)
-        return result
+        return builder.insert(OnQubitHadamardOp.from_value(register, qubit_index)).res
 
     def apply_controlled_phase_rotation(
         self,
@@ -123,7 +103,7 @@ class QuantumArithmetic:
         Returns:
             The updated target register
         """
-        result = builder.insert(
+        return builder.insert(
             OnQubitControlledPhaseOp.from_values(
                 control_register,
                 control_index,
@@ -132,8 +112,6 @@ class QuantumArithmetic:
                 phase_angle,
             )
         ).res
-        self._propagate_name(target_register, result)
-        return result
 
     def apply_swap_gate(
         self, builder: "Builder", register: "SSAValue", qubit1: int, qubit2: int
@@ -151,9 +129,7 @@ class QuantumArithmetic:
         Returns:
             The updated register after swapping
         """
-        result = builder.insert(OnQubitSwapOp.from_values(register, qubit1, qubit2)).res
-        self._propagate_name(register, result)
-        return result
+        return builder.insert(OnQubitSwapOp.from_values(register, qubit1, qubit2)).res
 
     def apply_phase_gate(
         self, builder: "Builder", register: "SSAValue", qubit_index: int, phase: float
@@ -171,11 +147,9 @@ class QuantumArithmetic:
         Returns:
             The updated register
         """
-        result = builder.insert(
+        return builder.insert(
             OnQubitPhaseOp.from_value(register, qubit_index, phase)
         ).res
-        self._propagate_name(register, result)
-        return result
 
     def apply_cnot_on_bits(
         self,
@@ -198,13 +172,11 @@ class QuantumArithmetic:
         Returns:
             The updated target register after applying CNOT
         """
-        result = builder.insert(
+        return builder.insert(
             OnQubitCNotOp.from_values(
                 control_register, control_index, target_register, target_index
             )
         ).res
-        self._propagate_name(target_register, result)
-        return result
 
     def apply_ccnot_on_bits(
         self,
@@ -231,7 +203,7 @@ class QuantumArithmetic:
         Returns:
             The updated target register after applying CCNOT
         """
-        result = builder.insert(
+        return builder.insert(
             OnQubitCCnotOp.from_values(
                 control1_register,
                 control1_index,
@@ -241,8 +213,6 @@ class QuantumArithmetic:
                 target_index,
             )
         ).res
-        self._propagate_name(target_register, result)
-        return result
 
     # =========================================================================
     # composite gates

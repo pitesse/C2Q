@@ -603,7 +603,7 @@ class InsertBitOp(IRDLOperation):
 
 
 # ============================================================================
-# ON-QUBIT OPERATIONS (Direct Bit Manipulation)
+# ON-QUBIT OPERATIONS (direct bit manipulation for qubits vectors/registers)
 # ============================================================================
 
 

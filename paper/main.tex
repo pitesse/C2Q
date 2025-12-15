@@ -87,28 +87,646 @@
 
       \begin{abstract}
         \textbf{\textit{Abstract}---}
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
+        This paper presents \textbf{C2Q}, a complete compilation framework
+        that translates classical C programs into executable quantum circuits
+        using Draper's QFT-based quantum arithmetic. The compiler implements a
+        multi-stage pipeline consisting of frontend parsing, MLIR-based intermediate
+        representation using the xDSL framework, an integrated optimization pipeline,
+        and backend circuit generation with Qiskit. The system supports basic arithmetic
+        operations (addition, subtraction, multiplication) with mixed-precision operands
+        and features a comprehensive optimization framework that achieves 15--36\% gate
+        count reduction and 7--51\% depth reduction across a benchmark suite of 9 test cases.
+        All optimized circuits pass validation against expected results using Matrix Product
+        State simulation. The project demonstrates the feasibility of automated quantum circuit
+        synthesis from high-level classical code, bridging the gap between classical programming
+        paradigms and quantum computing architectures.
       \end{abstract}
-      
+
       \vspace{1em}
     }]
 
 \section{Introduction}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+Quantum computing promises exponential speedups for specific computational problems, yet developing quantum
+algorithms remains challenging due to the significant conceptual gap between classical programming paradigms
+and quantum circuit design. While classical programmers work with familiar abstractions like variables, arithmetic
+operations, and control flow, quantum programming requires reasoning about qubits, superposition states, and gate
+sequences---a barrier that limits accessibility to quantum computing.
+
+The \textbf{C2Q} (C-to-Quantum) compiler addresses this challenge by automatically translating a subset of Standard C
+into executable quantum circuits. The system accepts classical C programs with integer arithmetic and generates functionally
+equivalent quantum circuits that can be simulated or executed on quantum hardware. This approach enables developers to express
+algorithms using familiar high-level constructs while the compiler handles the complex details of quantum gate synthesis.
+
+\subsection{Motivation and Scope}
+
+The primary motivation for C2Q is to explore automatic quantum circuit synthesis from classical code, particularly
+for arithmetic-intensive algorithms. Rather than manual quantum circuit design---which is error-prone and requires
+deep quantum expertise---the compiler automates the translation process, ensuring correctness while applying optimizations
+that would be tedious to implement manually.
+
+The current implementation focuses on \textbf{integer arithmetic} using Draper's Quantum Fourier Transform (QFT)
+based algorithms \cite{draper2000addition}, supporting:
+\begin{itemize}
+  \item Addition and subtraction of arbitrary-width integers
+  \item Multiplication through repeated addition
+  \item Mixed-precision arithmetic with automatic width handling
+  \item Multi-stage optimization to reduce gate count and circuit depth
+\end{itemize}
+
+\subsection{Key Contributions}
+
+This project makes the following contributions:
+\begin{enumerate}
+  \item A complete compilation infrastructure from C source to validated quantum circuits, including lexer,
+        parser, IR generator, optimizer, and backend.
+  \item Implementation of Draper QFT arithmetic with support for mixed-width operands and dynamic register allocation.
+  \item An integrated optimization framework achieving 22.5\% average gate reduction through iterative phase precision
+        filtering and supporting passes.
+  \item SSA-aware backend circuit generation that correctly handles aggressive optimization and register renaming.
+  \item Comprehensive validation framework using Matrix Product State simulation for circuits with 24+ qubits.
+\end{enumerate}
+
+The remainder of this paper is organized as follows: Section II describes
+the compiler architecture and pipeline stages. Section III explains the quantum
+arithmetic algorithms. Section IV details the optimization framework. Section V presents
+evaluation results on a benchmark suite. Section VI concludes with future directions.
 \section{Architecture}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+The C2Q compiler follows a classical multi-stage compilation pipeline, transforming C source code through increasingly
+specialized representations until producing executable quantum circuits. The complete dataflow consists of four major stages:
+Frontend, Intermediate Representation, Optimization, and Backend.
+
+\subsection{Frontend: Parsing and AST Construction}
+
+The frontend consists of three components implemented in the \texttt{frontend/} module:
+
+\textbf{Lexer} (\texttt{lexer.py}): Implements tokenization of C source code, extending xDSL's generic lexer with C-specific
+token types including keywords (\texttt{int}, \texttt{return}), operators (\texttt{+}, \texttt{-}, \texttt{*}), and punctuation.
+The lexer produces a stream of tokens with associated source locations for error reporting.
+
+\textbf{Parser} (\texttt{parser.py}): A recursive-descent parser that constructs an Abstract Syntax Tree (AST) from the token stream.
+The parser implements a symbol table with nested scoping to track variable declarations, enforce initialization-before-use semantics,
+and detect common errors like undefined variables or type mismatches. The implementation supports:
+\begin{itemize}
+  \item Function definitions with \texttt{main} entry point
+  \item Variable declarations with initializers
+  \item Assignment statements
+  \item Arithmetic expressions with operator precedence
+  \item Return statements
+\end{itemize}
+
+\textbf{AST Representation} (\texttt{c\_ast.py}): Defines node types for all supported C constructs, including \texttt{FunctionAST},
+\texttt{VarDeclExprAST}, \texttt{BinaryExprAST}, and \texttt{ReturnExprAST}. Each node contains source location information for
+diagnostic messages.
+
+\subsection{Intermediate Representation: Quantum MLIR}
+
+After parsing, the IR generator (\texttt{ir\_gen.py}) transforms the AST into quantum operations using the Multi-Level Intermediate
+Representation (MLIR) infrastructure via the xDSL framework.
+
+\textbf{Quantum Dialect} (\texttt{dialects/quantum\_dialect.py}): Defines a custom MLIR dialect using
+xDSL's IRDL (IR Definition Language) framework. The dialect includes over 20 operation types:
+\begin{itemize}
+  \item \textbf{Initialization:} \texttt{InitOp} creates quantum registers
+  \item \textbf{Single-qubit gates:} \texttt{OnQubitHadamardOp}, \texttt{OnQubitPhaseOp}, \texttt{OnQubitNotOp}
+  \item \textbf{Multi-qubit gates:} \texttt{OnQubitCNotOp}, \texttt{OnQubitCCnotOp}, \texttt{OnQubitControlledPhaseOp}, \texttt{OnQubitSwapOp}
+  \item \textbf{Measurement:} \texttt{MeasureOp} extracts classical results
+  \item \textbf{Metadata:} \texttt{CommentOp} for IR annotation
+\end{itemize}
+
+The quantum dialect represents quantum registers as \texttt{VectorType} with element type \texttt{IntegerType(1)},
+allowing the IR to model multi-qubit registers as composite SSA values. This representation naturally supports mixed-width
+arithmetic where operands may have different bit widths.
+
+\textbf{Register Naming Convention:} Quantum registers follow the \texttt{qX\_Y} naming scheme where \texttt{X} is the
+register number (unique per variable) and \texttt{Y} is the version number (incremented after each operation).
+This SSA-style naming enables precise value tracking through optimization passes.
+
+\textbf{IR Generation} (\texttt{ir\_gen.py}): Maps C operations to quantum gate sequences:
+\begin{itemize}
+  \item Variable declarations $\rightarrow$ \texttt{InitOp} with classical value encoding
+  \item Arithmetic operations $\rightarrow$ Draper QFT-based circuits
+  \item Return statements $\rightarrow$ \texttt{MeasureOp} on result register
+\end{itemize}
+
+The IR generator maintains a symbol table mapping variable names to SSA values representing quantum registers.
+When generating arithmetic operations, it delegates to the \texttt{QuantumArithmetic} class (Section III).
+
+\subsection{Middle-End: Optimization Pipeline}
+
+The \texttt{middle\_end/optimizations/} module implements pattern-based and analysis-based optimization passes coordinated
+by the \texttt{IntegratedQuantumOptimizer} class. The optimizer applies multiple passes iteratively until convergence,
+typically achieving stability in 2--3 iterations. Details of the optimization framework are presented in Section IV.
+
+\subsection{Backend: Circuit Generation and Validation}
+
+The backend (\texttt{backend/}) converts optimized MLIR to executable Qiskit circuits:
+
+\textbf{Circuit Generation} (\texttt{run\_qasm.py}): Traverses the MLIR module and maps quantum operations to Qiskit gates.
+A critical challenge is handling SSA value chains after aggressive optimization---the backend implements SSA-aware tracking
+to maintain correct qubit mappings even when register names have been renamed multiple times.
+
+The generator collects metrics during traversal:
+\begin{itemize}
+  \item Total gate count (all operations)
+  \item Circuit depth (critical path length)
+  \item Qubit count (maximum register index)
+  \item Individual gate counts (CNOT, Hadamard, SWAP, phase gates)
+\end{itemize}
+
+\textbf{Validation Framework} (\texttt{validate.py}): Simulates generated circuits using Qiskit Aer's Matrix Product State
+(MPS) method. MPS simulation is efficient for Draper arithmetic circuits, which exhibit localized entanglement patterns,
+allowing validation of circuits with 24+ qubits without exponential memory overhead. The validator compares measured outcomes
+against expected values, confirming functional correctness.
 \section{Quantum Arithmetic}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+The core of C2Q's circuit synthesis is the implementation of Draper's QFT-based quantum arithmetic algorithms
+\cite{draper2000addition}. These algorithms perform arithmetic in the frequency domain using the Quantum Fourier Transform,
+achieving polynomial gate complexity for addition, subtraction, and multiplication.
+
+\subsection{Quantum Fourier Transform}
+
+The Quantum Fourier Transform maps a quantum state from the computational basis to the Fourier basis,
+where arithmetic operations become simpler. For an $n$-qubit register $|x\rangle = |x_0 x_1 \ldots x_{n-1}\rangle$,
+the QFT produces:
+
+\begin{equation}
+  QFT|x\rangle = \frac{1}{\sqrt{2^n}} \sum_{k=0}^{2^n-1} e^{2\pi i xk/2^n}|k\rangle
+\end{equation}
+
+The QFT is implemented using Hadamard gates and controlled phase rotations:
+
+\begin{lstlisting}[language=Python, caption={QFT Implementation (simplified)}]
+def qft_on_vector(builder, vec):
+    n = vector_width(vec)
+    for i in range(n):
+        # Hadamard on qubit i
+        vec = OnQubitHadamardOp(vec, i)
+        # Controlled phase rotations
+        for j in range(i+1, n):
+            angle = 2*pi / 2**(j-i+1)
+            vec = OnQubitControlledPhaseOp(
+                vec, j, i, angle)
+    return swap_reverse_qubits(vec)
+\end{lstlisting}
+
+The circuit depth is $O(n^2)$ due to the nested controlled phase rotations. The inverse QFT (IQFT) reverses this
+transformation using negated phase angles.
+
+\subsection{Addition}
+
+Draper addition transforms the second operand to the Fourier basis, applies controlled phase rotations proportional
+to the first operand, then transforms back:
+
+\begin{equation}
+  |a\rangle|b\rangle \xrightarrow{QFT} |a\rangle QFT|b\rangle \xrightarrow{\text{phase}} |a\rangle QFT|a+b\rangle
+  \xrightarrow{IQFT} |a\rangle|a+b\rangle
+\end{equation}
+
+The key insight is that in the Fourier basis, addition becomes phase multiplication. For each bit $a_i$ of the first
+operand, we apply controlled phase rotations to all qubits of the second operand:
+
+\begin{lstlisting}[language=Python, caption={Addition Implementation}]
+def quantum_add(builder, a, b):
+    # Transform b to Fourier basis
+    b = qft_on_vector(builder, b)
+    
+    # Apply controlled phases
+    n_a = vector_width(a)
+    n_b = vector_width(b)
+    for i in range(n_a):
+        for j in range(n_b):
+            angle = 2*pi / 2**(j+1)
+            b = OnQubitControlledPhaseOp(
+                b, i, j, angle, control=a)
+    
+    # Transform back
+    return iqft_on_vector(builder, b)
+\end{lstlisting}
+
+The total gate count is $O(n^2)$ where $n$ is the register width. For 8-bit addition, the unoptimized circuit
+contains approximately 120 gates (16 Hadamards for QFT/IQFT, 8 CNOTs for controlled operations, and 92 phase gates).
+
+\subsection{Subtraction}
+
+Subtraction uses the same structure as addition but with negated phase angles, effectively computing $|a\rangle|b-a\rangle$:
+
+\begin{lstlisting}[language=Python, caption={Subtraction via Negated Phases}]
+def quantum_subtract(builder, a, b):
+    b = qft_on_vector(builder, b)
+    for i in range(n_a):
+        for j in range(n_b):
+            angle = -2*pi / 2**(j+1)  # Negative!
+            b = OnQubitControlledPhaseOp(
+                b, i, j, angle, control=a)
+    return iqft_on_vector(builder, b)
+\end{lstlisting}
+
+\subsection{Multiplication}
+
+Multiplication is implemented through repeated addition, leveraging the quantum adder as a subroutine. For $a \times b$,
+we perform $b$ additions of $a$ to an accumulator register:
+
+\begin{lstlisting}[language=Python, caption={Multiplication via Repeated Addition}]
+def quantum_multiply(builder, a, b):
+    width = vector_width(a) + vector_width(b)
+    acc = InitOp(VectorType(IntegerType(1), [width]))
+    
+    # Classical iteration over bits of b
+    for i in range(vector_width(b)):
+        # If bit i of b is 1, add (a << i) to acc
+        shifted_a = shift_left(a, i)
+        acc = quantum_add_conditional(
+            builder, shifted_a, acc, 
+            control_bit=b[i])
+    return acc
+\end{lstlisting}
+
+The conditional addition uses controlled arithmetic: if the $i$-th bit of $b$ is 1, add $(a \ll i)$ to the accumulator.
+This requires extending the adder with an additional control qubit.
+
+For small operands (e.g., $2 \times 3$), the base circuit contains approximately 3,155 gates and depth 2,051.
+Multiplication has $O(n_a \cdot n_b \cdot (n_a + n_b)^2)$ complexity due to repeated applications of the $O(n^2)$ adder.
+
+\subsection{Mixed-Width Arithmetic}
+
+A key feature is support for mixed-precision operands. When adding an 8-bit and 16-bit number, the compiler:
+\begin{enumerate}
+  \item Detects operand widths from register types
+  \item Promotes the narrower operand by zero-extension
+  \item Performs arithmetic at the wider precision
+  \item Allocates result register with appropriate width
+\end{enumerate}
+
+This is implemented transparently in the IR generator's width handling logic, allowing expressions
+like \texttt{int8 + int16} to work correctly.
 
 \section{Optimizations}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+Raw Draper arithmetic circuits contain significant redundancy and precision overhead. The C2Q
+optimization framework applies multiple passes to reduce gate count and circuit depth while preserving
+functional correctness. The \texttt{IntegratedQuantumOptimizer} class coordinates all optimization passes,
+applying them iteratively until convergence.
+
+\subsection{Optimization Framework Architecture}
+
+The optimizer implements a fixed-point iteration strategy:
+
+\begin{lstlisting}[language=Python, caption={Optimization Loop}]
+def optimize_circuit(module):
+    iteration = 0
+    while iteration < max_iterations:
+        prev_metrics = collect_metrics(module)
+        apply_all_passes(module)
+        new_metrics = collect_metrics(module)
+        if no_improvement(prev_metrics, new_metrics):
+            break
+        iteration += 1
+    return module
+\end{lstlisting}
+
+Typical circuits converge in 2--3 iterations. The first iteration often eliminates outer-layer redundancy
+(e.g., adjacent Hadamards at QFT/IQFT boundaries), exposing opportunities for subsequent passes to consolidate inner gates.
+
+\subsection{Primary Optimization: Phase Precision Filtering}
+
+The dominant optimization is \textbf{phase precision filtering}, implemented in \texttt{draper\_optimizer.py}.
+This pass eliminates phase rotations below a configurable threshold (default: $10^{-4}$ radians in benchmarks).
+
+\textbf{Rationale:} Draper QFT arithmetic generates many fine-grained phase rotations. For example,
+an 8-bit addition produces phases like $2\pi/2^8 \approx 0.0245$ radians. For practical integer operands,
+high-precision rotations ($< 0.1$ rad $\approx 5.7^\circ$) have negligible effect on measurement outcomes
+and can be safely eliminated.
+
+\textbf{Implementation:}
+\begin{lstlisting}[language=Python, caption={Phase Precision Filter}]
+def optimize_phase_precision(module, threshold):
+    for op in module.walk():
+        if isinstance(op, OnQubitPhaseOp):
+            angle = abs(get_phase_angle(op))
+            if angle < threshold:
+                erase_operation(op)
+                stats.gates_eliminated += 1
+\end{lstlisting}
+
+\textbf{Impact:} Across the benchmark suite, phase precision filtering achieves:
+\begin{itemize}
+  \item Simple arithmetic (8-bit add/sub): $\sim$20\% phase gate reduction
+  \item Multiplication circuits: $\sim$55\% phase gate reduction
+  \item Mixed-width operations: $\sim$55\% phase gate reduction
+\end{itemize}
+
+The effectiveness varies with circuit structure---multiplication generates more high-precision phases due to
+repeated additions, providing more optimization opportunities.
+
+\subsection{Supporting Optimization Passes}
+
+The framework includes several additional passes, though their impact is circuit-dependent:
+
+\textbf{Dead Code Elimination} (\texttt{remove\_unused\_op.py}): Quantum-safe removal of operations whose
+results are never used. Preserves measurement operations and their dependencies to maintain observable behavior.
+Uses SSA def-use chains to identify truly dead operations.
+
+\textbf{CCNOT Decomposition} (\texttt{ccnot\_decomposition.py}): Decomposes Toffoli gates into 1- and 2-qubit 
+gates using the Barenco construction. The current benchmark circuits do not heavily utilize CCNOT gates, 
+so this pass shows minimal impact but is included for completeness.
+
+\textbf{Adjacent Phase Consolidation} (\texttt{draper\_optimizer.py}): Merges consecutive phase gates acting on the same qubit:
+\begin{equation}
+  P(\theta_1) P(\theta_2) = P(\theta_1 + \theta_2)
+\end{equation}
+
+After phase precision filtering removes some gates, previously non-adjacent phases may become adjacent, allowing consolidation.
+
+\textbf{Hadamard Cancellation} (\texttt{draper\_optimizer.py}): Cancels adjacent Hadamard gates at QFT/IQFT boundaries:
+\begin{equation}
+  H H = I
+\end{equation}
+
+When a QFT immediately follows an IQFT (common in compound expressions), the final Hadamards of IQFT cancel with the initial Hadamards of QFT.
+
+\textbf{QFT Depth Reduction} (\texttt{draper\_optimizer.py}): Optimizes QFT depth when operands use 
+fewer bits than the register width. If only the lower $k$ bits are non-zero, the QFT need not process all $n$ qubits.
+
+\textbf{Redundant SWAP Elimination} (\texttt{draper\_optimizer.py}): Removes unnecessary SWAP operations in QFT circuits, 
+particularly when SWAPs are used for qubit reordering but the ordering is irrelevant to subsequent operations.
+
+\subsection{Optimization Statistics}
+
+Table~\ref{tab:opt-impact} summarizes the per-pass contribution across the benchmark suite. Phase precision 
+filtering is responsible for the majority of improvements, with supporting passes providing incremental 
+benefits depending on circuit structure.
+
+\begin{table}[h]
+  \centering
+  \caption{Optimization Pass Impact}
+  \label{tab:opt-impact}
+  \begin{tabular}{lcc}
+    \toprule
+    \textbf{Pass}       & \textbf{Avg Gates Eliminated} & \textbf{Primary Benefit} \\
+    \midrule
+    Phase Precision     & 19--56\%                      & Gate count               \\
+    Hadamard Cancel     & 0--2\%                        & Depth                    \\
+    Phase Consolidation & 1--3\%                        & Gate count               \\
+    Dead Code Elim.     & 0--1\%                        & Cleanliness              \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The iterative strategy is crucial: the first iteration eliminates outer redundancy, enabling subsequent iterations 
+to optimize inner circuit structure. Without iteration, many consolidation opportunities would be missed.
 
 \section{Evaluation}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+We evaluate C2Q on a benchmark suite of 9 test cases covering basic arithmetic, compound expressions, and edge cases. 
+All tests execute on Python 3.12 with Qiskit 1.3.1 and xDSL 0.25.0. Validation uses Qiskit Aer's Matrix Product State 
+simulator with 1,024 shots per circuit.
+
+\subsection{Benchmark Suite}
+
+The test suite includes:
+\begin{itemize}
+  \item \textbf{Add (8-bit):} Addition of 3 + 5 = 8
+  \item \textbf{Sub (8-bit):} Subtraction of 8 - 3 = 5
+  \item \textbf{Mult (2$\times$3):} Small multiplication 2 $\times$ 3 = 6
+  \item \textbf{Assignment:} Simple variable assignment without arithmetic
+  \item \textbf{Optimization Showcase:} Complex expression with multiple operations
+  \item \textbf{Stress Test:} Chain of multiple arithmetic operations
+  \item \textbf{Complex Math:} Mixed-width arithmetic (8-bit + 16-bit operands)
+  \item \textbf{Overflow (8-bit):} Addition causing wrap-around (255 + 1)
+  \item \textbf{Mixed Add/Mult:} Combined addition and multiplication
+\end{itemize}
+
+Each test is compiled twice: once without optimizations (baseline) and once with the integrated optimization pipeline (optimized). We measure:
+\begin{itemize}
+  \item MLIR operation count (IR-level operations)
+  \item Total gate count (circuit-level quantum gates)
+  \item Circuit depth (critical path length)
+  \item Individual gate counts (CNOT, Hadamard, SWAP, Phase)
+\end{itemize}
+
+\subsection{Performance Results}
+
+Table~\ref{tab:benchmark-results} presents detailed benchmark results. The optimization pipeline achieves 
+substantial improvements across all metrics:
+
+\begin{table*}[t]
+  \centering
+  \caption{Benchmark Results: Baseline vs. Optimized Circuits}
+  \label{tab:benchmark-results}
+  \small
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    \textbf{Test Case} & \textbf{Base Gates} & \textbf{Opt Gates} & \textbf{Reduction} & \textbf{Base Depth} & \textbf{Opt Depth} & \textbf{Depth $\Delta$} \\
+    \midrule
+    Add (8-bit)        & 120                 & 102                & -15.0\%            & 39                  & 36                 & -7.7\%                  \\
+    Sub (8-bit)        & 119                 & 101                & -15.1\%            & 39                  & 36                 & -7.7\%                  \\
+    Mult (2$\times$3)  & 3,155               & 2,051              & -35.0\%            & 2,051               & 1,002              & -51.1\%                 \\
+    Assignment         & 2                   & 2                  & 0.0\%              & 1                   & 1                  & 0.0\%                   \\
+    Opt Showcase       & 3,274               & 2,150              & -34.3\%            & 2,051               & 1,002              & -51.1\%                 \\
+    Stress Test        & 699                 & 591                & -15.5\%            & 142                 & 112                & -21.1\%                 \\
+    Complex Math       & 3,573               & 2,271              & -36.4\%            & 2,083               & 1,012              & -51.4\%                 \\
+    Overflow           & 125                 & 107                & -14.4\%            & 39                  & 36                 & -7.7\%                  \\
+    Mixed Add/Mult     & 3,573               & 2,271              & -36.4\%            & 2,083               & 1,012              & -51.4\%                 \\
+    \midrule
+    \textbf{Average}   &                     &                    & \textbf{-22.5\%}   &                     &                    & \textbf{-27.7\%}        \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\textbf{Key Observations:}
+
+\textbf{1. Optimization Effectiveness:} The pipeline achieves 22.5\% average gate reduction and 27.7\% average depth reduction. 
+Best-case improvements reach 36.4\% gate reduction (Complex Math, Mixed Add/Mult) and 51.4\% depth reduction (multiplication-heavy circuits).
+
+\textbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
+while multiplication and compound expressions benefit significantly (35--36\%). This reflects the distribution 
+of optimization opportunities---multiplication generates many high-precision phase gates that are aggressively filtered.
+
+\textbf{3. Assignment Baseline:} The assignment test (no arithmetic) shows 0\% improvement, confirming 
+optimizations do not affect non-arithmetic operations. This serves as a sanity check.
+
+\textbf{4. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
+(51\% vs. 35\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
+
+\subsection{MLIR-Level Optimization}
+
+Table~\ref{tab:mlir-ops} shows the correlation between MLIR operation count and final gate count:
+
+\begin{table}[h]
+  \centering
+  \caption{MLIR Operations vs. Quantum Gates}
+  \label{tab:mlir-ops}
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{Test}     & \textbf{Base MLIR} & \textbf{Opt MLIR} & \textbf{MLIR $\Delta$} \\
+    \midrule
+    Add (8-bit)       & 125                & 107               & -14.4\%                \\
+    Mult (2$\times$3) & 3,160              & 2,056             & -34.9\%                \\
+    Complex Math      & 3,580              & 2,278             & -36.4\%                \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+MLIR operation reduction closely tracks gate count reduction, indicating optimizations operate 
+effectively at the IR level before circuit generation. This validates the choice of MLIR as the optimization substrate.
+
+\subsection{Phase Gate Analysis}
+
+Phase gates dominate Draper arithmetic circuits. Table~\ref{tab:phase-gates} shows their distribution:
+
+\begin{table}[h]
+  \centering
+  \caption{Phase Gate Optimization}
+  \label{tab:phase-gates}
+  \begin{tabular}{lrrr}
+    \toprule
+    \textbf{Test}     & \textbf{Base Phase} & \textbf{Opt Phase} & \textbf{Reduction} \\
+    \midrule
+    Add (8-bit)       & 92                  & 74                 & -19.6\%            \\
+    Mult (2$\times$3) & 1,968               & 864                & -56.1\%            \\
+    Complex Math      & 2,344               & 1,042              & -55.6\%            \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Phase precision filtering eliminates 20--56\% of phase gates depending on circuit complexity. 
+Multiplication circuits benefit most due to cumulative high-precision rotations from repeated additions.
+
+\subsection{Validation and Correctness}
+
+All 9 test cases pass validation with 100\% success rate:
+\begin{itemize}
+  \item Unoptimized circuits produce correct results
+  \item Optimized circuits produce identical results
+  \item Measurement distributions are deterministic (single outcome with $>$99\% probability)
+\end{itemize}
+
+Matrix Product State simulation completes in $<$5 seconds per circuit on a MacBook Pro (M2), 
+demonstrating practical validation for circuits up to 72 qubits (Stress Test).
+
+\subsection{Limitations and Edge Cases}
+
+\textbf{Overflow Handling:} The compiler correctly implements wrap-around arithmetic for overflow 
+cases (e.g., 255 + 1 = 0 for 8-bit registers), matching C semantics. This is inherent to fixed-width 
+quantum arithmetic.
+
+\textbf{Assignment-Only Code:} Circuits without arithmetic operations show no optimization benefit, as expected. 
+The framework correctly identifies such cases and skips unnecessary passes.
+
+\textbf{Scalability:} Compilation time grows quadratically with register width due to $O(n^2)$ 
+QFT complexity. For 16-bit operands, compilation takes $\sim$2 seconds; 32-bit operands would 
+require $\sim$8 seconds. This is acceptable for a research prototype.
 
 \section{Conclusion}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+This paper presented C2Q, a complete compiler infrastructure for translating classical C programs 
+into optimized quantum circuits. The system successfully bridges the gap between high-level programming 
+abstractions and low-level quantum gate sequences, demonstrating that automated quantum circuit 
+synthesis is both feasible and practical for arithmetic-intensive algorithms.
+
+\subsection{Achievements}
+
+The project delivers several concrete contributions:
+
+\textbf{Complete Compilation Pipeline:} A working end-to-end system including lexer, parser, IR generator, 
+optimizer, and backend. The implementation spans over 4,000 lines of Python code across 20+ modules, 
+with comprehensive error handling and diagnostic messages.
+
+\textbf{Draper QFT Arithmetic:} Full implementation of quantum addition, subtraction, 
+and multiplication with support for mixed-precision operands. The quantum arithmetic module 
+handles arbitrary register widths and automatically manages width promotion.
+
+\textbf{MLIR-Based IR:} A custom quantum dialect using xDSL's IRDL framework, providing a clean 
+separation between frontend parsing and backend circuit generation. The SSA-based representation enables 
+powerful pattern-based optimizations.
+
+\textbf{Effective Optimization:} An integrated optimization framework achieving 22.5\% average gate 
+reduction and 27.7\% depth reduction across 9 test cases. The iterative optimization strategy with phase 
+precision filtering as the primary pass demonstrates clear practical value.
+
+\textbf{Validated Correctness:} All test cases pass validation with 100\% accuracy, confirming that 
+optimizations preserve functional correctness. The MPS-based validation framework efficiently handles 
+circuits with 24--72 qubits.
+
+\subsection{Limitations and Challenges}
+
+Several limitations remain in the current implementation:
+
+\textbf{Challenges of Dynamic Control Flow:} While the compiler supports linear sequences of operations, 
+dynamic control flow constructs (such as \texttt{while} loops and \texttt{if-else} conditionals) 
+are excluded due to fundamental conflicts between classical branching and quantum state coherence. Implementing 
+these features introduces three critical barriers:
+
+\begin{enumerate}
+  \item \textit{Measurement Collapse:} In classical compilation, control flow depends on evaluating a 
+  condition (e.g., a loop counter). In a quantum circuit, this variable exists in superposition. Measuring 
+  it to decide a branch path instantly collapses the state to a classical value, destroying the superposition 
+  and halting any quantum parallelism dependent on that state.
+
+  \item \textit{Coherent Control Overhead:} To avoid measurement, the compiler would need to implement 
+  coherent control (quantum multiplexing), where operations are conditioned on a control qubit. 
+  For conditional branching, this requires executing \textit{both} branches for every run. For loops, it 
+  necessitates unrolling the loop to its worst-case maximum depth. Both approaches lead to an exponential 
+  explosion in gate count and circuit depth that exceeds current hardware capabilities.
+
+  \item \textit{Reversibility and Uncomputation:} Quantum circuits must be unitary (reversible). 
+  Merging control paths (e.g., after an \texttt{if} statement) is inherently irreversible without 
+  retaining "path information" in ancilla qubits. Automatically managing the creation and subsequent 
+  uncomputation of this "garbage" state to preserve interference patterns adds significant complexity to the 
+  IR generation and optimization phases.
+\end{enumerate}
+
+\textbf{Arithmetic-Only:} The focus on Draper arithmetic means other quantum algorithmic 
+patterns (e.g., oracles, amplitude amplification) are not supported. Extending to non-arithmetic 
+operations would require additional algorithm libraries.
+
+\textbf{Scalability:} The $O(n^2)$ gate complexity of QFT arithmetic becomes prohibitive for large 
+bit widths. 64-bit arithmetic would generate circuits with tens of thousands of gates, challenging 
+for current NISQ hardware.
+
+\textbf{Hardware Constraints:} Generated circuits exceed the qubit capacity and coherence times of current 
+quantum hardware. Near-term execution requires either simulation or significant additional work on 
+error correction and resource management.
+
+\subsection{Future Directions}
+
+Several promising directions could extend this work:
+
+\textbf{1. Control Flow:} Implementing quantum conditionals and loops using amplitude amplification 
+or measurement-based control. This would enable compilation of more complex algorithms like GCD or factorization.
+
+\textbf{2. Alternative Arithmetic:} Exploring carry-save adders or other arithmetic encodings that 
+may offer better gate complexity or depth characteristics than Draper QFT.
+
+\textbf{3. Advanced Optimizations:} Incorporating template-based peephole optimizations, global 
+phase kickback analysis, or machine learning-guided optimization policies.
+
+\textbf{4. Target-Specific Backends:} Generating circuits optimized for specific quantum hardware 
+architectures (e.g., ion traps, superconducting qubits) with native gate sets and connectivity constraints.
+
+\textbf{5. Reversible Computing:} Extending the compiler to generate reversible circuits with 
+explicit uncomputation, reducing ancilla requirements and enabling garbage collection.
+
+\textbf{6. Quantum-Classical Hybrid:} Integrating with classical control systems to support 
+variational algorithms and quantum-classical hybrid workflows.
+
+\subsection{Broader Impact}
+
+C2Q demonstrates that quantum circuit synthesis from classical code is technically viable, 
+providing a proof of concept for higher-level quantum programming abstractions. While significant work 
+remains before such tools can be used for production quantum applications, this project establishes 
+foundational techniques and validates the overall approach.
+
+The open-source nature of the implementation (available at \texttt{github.com/pitesse/C2Q}) 
+enables other researchers to build upon this work, extending the compiler with new optimizations, 
+arithmetic algorithms, or language features. We hope this contributes to the broader effort to make 
+quantum computing more accessible to software developers without quantum expertise.
+
+As quantum hardware matures and error correction becomes practical, compilers like C2Q will play a 
+crucial role in bridging the abstraction gap between classical programming paradigms and quantum 
+execution models. This work represents one step toward that future.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

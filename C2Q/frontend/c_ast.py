@@ -1,4 +1,4 @@
-"""Abstract Syntax Tree (AST) definitions for the C to Quantum compiler.
+"""Abstract Syntax Tree (AST) definitions for the C to Quantum compiler using dataclasses.
 
 This module defines the AST node classes used to represent C code after parsing.
 These classes form a hierarchical structure that captures the semantic meaning
@@ -6,7 +6,7 @@ of the original C code, which can then be transformed into quantum IR.
 
 The AST is designed to represent a subset of C language constructs that are
 relevant for quantum computing transformations, including variable declarations,
-function definitions, expressions, and control flow.
+function definitions and expressions.
 """
 
 from __future__ import annotations
