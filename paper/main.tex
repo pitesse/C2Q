@@ -50,11 +50,18 @@
 \renewcommand{\headrule}{\hbox to\headwidth{\color{bluepoli}\leaders\hrule height \headrulewidth\hfill}}
 
 \lstset{ 
-    basicstyle=\ttfamily\footnotesize,
-    breaklines=true,
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  linewidth=\columnwidth,
     frame=single,
     numbers=left,
     numberstyle=\tiny\color{gray},
+  xleftmargin=2.2em,
+  framexleftmargin=2.2em,
+  framesep=2pt,
     keywordstyle=\color{bluepoli},
     commentstyle=\color{green!60!black},
     stringstyle=\color{red},
@@ -392,7 +399,7 @@ Typical circuits converge in 2--3 iterations. The first iteration often eliminat
 \subsection{Primary Optimization: Phase Precision Filtering}
 
 The dominant optimization is \textbf{phase precision filtering}, implemented in \texttt{draper\_optimizer.py}.
-This pass eliminates phase rotations below a configurable threshold (default: $10^{-4}$ radians in benchmarks).
+This pass eliminates phase rotations below a configurable threshold (benchmarks use $0.1$ radians; the CLI default is lower).
 
 \textbf{Rationale:} Draper QFT arithmetic generates many fine-grained phase rotations. For example,
 an 8-bit addition produces phases like $2\pi/2^8 \approx 0.0245$ radians. For practical integer operands,
@@ -433,6 +440,7 @@ gates using the Barenco construction. The current benchmark circuits do not heav
 so this pass shows minimal impact but is included for completeness.
 
 	extbf{Adjacent CNOT Cancellation} (\texttt{cnot\_cancellation.py}): Cancels adjacent identical CNOT pairs:
+
 \begin{equation}
   \mathrm{CNOT}\;\mathrm{CNOT} = I
 \end{equation}
@@ -468,6 +476,7 @@ benefits depending on circuit structure.
   \centering
   \caption{Optimization Pass Impact}
   \label{tab:opt-impact}
+  \resizebox{\columnwidth}{!}{%
   \begin{tabular}{lcc}
     \toprule
     \textbf{Pass}       & \textbf{Avg Gates Eliminated} & \textbf{Primary Benefit} \\
@@ -478,6 +487,7 @@ benefits depending on circuit structure.
     Dead Code Elim.     & 0--1\%                        & Cleanliness              \\
     \bottomrule
   \end{tabular}
+  }
 \end{table}
 
 The iterative strategy is crucial: the first iteration eliminates outer redundancy, enabling subsequent iterations 
@@ -521,6 +531,7 @@ substantial improvements across all metrics:
   \caption{Benchmark Results: Baseline vs. Optimized Circuits}
   \label{tab:benchmark-results}
   \small
+  \resizebox{\textwidth}{!}{%
   \begin{tabular}{lrrrrrr}
     \toprule
     \textbf{Test Case} & \textbf{Base Gates} & \textbf{Opt Gates} & \textbf{Reduction} & \textbf{Base Depth} & \textbf{Opt Depth} & \textbf{Depth $\Delta$} \\
@@ -528,27 +539,28 @@ substantial improvements across all metrics:
     Add (8-bit)        & 120                 & 102                & -15.0\%            & 39                  & 36                 & -7.7\%                  \\
     Sub (8-bit)        & 119                 & 101                & -15.1\%            & 39                  & 36                 & -7.7\%                  \\
     Mult (2$\times$3)  & 3,155               & 1,403              & -55.5\%            & 2,051               & 552                & -73.1\%                 \\
-    Opt Showcase       & 3,274               & 1,502              & -54.1\%            & 2,051               & 552                & -73.1\%                 \\
+    Opt Showcase       & 3,274               & 1,501              & -54.2\%            & 2,051               & 552                & -73.1\%                 \\
     Stress Test        & 699                 & 591                & -15.5\%            & 142                 & 112                & -21.1\%                 \\
     Complex Math       & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
     Overflow           & 125                 & 107                & -14.4\%            & 39                  & 36                 & -7.7\%                  \\
     Mixed Add/Mult     & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
     \midrule
-  	extbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.0\%}        \\
+          extbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.1\%}        \\
     \bottomrule
   \end{tabular}
+  }
 \end{table*}
 
-\textbf{Key Observations:}
+	extbf{Key Observations:}
 
-	extbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.0\% average depth reduction. 
+	extbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.1\% average depth reduction. 
 Best-case improvements reach 55.5\% gate reduction and 73.1\% depth reduction (multiplication-heavy circuits).
 
-	extbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
+  extbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
 while multiplication and compound expressions benefit significantly (54--56\%). This reflects the distribution 
 of optimization opportunities---multiplication generates many high-precision phase gates that are aggressively filtered.
 
-	extbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
+  extbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
 (73\% vs. 56\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
 
 \subsection{MLIR-Level Optimization}
@@ -559,15 +571,17 @@ Table~\ref{tab:mlir-ops} shows the correlation between MLIR operation count and 
   \centering
   \caption{MLIR Operations vs. Quantum Gates}
   \label{tab:mlir-ops}
+  \resizebox{\columnwidth}{!}{%
   \begin{tabular}{lccc}
     \toprule
     \textbf{Test}     & \textbf{Base MLIR} & \textbf{Opt MLIR} & \textbf{MLIR $\Delta$} \\
     \midrule
     Add (8-bit)       & 125                & 107               & -14.4\%                \\
-    Mult (2$\times$3) & 3,160              & 2,056             & -34.9\%                \\
-    Complex Math      & 3,580              & 2,278             & -36.4\%                \\
+    Mult (2$\times$3) & 3,160              & 1,408             & -55.4\%                \\
+    Complex Math      & 3,580              & 1,630             & -54.5\%                \\
     \bottomrule
   \end{tabular}
+  }
 \end{table}
 
 MLIR operation reduction closely tracks gate count reduction, indicating optimizations operate 
@@ -581,6 +595,7 @@ Phase gates dominate Draper arithmetic circuits. Table~\ref{tab:phase-gates} sho
   \centering
   \caption{Phase Gate Optimization}
   \label{tab:phase-gates}
+  \resizebox{\columnwidth}{!}{%
   \begin{tabular}{lrrr}
     \toprule
     \textbf{Test}     & \textbf{Base Phase} & \textbf{Opt Phase} & \textbf{Reduction} \\
@@ -590,6 +605,7 @@ Phase gates dominate Draper arithmetic circuits. Table~\ref{tab:phase-gates} sho
     Complex Math      & 2,344               & 1,042              & -55.6\%            \\
     \bottomrule
   \end{tabular}
+  }
 \end{table}
 
 Phase precision filtering eliminates 20--56\% of phase gates depending on circuit complexity. 
@@ -644,7 +660,7 @@ separation between frontend parsing and backend circuit generation. The SSA-base
 powerful pattern-based optimizations.
 
 	extbf{Effective Optimization:} An integrated optimization framework achieving 34.9\% average gate 
-reduction and 42.0\% depth reduction across 8 test cases. The iterative optimization strategy with phase 
+reduction and 42.1\% depth reduction across 8 test cases. The iterative optimization strategy with phase 
 precision filtering as the primary pass demonstrates clear practical value.
 
 \textbf{Validated Correctness:} All test cases pass validation with 100\% accuracy, confirming that 
