@@ -5,13 +5,17 @@ algorithms used in the C-to-Quantum compiler, particularly Draper's QFT-based
 addition and subtraction.
 """
 
-import math
-from typing import List, Dict, Set, Optional
-from collections import defaultdict
+from typing import Set, Optional
 from dataclasses import dataclass
 
 from xdsl.ir import SSAValue, Operation
-from xdsl.dialects.builtin import ModuleOp
+from xdsl.dialects.builtin import Float64Type, FloatAttr, IntegerAttr, ModuleOp
+from xdsl.pattern_rewriter import (
+    GreedyRewritePatternApplier,
+    PatternRewriter,
+    PatternRewriteWalker,
+    RewritePattern,
+)
 
 
 @dataclass
@@ -50,7 +54,7 @@ class DraperOptimizer:
         self.precision_threshold = precision_threshold
         self.stats = OptimizationStats()
 
-    def optimize_draper_circuit(self, module: ModuleOp) -> ModuleOp:
+    def optimize_draper_circuit(self, module: ModuleOp, verbose: bool = True) -> ModuleOp:
         """Apply Draper-specific optimizations iteratively to reduce arithmetic circuit complexity.
 
         Runs optimization passes in a loop until convergence. This allows peeling away layers:
@@ -71,459 +75,319 @@ class DraperOptimizer:
         Returns:
             Optimized MLIR module.
         """
-        print("[INFO] Starting iterative Draper arithmetic optimization...")
+        def log(msg: str) -> None:
+            if verbose:
+                print(msg)
+
+        log("[INFO] Starting iterative Draper arithmetic optimization...")
 
         iteration = 0
         max_iterations = 10
 
         while iteration < max_iterations:
             iteration += 1
-            print(f"\n  [INFO] Draper Iteration {iteration}")
+            log(f"\n  [INFO] Draper Iteration {iteration}")
 
             prev_gates = self.stats.gates_eliminated
             prev_phases = self.stats.phases_consolidated
 
-            self._optimize_phase_precision(module)
-            self._consolidate_adjacent_phases(module)
-            self._cancel_hadamard_pairs(module)
-            self._optimize_qft_depth(module)
-            self._eliminate_redundant_swaps(module)
+            changed = self._run_iteration(module, verbose=verbose)
 
             gates_this_iter = self.stats.gates_eliminated - prev_gates
             phases_this_iter = self.stats.phases_consolidated - prev_phases
             changes_this_iter = gates_this_iter + phases_this_iter
 
-            print(
+            log(
                 f"    [INFO] Changes: {changes_this_iter} (gates: {gates_this_iter}, phases: {phases_this_iter})"
             )
 
-            if changes_this_iter == 0:
-                print(
-                    f"\n  [OK] Draper optimization converged after {iteration} iteration(s)"
-                )
+            if changes_this_iter == 0 or not changed:
+                log(f"\n  [OK] Draper optimization converged after {iteration} iteration(s)")
                 break
 
         if iteration >= max_iterations:
-            print(f"\n  [WARN] Reached maximum Draper iterations ({max_iterations})")
-        print("\n[INFO] Draper optimization complete.")
-        print(self.stats)
+            log(f"\n  [WARN] Reached maximum Draper iterations ({max_iterations})")
+        log("\n[INFO] Draper optimization complete.")
+        if verbose:
+            print(self.stats)
 
         return module
 
-    def _optimize_phase_precision(self, module: ModuleOp) -> None:
-        """Eliminate negligible phase rotations in Draper arithmetic.
-
-        For small integer operands, many of the high-precision phase rotations
-        have negligible effect and can be safely removed.
-
-        Args:
-            module: MLIR module to optimize.
-        """
-        print("  [INFO] Optimizing phase precision...")
-
-        eliminated = 0
-        total_phases = 0
-        for op in list(module.walk()):
-            if hasattr(op, "name") and op.name == "quantum.OnQubit_controlled_phase":
-                total_phases += 1
-                phase = abs(self._extract_phase(op))
-
-                if phase < self.precision_threshold:
-                    if len(op.results) > 0 and len(op.operands) > 1:
-                        op.results[0].replace_by(op.operands[1])
-
-                    if op.parent is not None:
-                        op.detach()
-                    op.erase()
-                    eliminated += 1
-                    self.stats.gates_eliminated += 1
-
-        print(
-            f"    [INFO] Eliminated {eliminated}/{total_phases} negligible phase rotations (< {self.precision_threshold:.4f} rad)"
-        )
-
-    def _optimize_qft_depth(self, module: ModuleOp) -> None:
-        """Reduce QFT depth by analyzing actual register bit usage.
-
-        If we know that operands are small (e.g., fit in 4 bits instead of 8),
-        we can eliminate the higher-order QFT operations.
-
-        Args:
-            module: MLIR module to optimize.
-        """
-        print("  [INFO] Analyzing QFT depth requirements...")
-
-        bit_usage = self._analyze_bit_usage(module)
-        max_significant_bit = max(bit_usage) if bit_usage else 7
-
-        if max_significant_bit < 7:
-            eliminated = self._eliminate_unused_qft_operations(
-                module, max_significant_bit + 1
-            )
-            self.stats.depth_reduction += eliminated
-            print(f"    [INFO] Reduced QFT depth to {max_significant_bit + 1} bits")
-        else:
-            print(
-                f"    [INFO] All bits ({max_significant_bit + 1}) in use, no QFT depth reduction possible"
-            )
-
-    def _eliminate_redundant_swaps(self, module: ModuleOp) -> None:
-        """Remove redundant SWAP operations in QFT implementation.
-
-        SWAP-SWAP pairs can cancel out, or SWAPs can be absorbed
-        into the computation rather than performed explicitly.
-
-        Args:
-            module: MLIR module to optimize.
-        """
-        print("  [INFO] Eliminating redundant SWAP operations...")
-
-        swaps = [op for op in module.walk() if op.name == "quantum.OnQubit_swap"]
-        eliminated = 0
-
-        i = 0
-        while i < len(swaps) - 1:
-            swap1 = swaps[i]
-            swap2 = swaps[i + 1]
-
-            if self._swaps_cancel(swap1, swap2):
-                swap1.erase()
-                swap2.erase()
-                eliminated += 2
-                self.stats.gates_eliminated += 2
-                i += 2
-            else:
-                i += 1
-
-        print(f"    [INFO] Eliminated {eliminated} redundant SWAPs")
-
-    def _consolidate_adjacent_phases(self, module: ModuleOp) -> None:
-        """Consolidate adjacent controlled-phase operations on the same qubit pair.
-
-        Multiple controlled phase rotations between the same control and target
-        qubits can be combined using R(θ₁)·R(θ₂) = R(θ₁ + θ₂). This is especially
-        important after Hadamard cancellation exposes adjacent phases.
-
-        Args:
-            module: MLIR module to optimize.
-        """
-        print("  [INFO] Consolidating adjacent phase rotations...")
-
-        operations = list(module.walk())
-        to_remove: Set[Operation] = set()
-        consolidated = 0
-
-        i = 0
-        while i < len(operations) - 1:
-            op = operations[i]
-            # print(type(op))
-
-            if op in to_remove:
-                i += 1
-                continue
-
-            if not (
-                hasattr(op, "name") and op.name == "quantum.OnQubit_controlled_phase"
-            ):
-                i += 1
-                continue
-
-            next_op = operations[i + 1]
-
-            if (
-                hasattr(next_op, "name")
-                and next_op.name == "quantum.OnQubit_controlled_phase"
-                and next_op not in to_remove
-            ):
-
-                if self._same_phase_qubits(op, next_op):
-                    phase1 = self._extract_phase(op)
-                    phase2 = self._extract_phase(next_op)
-                    combined_phase = phase1 + phase2
-
-                    self._set_phase(op, combined_phase)
-
-                    if len(next_op.results) > 0 and len(op.results) > 0:
-                        next_op.results[0].replace_by(op.results[0])
-
-                    to_remove.add(next_op)
-                    consolidated += 1
-                    self.stats.phases_consolidated += 1
-
-                    continue
-
-            i += 1
-
-        for op in to_remove:
-            if op.parent is not None:
-                op.detach()
-            op.erase()
-
-        print(f"    [INFO] Consolidated {consolidated} adjacent phase rotations")
-
-    def _cancel_hadamard_pairs(self, module: ModuleOp) -> None:
-        """Cancel pairs of Hadamard gates on the same qubit.
-
-        Applies the identity H·H = I, which is especially important at QFT/IQFT boundaries
-        where the trailing Hadamard of a QFT immediately precedes the leading Hadamard
-        of an IQFT. Cancelling these exposes the inner phase gates for consolidation.
-
-        Args:
-            module: MLIR module to optimize.
-        """
-        print("  [INFO] Cancelling Hadamard pairs (H·H = I)...")
-
-        operations = list(module.walk())
-        to_remove: Set[Operation] = set()
-        cancelled = 0
-
-        for i in range(len(operations) - 1):
-            op = operations[i]
-
-            if op in to_remove:
-                continue
-
-            next_op = operations[i + 1]
-            if next_op in to_remove:
-                continue
-
-            if (
-                hasattr(op, "name")
-                and hasattr(next_op, "name")
-                and op.name == "quantum.OnQubit_hadamard"
-                and next_op.name == "quantum.OnQubit_hadamard"
-            ):
-
-                if self._same_qubit(op, next_op):
-                    to_remove.add(op)
-                    to_remove.add(next_op)
-                    cancelled += 2
-                    self.stats.gates_eliminated += 2
-
-        for op in to_remove:
-            if op.parent is not None:
-                op.detach()
-            op.erase()
-
-        print(f"    [INFO] Cancelled {cancelled} Hadamard gates ({cancelled//2} pairs)")
-
-    def _same_qubit(self, op1: Operation, op2: Operation) -> bool:
-        """Check if two operations target the same qubit.
-
-        Args:
-            op1: First operation.
-            op2: Second operation.
-
-        Returns:
-            True if both operations target the same qubit, False otherwise.
-        """
-        try:
-            if len(op1.operands) == 0 or len(op2.operands) == 0:
-                return False
-
-            reg1 = op1.operands[0]
-            reg2 = op2.operands[0]
-
-            idx1 = op1.attributes.get("index", 0)
-            idx2 = op2.attributes.get("index", 0)
-
-            return reg1 == reg2 and idx1 == idx2
-        except:
-            return False
-
-    def _same_phase_qubits(self, op1: Operation, op2: Operation) -> bool:
-        """Check if two controlled-phase operations target the same qubit pair.
-
-        Args:
-            op1: First controlled-phase operation.
-            op2: Second controlled-phase operation.
-
-        Returns:
-            True if both operations have the same control and target qubits, False otherwise.
-        """
-        try:
-            if len(op1.operands) < 2 or len(op2.operands) < 2:
-                return False
-
-            control1 = op1.operands[0]
-            target1 = op1.operands[1]
-            control2 = op2.operands[0]
-            target2 = op2.operands[1]
-
-            control_idx1 = op1.attributes.get("control_index", 0)
-            target_idx1 = op1.attributes.get("target_index", 0)
-            control_idx2 = op2.attributes.get("control_index", 0)
-            target_idx2 = op2.attributes.get("target_index", 0)
-
-            same_control = control1 == control2 and control_idx1 == control_idx2
-            same_target = target1 == target2 and target_idx1 == target_idx2
-
-            return same_control and same_target
-        except:
-            return False
-
-    def _set_phase(self, op: Operation, phase: float) -> None:
-        """Set phase angle for controlled-phase operation.
-
-        Args:
-            op: Controlled-phase operation to modify.
-            phase: New phase angle in radians.
-        """
-        try:
-            from xdsl.dialects.builtin import FloatAttr, Float64Type
-
-            op.attributes["phase"] = FloatAttr(phase, Float64Type())
-        except:
-            pass
-
-    def _extract_phase(self, op: Operation) -> float:
-        """Extract phase angle from controlled phase operation.
-
-        Args:
-            op: Controlled-phase operation.
-
-        Returns:
-            Phase angle in radians, or 0.0 if extraction fails.
-        """
-        try:
-            attr = op.attributes.get("phase")
-            if attr is None:
-                return 0.0
-
-            if hasattr(attr, "value"):
-                if hasattr(attr.value, "data"):  # type: ignore[attr-defined]
-                    return float(attr.value.data)  # type: ignore[attr-defined]
-                return float(attr.value)  # type: ignore[attr-defined]
-
-            if hasattr(attr, "data"):
-                return float(attr.data)  # type: ignore[attr-defined]
-
+    # ---------------------------------------------------------------------
+    # xDSL rewrite patterns (applied via PatternRewriteWalker)
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def _int_attr(op: Operation, name: str) -> Optional[int]:
+        attr = op.attributes.get(name)
+        if isinstance(attr, IntegerAttr):
+            return int(attr.value.data)
+        # legacy/loose fallback
+        if attr is not None and hasattr(attr, "data"):
             try:
-                return float(attr)  # type: ignore[arg-type]
-            except:
+                return int(attr.data)  # type: ignore[attr-defined]
+            except Exception:
+                return None
+        return None
+
+    @staticmethod
+    def _float_attr(op: Operation, name: str) -> float:
+        attr = op.attributes.get(name)
+        if isinstance(attr, FloatAttr):
+            return float(attr.value.data)
+        if attr is None:
+            return 0.0
+        #  fallback -- try to extract float from various attribute types
+        if hasattr(attr, "value"):
+            try:
+                v = attr.value  # type: ignore[attr-defined]
+                if hasattr(v, "data"):
+                    return float(v.data)  # type: ignore[attr-defined]
+                return float(v)
+            except Exception:
                 return 0.0
-        except:
+        if hasattr(attr, "data"):
+            try:
+                return float(attr.data)  # type: ignore[attr-defined]
+            except Exception:
+                return 0.0
+        try:
+            return float(attr)  # type: ignore[arg-type]
+        except Exception:
             return 0.0
 
-    def _analyze_bit_usage(self, module: ModuleOp) -> Set[int]:
-        """Analyze which bit positions are actually used in the circuit.
+    @staticmethod
+    def _set_float_attr(op: Operation, name: str, value: float) -> None:
+        op.attributes[name] = FloatAttr(float(value), Float64Type())
 
-        A bit is considered used if it appears in any quantum operation's
-        index, target_index, or control_index attributes. This ensures proper
-        handling of all bits that participate in Fourier-domain arithmetic.
+    class _EliminateNegligibleControlledPhase(RewritePattern):
+        def __init__(self, optimizer: "DraperOptimizer") -> None:
+            self.optimizer = optimizer
 
-        Args:
-            module: MLIR module to analyze.
+        def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter) -> None:
+            if op.name != "quantum.OnQubit_controlled_phase":
+                return
+            phase = abs(self.optimizer._float_attr(op, "phase"))
+            if phase >= self.optimizer.precision_threshold:
+                return
+            if not op.results or len(op.operands) < 2:
+                return
+            replacement = op.operands[1]
+            result = op.results[0]
+            for use in list(result.uses):
+                use.operation.operands[use.index] = replacement
+            rewriter.erase_op(op)
+            self.optimizer.stats.gates_eliminated += 1
 
-        Returns:
-            Set of bit indices that are used in the circuit.
-        """
-        used_bits = set()
+    class _ConsolidateAdjacentControlledPhases(RewritePattern):
+        def __init__(self, optimizer: "DraperOptimizer") -> None:
+            self.optimizer = optimizer
 
-        for op in module.walk():
-            if hasattr(op, "name") and hasattr(op, "attributes"):
-                try:
-                    for attr_name in ["index", "target_index", "control_index"]:
-                        attr = op.attributes.get(attr_name)
-                        if attr is not None:
-                            if hasattr(attr, "data"):
-                                val = int(attr.data)  # type: ignore[attr-defined]
-                                used_bits.add(val)
-                except:
-                    print(f"    [WARN] Failed to analyze bit usage for operation: {op}")
-                    pass
+        def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter) -> None:
+            if op.name != "quantum.OnQubit_controlled_phase":
+                return
+            nxt = op._next_op
+            if nxt is None or nxt.name != "quantum.OnQubit_controlled_phase":
+                return
+            if not op.results or not nxt.results or len(op.operands) < 2 or len(nxt.operands) < 2:
+                return
 
-        return used_bits
+            cidx1 = self.optimizer._int_attr(op, "control_index")
+            tidx1 = self.optimizer._int_attr(op, "target_index")
+            cidx2 = self.optimizer._int_attr(nxt, "control_index")
+            tidx2 = self.optimizer._int_attr(nxt, "target_index")
+            if cidx1 is None or tidx1 is None or cidx2 is None or tidx2 is None:
+                return
+            if cidx1 != cidx2 or tidx1 != tidx2:
+                return
 
-    def _eliminate_unused_qft_operations(self, module: ModuleOp, max_bits: int) -> int:
-        """Remove QFT operations on unused higher-order bits.
+            # SSA chaining: second must consume first's updated target register.
+            if nxt.operands[1] != op.results[0]:
+                return
 
-        Args:
-            module: MLIR module to optimize.
-            max_bits: Maximum number of bits actually needed.
+            # control register may be unchanged (different register) or equal to the
+            # updated target (same-register controlled phase).
+            if op.operands[0] == op.operands[1]:
+                if nxt.operands[0] != op.results[0] or nxt.operands[1] != op.results[0]:
+                    return
+            else:
+                if nxt.operands[0] != op.operands[0]:
+                    return
 
-        Returns:
-            Number of operations eliminated.
-        """
-        eliminated = 0
+            combined = self.optimizer._float_attr(op, "phase") + self.optimizer._float_attr(nxt, "phase")
+            self.optimizer._set_float_attr(op, "phase", combined)
 
-        for op in list(module.walk()):
-            if self._operates_on_high_bits(op, max_bits):
-                if op.parent is not None:
-                    op.detach()
-                op.erase()
-                eliminated += 1
-                self.stats.gates_eliminated += 1
+            for use in list(nxt.results[0].uses):
+                use.operation.operands[use.index] = op.results[0]
 
-        return eliminated
+            rewriter.erase_op(nxt)
+            self.optimizer.stats.phases_consolidated += 1
 
-    def _operates_on_high_bits(self, op: Operation, max_bits: int) -> bool:
-        """Check if operation works on bits >= max_bits.
+    class _CancelAdjacentHadamards(RewritePattern):
+        def __init__(self, optimizer: "DraperOptimizer") -> None:
+            self.optimizer = optimizer
 
-        Args:
-            op: Operation to check.
-            max_bits: Threshold bit index.
+        def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter) -> None:
+            if op.name != "quantum.OnQubit_hadamard":
+                return
+            nxt = op._next_op
+            if nxt is None or nxt.name != "quantum.OnQubit_hadamard":
+                return
+            if not op.results or not nxt.results or len(op.operands) < 1 or len(nxt.operands) < 1:
+                return
 
-        Returns:
-            True if operation targets high bits, False otherwise.
-        """
-        try:
-            if hasattr(op, "attributes"):
-                attr = op.attributes.get("index")
-                if attr is not None and hasattr(attr, "data"):
-                    val = int(attr.data)  # type: ignore[attr-defined]
-                    if val >= max_bits:
-                        return True
+            idx1 = self.optimizer._int_attr(op, "index")
+            idx2 = self.optimizer._int_attr(nxt, "index")
+            if idx1 is None or idx2 is None or idx1 != idx2:
+                return
+            if nxt.operands[0] != op.results[0]:
+                return
 
-                target_attr = op.attributes.get("target_index")
-                if target_attr is not None and hasattr(target_attr, "data"):
-                    val = int(target_attr.data)  # type: ignore[attr-defined]
-                    if val >= max_bits:
-                        return True
+            original = op.operands[0]
+            final_res = nxt.results[0]
+            for use in list(final_res.uses):
+                use.operation.operands[use.index] = original
 
-        except:
-            pass
+            rewriter.erase_op(nxt)
+            rewriter.erase_op(op)
+            self.optimizer.stats.gates_eliminated += 2
 
-        return False
+    class _CancelAdjacentSwaps(RewritePattern):
+        def __init__(self, optimizer: "DraperOptimizer") -> None:
+            self.optimizer = optimizer
 
-    def _swaps_cancel(self, swap1: Operation, swap2: Operation) -> bool:
-        """Check if two SWAP operations cancel each other out.
+        def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter) -> None:
+            if op.name != "quantum.OnQubit_swap":
+                return
+            nxt = op._next_op
+            if nxt is None or nxt.name != "quantum.OnQubit_swap":
+                return
+            if not op.results or not nxt.results or len(op.operands) < 1 or len(nxt.operands) < 1:
+                return
+            if nxt.operands[0] != op.results[0]:
+                return
 
-        Args:
-            swap1: First SWAP operation.
-            swap2: Second SWAP operation.
+            a1 = self.optimizer._int_attr(op, "qubit1_index")
+            b1 = self.optimizer._int_attr(op, "qubit2_index")
+            a2 = self.optimizer._int_attr(nxt, "qubit1_index")
+            b2 = self.optimizer._int_attr(nxt, "qubit2_index")
+            if None in (a1, b1, a2, b2):
+                return
+            if not ((a1 == a2 and b1 == b2) or (a1 == b2 and b1 == a2)):
+                return
 
-        Returns:
-            True if the swaps cancel (swap the same pair of qubits), False otherwise.
-        """
-        try:
-            indices1 = self._get_swap_indices(swap1)
-            indices2 = self._get_swap_indices(swap2)
+            original = op.operands[0]
+            final_res = nxt.results[0]
+            for use in list(final_res.uses):
+                use.operation.operands[use.index] = original
 
-            return indices1 == indices2 or indices1 == indices2[::-1]
-        except:
+            rewriter.erase_op(nxt)
+            rewriter.erase_op(op)
+            self.optimizer.stats.gates_eliminated += 2
+
+    class _EliminateHighBitOps(RewritePattern):
+        def __init__(self, optimizer: "DraperOptimizer", max_bits: int) -> None:
+            self.optimizer = optimizer
+            self.max_bits = max_bits
+
+        def _op_uses_high_bit(self, op: Operation) -> bool:
+            # look for any known bit-index attrs.
+            for key in (
+                "index",
+                "target_index",
+                "control_index",
+                "control1_index",
+                "control2_index",
+                "qubit1_index",
+                "qubit2_index",
+            ):
+                v = self.optimizer._int_attr(op, key)
+                if v is not None and v >= self.max_bits:
+                    return True
             return False
 
-    def _get_swap_indices(self, swap_op: Operation) -> tuple[int, int]:
-        """Extract the pair of qubit indices being swapped.
+        def match_and_rewrite(self, op: Operation, rewriter: PatternRewriter) -> None:
+            if not op.name.startswith("quantum."):
+                return
+            if op.name in ("quantum.func",):
+                return
+            if not self._op_uses_high_bit(op):
+                return
+            if not op.results or not op.operands:
+                return
 
-        Args:
-            swap_op: SWAP operation.
+            replacement = op.operands[-1]
+            result = op.results[0]
+            for use in list(result.uses):
+                use.operation.operands[use.index] = replacement
+            rewriter.erase_op(op)
+            self.optimizer.stats.gates_eliminated += 1
+            self.optimizer.stats.depth_reduction += 1
 
-        Returns:
-            Tuple of two qubit indices.
-        """
-        try:
-            attr1 = swap_op.attributes.get("qubit1")
-            attr2 = swap_op.attributes.get("qubit2")
-            idx1 = int(attr1.data) if attr1 and hasattr(attr1, "data") else 0  # type: ignore[attr-defined]
-            idx2 = int(attr2.data) if attr2 and hasattr(attr2, "data") else 0  # type: ignore[attr-defined]
-            return (idx1, idx2)
-        except:
-            return (0, 0)
+    def _run_patterns(self, module: ModuleOp, patterns: list[RewritePattern]) -> bool:
+        applier = GreedyRewritePatternApplier(patterns)
+        walker = PatternRewriteWalker(applier)
+        return bool(walker.rewrite_module(module))
 
+    def _analyze_bit_usage(self, module: ModuleOp) -> Set[int]:
+        used_bits: Set[int] = set()
+        for op in module.walk():
+            if not hasattr(op, "attributes"):
+                continue
+            for key in (
+                "index",
+                "target_index",
+                "control_index",
+                "control1_index",
+                "control2_index",
+                "qubit1_index",
+                "qubit2_index",
+            ):
+                v = self._int_attr(op, key)
+                if v is not None:
+                    used_bits.add(v)
+        return used_bits
 
-def optimize_draper_arithmetic(module: ModuleOp, **kwargs) -> ModuleOp:
+    def _run_iteration(self, module: ModuleOp, verbose: bool) -> bool:
+        def log(msg: str) -> None:
+            if verbose:
+                print(msg)
+
+        log("  [INFO] Optimizing phase precision...")
+        eliminated_phase = self._run_patterns(
+            module, [self._EliminateNegligibleControlledPhase(self)]
+        )
+
+        log("  [INFO] Consolidating adjacent phase rotations...")
+        consolidated = self._run_patterns(
+            module, [self._ConsolidateAdjacentControlledPhases(self)]
+        )
+
+        log("  [INFO] Cancelling Hadamard pairs (H·H = I)...")
+        cancelled_h = self._run_patterns(module, [self._CancelAdjacentHadamards(self)])
+
+        log("  [INFO] Analyzing QFT depth requirements...")
+        used_bits = self._analyze_bit_usage(module)
+        max_significant_bit = max(used_bits) if used_bits else 7
+        log(
+            f"    [INFO] Max significant bit: {max_significant_bit} (cutoff={max_significant_bit + 1})"
+        )
+        eliminated_high_bits = self._run_patterns(
+            module, [self._EliminateHighBitOps(self, max_significant_bit + 1)]
+        )
+
+        log("  [INFO] Eliminating redundant SWAP operations...")
+        cancelled_swaps = self._run_patterns(module, [self._CancelAdjacentSwaps(self)])
+
+        return bool(
+            eliminated_phase
+            or consolidated
+            or cancelled_h
+            or eliminated_high_bits
+            or cancelled_swaps
+        )
+
+def optimize_draper_arithmetic(module: ModuleOp, verbose: bool = True, **kwargs) -> ModuleOp:
     """Convenience function to optimize Draper arithmetic circuits.
 
     Args:
@@ -534,4 +398,4 @@ def optimize_draper_arithmetic(module: ModuleOp, **kwargs) -> ModuleOp:
         Optimized MLIR module.
     """
     optimizer = DraperOptimizer(**kwargs)
-    return optimizer.optimize_draper_circuit(module)
+    return optimizer.optimize_draper_circuit(module, verbose=verbose)

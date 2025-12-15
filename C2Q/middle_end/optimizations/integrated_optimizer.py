@@ -150,7 +150,7 @@ class IntegratedQuantumOptimizer:
                 draper_opt = DraperOptimizer(
                     precision_threshold=self.precision_threshold
                 )
-                module = draper_opt.optimize_draper_circuit(module)
+                module = draper_opt.optimize_draper_circuit(module, verbose=verbose)
                 if verbose:
                     print("  [PASS] Applied: Draper QFT optimizations")
             except Exception as e:
