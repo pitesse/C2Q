@@ -10,7 +10,7 @@ from .draper_optimizer import DraperOptimizer, optimize_draper_arithmetic, Optim
 from .integrated_optimizer import IntegratedQuantumOptimizer, optimize_quantum_circuit, create_optimizer_pipeline
 from .remove_unused_op import RemoveUnusedOperations
 from .ccnot_decomposition import CCnot_decomposition
-from .in_placing import InPlacing
+from .cnot_cancellation import CNotPairCancellation
 
 __all__ = [
     'IntegratedQuantumOptimizer',
@@ -23,5 +23,5 @@ __all__ = [
     
     'RemoveUnusedOperations',
     'CCnot_decomposition', 
-    'InPlacing'
+    'CNotPairCancellation',
 ]

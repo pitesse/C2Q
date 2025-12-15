@@ -1,8 +1,16 @@
 """
 CCNOT Decomposition Optimization Pass
 
-Decomposes CCNOT (Toffoli) gates into elementary quantum gates for circuit evaluation
-using the Barenco et al. construction (6 CNOTs, 2 Hadamards, 4 T gates, 3 T† gates).
+Decomposes bit-indexed CCNOT (Toffoli) gates into elementary on-qubit operations for
+circuit evaluation using the Barenco et al. construction.
+
+Gate cost (standard no-ancilla decomposition):
+- 6 CNOT gates
+- 2 Hadamard gates
+- 4 T gates
+- 3 T† (T-dagger) gates
+
+In this IR, we implement T/T† via phase rotations of ±π/4.
 
 NOTE: This optimization is currently unused in the benchmark suite. The compiler's
 QFT-based arithmetic (Draper's algorithm) uses doubly-controlled phase gates instead
@@ -11,11 +19,16 @@ classical logic gates or alternative arithmetic implementations.
 
 Technical Implementation:
 - Uses xDSL's pattern rewriting framework for automatic SSA value management
-- Operates on full quantum register SSAValues (not individual qubits)
-- Employs rewriter.insert_op_before_matched_op() for clean gate insertion
+- Operates on indexed bits within vector registers (quantum.OnQubit_* ops)
+- Inserts the decomposition before the matched CCNOT, then rewires SSA uses
+  of the control registers after the CCNOT so control-side gates are preserved.
 """
 
+import math
+
 from xdsl.ir import SSAValue
+from xdsl.dialects.builtin import IntegerAttr
+from xdsl.rewriter import InsertPoint
 from xdsl.pattern_rewriter import (
     PatternRewriter,
     RewritePattern,
@@ -24,10 +37,9 @@ from xdsl.pattern_rewriter import (
 
 from ...dialects.quantum_dialect import (
     OnQubitCCnotOp,
-    CNotOp,
-    HadamardOp,
-    TGateOp,
-    TDaggerGateOp,
+    OnQubitCNotOp,
+    OnQubitHadamardOp,
+    OnQubitPhaseOp,
 )
 
 
@@ -87,68 +99,93 @@ class CCnot_decomposition(RewritePattern):
         Returns:
             None - modifies IR in place via rewriter
         """
-        if op.name != "quantum.OnQubit_ccnot":
-            return
+        def _as_index(attr: IntegerAttr) -> int:
+            return int(attr.value.data)
 
-        control1 = op.control1  # type: ignore
-        control2 = op.control2  # type: ignore
-        target = op.target  # type: ignore
+        control1_vec = op.control1_vector
+        control2_vec = op.control2_vector
+        target_vec = op.target_vector
+        control1_idx = _as_index(op.control1_index)
+        control2_idx = _as_index(op.control2_index)
+        target_idx = _as_index(op.target_index)
 
-        h1 = rewriter.insert_op_before_matched_op(HadamardOp.from_value(target))
-        self._propagate_name(target, h1.res)
+        insert_point = InsertPoint.before(op)
 
-        cnot1 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control2, h1.res)
-        )
-        self._propagate_name(h1.res, cnot1.res)
+        control1_curr = control1_vec
+        control2_curr = control2_vec
+        target_curr = target_vec
 
-        tdg1 = rewriter.insert_op_before_matched_op(TDaggerGateOp.from_value(cnot1.res))
-        self._propagate_name(cnot1.res, tdg1.res)
+        def apply_h(register: SSAValue, index: int) -> SSAValue:
+            h = rewriter.insert_op(
+                OnQubitHadamardOp.from_value(register, index), insert_point
+            )
+            self._propagate_name(register, h.res)
+            return h.res
 
-        cnot2 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, tdg1.res)
-        )
-        self._propagate_name(tdg1.res, cnot2.res)
+        def apply_t(register: SSAValue, index: int) -> SSAValue:
+            p = rewriter.insert_op(
+                OnQubitPhaseOp.from_value(register, index, math.pi / 4.0),
+                insert_point,
+            )
+            self._propagate_name(register, p.res)
+            return p.res
 
-        t1 = rewriter.insert_op_before_matched_op(TGateOp.from_value(cnot2.res))
-        self._propagate_name(cnot2.res, t1.res)
+        def apply_tdg(register: SSAValue, index: int) -> SSAValue:
+            p = rewriter.insert_op(
+                OnQubitPhaseOp.from_value(register, index, -math.pi / 4.0),
+                insert_point,
+            )
+            self._propagate_name(register, p.res)
+            return p.res
 
-        cnot3 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control2, t1.res)
-        )
-        self._propagate_name(t1.res, cnot3.res)
+        def apply_cnot(
+            control_register: SSAValue,
+            control_index: int,
+            target_register: SSAValue,
+            target_index: int,
+        ) -> SSAValue:
+            c = rewriter.insert_op(
+                OnQubitCNotOp.from_values(
+                    control_register, control_index, target_register, target_index
+                ),
+                insert_point,
+            )
+            self._propagate_name(target_register, c.res)
+            return c.res
 
-        tdg2 = rewriter.insert_op_before_matched_op(TDaggerGateOp.from_value(cnot3.res))
-        self._propagate_name(cnot3.res, tdg2.res)
+        # standard 15-gate Barenco decomposition (no ancilla).
+        target_curr = apply_h(target_curr, target_idx)
+        target_curr = apply_cnot(control2_curr, control2_idx, target_curr, target_idx)
+        target_curr = apply_tdg(target_curr, target_idx)
+        target_curr = apply_cnot(control1_curr, control1_idx, target_curr, target_idx)
+        target_curr = apply_t(target_curr, target_idx)
+        target_curr = apply_cnot(control2_curr, control2_idx, target_curr, target_idx)
+        target_curr = apply_tdg(target_curr, target_idx)
+        target_curr = apply_cnot(control1_curr, control1_idx, target_curr, target_idx)
+        control2_curr = apply_t(control2_curr, control2_idx)
+        target_curr = apply_t(target_curr, target_idx)
+        control2_curr = apply_cnot(control1_curr, control1_idx, control2_curr, control2_idx)
+        target_curr = apply_h(target_curr, target_idx)
+        control1_curr = apply_t(control1_curr, control1_idx)
+        control2_curr = apply_tdg(control2_curr, control2_idx)
+        control2_curr = apply_cnot(control1_curr, control1_idx, control2_curr, control2_idx)
 
-        cnot4 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, tdg2.res)
-        )
-        self._propagate_name(tdg2.res, cnot4.res)
+        # update SSA wiring for control registers after the original CCNOT.
+        after_ops = set()
+        cursor = op._next_op
+        while cursor is not None:
+            after_ops.add(cursor)
+            cursor = cursor._next_op
 
-        cnot5 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, control2)
-        )
-        self._propagate_name(control2, cnot5.res)
+        if control1_curr is not control1_vec:
+            for use in list(control1_vec.uses):
+                if use.operation in after_ops:
+                    use.operation.operands[use.index] = control1_curr
 
-        tdg3 = rewriter.insert_op_before_matched_op(TDaggerGateOp.from_value(cnot5.res))
-        self._propagate_name(cnot5.res, tdg3.res)
+        if control2_curr is not control2_vec:
+            for use in list(control2_vec.uses):
+                if use.operation in after_ops:
+                    use.operation.operands[use.index] = control2_curr
 
-        cnot6 = rewriter.insert_op_before_matched_op(
-            CNotOp.from_value(control1, tdg3.res)
-        )
-        self._propagate_name(tdg3.res, cnot6.res)
-
-        t2 = rewriter.insert_op_before_matched_op(TGateOp.from_value(control1))
-        self._propagate_name(control1, t2.res)
-
-        t3 = rewriter.insert_op_before_matched_op(TGateOp.from_value(cnot6.res))
-        self._propagate_name(cnot6.res, t3.res)
-
-        t4 = rewriter.insert_op_before_matched_op(TGateOp.from_value(cnot4.res))
-        self._propagate_name(cnot4.res, t4.res)
-
-        h2 = rewriter.insert_op_before_matched_op(HadamardOp.from_value(t4.res))
-        self._propagate_name(t4.res, h2.res)
-
-        rewriter.replace_matched_op([], [h2.res])
+        # replace the CCNOT's target result.
+        rewriter.replace_matched_op([], [target_curr])

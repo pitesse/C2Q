@@ -214,6 +214,7 @@ class QuantumIRGen:
         for expr in func_ast.body:
             self.ir_gen_expr(expr)
 
+    # doesnt handle recursion
     def ir_gen_call_expr(self, expr: CallExprAST):
         """
         Generate IR for a function call expression.

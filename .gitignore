@@ -203,3 +203,4 @@ docs/latex/
 benchmarks_data/*
 !benchmarks_data/results.csv
 
+terminal_dump.txt

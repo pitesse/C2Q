@@ -3,7 +3,7 @@
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-9%2F9%20passing-brightgreen)
+![Benchmarks](https://img.shields.io/badge/benchmarks-8%2F8%20passing-brightgreen)
 
 A research compiler framework that translates a subset of **Standard C** into executable **Quantum Circuits** (QASM/Qiskit) using Draper's QFT-based arithmetic algorithms.
 
@@ -74,7 +74,7 @@ int c = a + b;  // Draper addition in Fourier basis
 Supports **mixed-precision arithmetic** with automatic width detection and promotion. The compiler correctly handles operations between operands of different bit widths (e.g., 8-bit + 16-bit) and determines appropriate result register sizes.
 
 ### Advanced Optimization Pipeline
-Multi-pass optimization framework with **iterative convergence**, achieving 15-36% gate count reduction across test cases.
+Multi-pass optimization framework with **iterative convergence**, achieving 15--56% gate count reduction across test cases (34.9% average).
 
 #### Primary Optimization: Phase Precision Filtering
 The dominant optimization pass that drives circuit improvements:
@@ -93,13 +93,13 @@ Additional passes available in the pipeline (impact varies by circuit structure)
 
 | Optimization Pass | Implementation | Description |
 |:---|:---|:---|
-| **Phase Precision Filtering** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L108-L140) · `_optimize_phase_precision()` | Eliminates negligible phase rotations below threshold (primary optimization) |
+| **Phase Precision Filtering** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Eliminates negligible controlled-phase rotations below threshold (primary optimization) |
 | **Dead Code Elimination** | [remove_unused_op.py](C2Q/middle_end/optimizations/remove_unused_op.py) · `RemoveUnusedOperations` | Quantum-safe removal of unused operations preserving measurement dependencies |
 | **CCNOT Decomposition** | [ccnot_decomposition.py](C2Q/middle_end/optimizations/ccnot_decomposition.py) · `CCnot_decomposition` | Barenco construction decomposing Toffoli gates into 1- and 2-qubit gates |
-| **Adjacent Phase Consolidation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L187-L240) · `_consolidate_adjacent_phases()` | Merges consecutive phase gates acting on the same qubit |
-| **QFT Depth Analysis** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L142-L155) · `_optimize_qft_depth()` | Reduces QFT depth when operands use fewer bits than register width |
-| **Hadamard Cancellation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L246-L283) · `_cancel_hadamard_pairs()` | Cancels adjacent Hadamard gates at QFT/IQFT boundaries |
-| **Redundant SWAP Elimination** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py#L157-L185) · `_eliminate_redundant_swaps()` | Removes unnecessary SWAP operations in QFT circuits |
+| **Adjacent Phase Consolidation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Merges consecutive controlled-phase gates acting on the same qubit pair |
+| **QFT Depth Analysis** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Reduces QFT depth when operands use fewer bits than register width |
+| **Hadamard Cancellation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Cancels adjacent Hadamard gates at QFT/IQFT boundaries |
+| **Redundant SWAP Elimination** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Cancels adjacent identical SWAP pairs (SWAP·SWAP = I) |
 
 **Orchestration**: All passes are coordinated by [integrated_optimizer.py](C2Q/middle_end/optimizations/integrated_optimizer.py) · `IntegratedQuantumOptimizer.optimize_circuit()`, which applies the Draper optimizer iteratively until convergence.
 
@@ -115,13 +115,13 @@ Built-in simulation using Qiskit Aer's **Matrix Product State (MPS)** method for
 
 ## Performance Results
 
-Benchmark results from the integrated optimization pipeline across 9 test cases:
+Benchmark results from the integrated optimization pipeline across 8 test cases:
 
 | Metric | Average Improvement | Best Case |
 |:---|:---:|:---:|
-| **Gate Count** | -22.5% | -36.4% |
-| **Circuit Depth** | -27.7% | -51.4% |
-| **MLIR Operations** | -22.2% | -36.4% |
+| **Gate Count** | -34.9% | -55.5% |
+| **Circuit Depth** | -42.1% | -73.1% |
+| **MLIR Operations** | -34.6% | -55.4% |
 
 ### Detailed Benchmark Results
 
@@ -129,10 +129,10 @@ Benchmark results from the integrated optimization pipeline across 9 test cases:
 |:---|---:|---:|---:|---:|---:|---:|
 | Add (8-bit) | 120 | 102 | -15.0% | 39 | 36 | -7.7% |
 | Sub (8-bit) | 119 | 101 | -15.1% | 39 | 36 | -7.7% |
-| Mult (2×3) | 3,155 | 2,051 | -35.0% | 2,051 | 1,002 | -51.1% |
-| Complex Math | 3,573 | 2,271 | -36.4% | 2,083 | 1,012 | -51.4% |
+| Mult (2×3) | 3,155 | 1,403 | -55.5% | 2,051 | 552 | -73.1% |
+| Complex Math | 3,573 | 1,623 | -54.6% | 2,083 | 562 | -73.0% |
 
-> **Note**: All 9/9 test cases pass validation, confirming functional correctness after optimization.
+> **Note**: All 8/8 benchmark circuits pass validation, confirming functional correctness after optimization.
 
 ---
 
@@ -194,12 +194,17 @@ python -m C2Q tests/inputs/test_add.c --no-optimize
 ### Running Benchmarks
 
 ```bash
-# Run full benchmark suite with all 9 test cases
+# Run full benchmark suite (8 test cases)
 python -m C2Q.benchmark.run_benchmarks
 
 # Results are saved to benchmarks_data/results.csv
 # Individual MLIR files saved to benchmarks_data/*.mlir
+
 ```
+
+### Debugging Passes
+
+- Adjacent CNOT cancellation debug: `C2Q_DEBUG_CNOT_CANCEL=1` (legacy: `C2Q_DEBUG_INPLACING=1`)
 
 ### Example: Complete Workflow
 
@@ -241,7 +246,7 @@ C_to_Quantum/
 │   │       ├── draper_optimizer.py       # QFT-specific optimizations
 │   │       ├── remove_unused_op.py       # Dead code elimination
 │   │       ├── ccnot_decomposition.py    # Toffoli decomposition
-│   │       └── in_placing.py             # CNOT chain optimization
+│   │       └── cnot_cancellation.py      # Adjacent CNOT cancellation (quantum-safe)
 │   │
 │   ├── backend/                      # Circuit generation
 │   │   ├── run_qasm.py               # MLIR → Qiskit conversion

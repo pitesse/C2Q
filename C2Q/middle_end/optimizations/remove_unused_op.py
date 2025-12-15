@@ -1,16 +1,19 @@
-"""Quantum-Safe Dead Code Elimination Pass
+"""Quantum-Safe Dead Code Elimination Pass.
 
-Removes unused quantum operations while preserving multi-qubit gates that may
-have side effects through phase kickback or entanglement. This optimization is
-safe for quantum circuits as it only eliminates single-qubit gates with no uses.
+Removes operations whose *results* are unused, while staying conservative about
+quantum semantics:
 
-Key safety features:
-- Never removes multi-qubit gates (CNOT, controlled-phase, SWAP)
-- Preserves measurement operations and function returns
-- Only eliminates unused single-qubit gates (NOT, Hadamard, Pauli)
+- Never removes multi-qubit gates (anything with >1 operand), to avoid
+    accidentally deleting entangling operations.
+- Preserves control-structure ops (module/function) and measurements.
+- Preserves the last op in a function as an implicit "return" anchor for the
+    SSA chain (many benchmarks end without an explicit return value).
+
+Note: This pass is intentionally conservative; it focuses on pruning obviously
+dead SSA-producing ops (including unused initializations).
 """
 
-from xdsl.ir import Operation
+from xdsl.ir import OpResult, Operation
 from xdsl.pattern_rewriter import PatternRewriter, RewritePattern
 from xdsl.dialects.builtin import ModuleOp
 
@@ -48,19 +51,22 @@ def is_trivially_dead(op: Operation) -> bool:
                     return False
 
     # quantum-safe: multi-qubit gates can have side effects via phase kickback
-    # or entanglement, even if their target result appears unused
+    # or entanglement, even if their target result appears unused.
+    # keeping this conservative rule instead of trying to infer purity.
     if len(op.operands) > 1:
         return False
 
-    # additional safety: check operation name patterns for multi-qubit gates
-    if hasattr(op, "name"):
-        op_name = str(op.name).lower()
-        unsafe_patterns = ["cnot", "controlled", "ccnot", "swap", "phase"]
-        if any(pattern in op_name for pattern in unsafe_patterns):
-            return False
+    # if the op has no SSA results (e.g., quantum.comment), don't touch it.
+    # this avoids attribute errors and avoids making assumptions about effects.
+    if len(op.results) == 0:
+        return False
 
-    # safe to remove: single-qubit gates with unused results
-    return not op.res.uses  # type: ignore[attr-defined]
+    # safe to remove: SSA-producing ops whose results are all unused.
+    # (most quantum ops here have exactly one result.)
+    def result_is_used(result: OpResult) -> bool:
+        return any(True for _ in result.uses)
+
+    return not any(result_is_used(result) for result in op.results)
 
 
 class RemoveUnusedOperations(RewritePattern):

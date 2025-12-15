@@ -13,8 +13,9 @@ Usage:
 """
 
 from qiskit import QuantumCircuit
-from qiskit.circuit import QuantumRegister
+from qiskit.circuit import  QuantumRegister
 
+from xdsl.ir import Operation
 from xdsl.parser import Parser
 from xdsl.context import Context
 from xdsl.dialects.builtin import (
@@ -25,7 +26,7 @@ from xdsl.dialects.builtin import (
     Float64Type,
 )
 
-from C2Q.dialects.quantum_dialect import Quantum
+from C2Q.dialects.quantum_dialect import *
 
 # ============================================================================
 # MLIR PARSING FUNCTIONS
@@ -139,7 +140,7 @@ def create_quantum_register(op):
     return q_reg
 
 
-def apply_not(circuit, op):
+def apply_not(circuit : QuantumCircuit, op : NotOp):
     """Apply a NOT gate to the circuit.
 
     Args:
@@ -165,7 +166,7 @@ def apply_not(circuit, op):
         print("[WARN] invalid number of operands for NOT operation")
 
 
-def apply_onqubit_not(circuit, op):
+def apply_onqubit_not(circuit : QuantumCircuit, op):
     """Apply a direct NOT gate to a specific bit in a register.
 
     Args:
@@ -202,7 +203,7 @@ def apply_onqubit_not(circuit, op):
         )
 
 
-def apply_onqubit_cnot(circuit, op):
+def apply_onqubit_cnot(circuit : QuantumCircuit, op):
     """Apply a direct CNOT gate between bits in two registers.
 
     Args:
@@ -263,7 +264,7 @@ def apply_onqubit_cnot(circuit, op):
         )
 
 
-def apply_cnot(circuit, op):
+def apply_cnot(circuit : QuantumCircuit, op):
     """Apply a CNOT gate to the circuit.
 
     Args:
@@ -306,7 +307,7 @@ def apply_cnot(circuit, op):
         print("[WARN] invalid number of operands for CNOT operation")
 
 
-def apply_ccnot(circuit, op):
+def apply_ccnot(circuit : QuantumCircuit, op):
     """Apply a CCNOT gate to the circuit.
 
     Args:
@@ -388,7 +389,7 @@ def apply_ccnot(circuit, op):
 # ============================================================================
 
 
-def apply_onqubit_ccnot(circuit, op):
+def apply_onqubit_ccnot(circuit : QuantumCircuit, op):
     """Apply a direct CCNOT gate between bits in three registers.
 
     Args:
@@ -467,7 +468,7 @@ def apply_onqubit_ccnot(circuit, op):
         )
 
 
-def apply_onqubit_hadamard(circuit, op):
+def apply_onqubit_hadamard(circuit : QuantumCircuit, op):
     """Apply a Hadamard gate to a specific bit in a register.
 
     Args:
@@ -499,7 +500,7 @@ def apply_onqubit_hadamard(circuit, op):
         raise ValueError(f"OnQubitHadamardOp expects 1 operand, got {len(op.operands)}")
 
 
-def apply_onqubit_phase(circuit, op):
+def apply_onqubit_phase(circuit : QuantumCircuit, op):
     """Apply a phase gate to a specific bit in a register.
 
     Args:
@@ -529,7 +530,7 @@ def apply_onqubit_phase(circuit, op):
         print(f"[WARN] OnQubitPhaseOp expects 1 operand, got {len(op.operands)}")
 
 
-def apply_onqubit_controlled_phase(circuit, op):
+def apply_onqubit_controlled_phase(circuit : QuantumCircuit, op):
     """Apply a controlled phase gate between specific bits.
 
     Args:
@@ -573,7 +574,7 @@ def apply_onqubit_controlled_phase(circuit, op):
         )
 
 
-def apply_onqubit_swap(circuit, op):
+def apply_onqubit_swap(circuit : QuantumCircuit, op):
     """Apply a SWAP gate between specific bits in a register.
 
     Args:
@@ -605,7 +606,7 @@ def apply_onqubit_swap(circuit, op):
         print(f"[WARN] OnQubitSwapOp expects 1 operand, got {len(op.operands)}")
 
 
-def apply_hadamard(circuit, op):
+def apply_hadamard(circuit : QuantumCircuit, op):
     """Apply a Hadamard gate to the circuit.
 
     Args:
@@ -630,7 +631,7 @@ def apply_hadamard(circuit, op):
         print("[WARN] invalid number of operands for Hadamard operation")
 
 
-def apply_t(circuit, op):
+def apply_t(circuit : QuantumCircuit, op):
     """Apply a T gate to the circuit.
 
     Args:
@@ -655,7 +656,7 @@ def apply_t(circuit, op):
         print("[WARN] invalid number of operands for T operation")
 
 
-def apply_tdagger(circuit, op):
+def apply_tdagger(circuit : QuantumCircuit, op):
     """Apply a T-dagger gate to the circuit.
 
     Args:
@@ -876,7 +877,7 @@ def get_quantum_circuit_info(input_args, first_op):
     }
 
 
-def metrics(circuit):
+def metrics(circuit : QuantumCircuit):
     """Calculate various metrics for a quantum circuit.
 
     The returned metrics include:
@@ -901,16 +902,16 @@ def metrics(circuit):
     gate_counts = circuit.count_ops()
 
     # count T gates (safely, in case there are none)
-    t_gate_count = gate_counts.get("t", 0) + gate_counts.get("tdg", 0)
+    # t_gate_count = gate_counts.get("t", 0) + gate_counts.get("tdg", 0)
 
     # t gate depth
-    t_gate_depth = circuit.depth(lambda instr: instr.operation.name in ["t", "tdg"])
+    # t_gate_depth = circuit.depth(lambda instr: instr.operation.name in ["t", "tdg"])
 
     return {
         "Depth": depth,
         "Width": width,
         "Gate Count": gate_count,
-        "T Gate Count": t_gate_count,
-        "T Gate Depth": t_gate_depth,
+        # "T Gate Count": t_gate_count,
+        # "T Gate Depth": t_gate_depth,
         "Gate Distribution": gate_counts,
     }
