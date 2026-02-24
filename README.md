@@ -222,6 +222,54 @@ python -m C2Q tests/inputs/test_mult_2x3.c               # Optimized
 
 ---
 
+## Docker Setup and Usage
+
+This repository includes a zero-configuration Docker environment based on `python:3.12`.
+The container image installs all runtime dependencies used by the compiler and benchmark pipeline:
+`xdsl`, `qiskit`, `qiskit-aer`, `matplotlib`, and `typing_extensions`.
+
+### 1) Build the Docker image
+
+```bash
+docker compose build
+```
+
+### 2) Run the compiler in Docker
+
+Compile a test input with the default command:
+
+```bash
+docker compose run --rm c2q
+```
+
+Run custom compiler commands (copy-pasteable examples):
+
+```bash
+# Emit IR and print it
+docker compose run --rm c2q python -m C2Q tests/inputs/test_add.c --emit ir --ir
+
+# Compile with optimization disabled
+docker compose run --rm c2q python -m C2Q tests/inputs/test_add.c --no-optimize
+
+# Validate expected output
+docker compose run --rm c2q python -m C2Q tests/inputs/test_add.c --force-optimize --validate 8
+```
+
+### 3) Run benchmarks in Docker
+
+```bash
+docker compose run --rm benchmark
+```
+
+Benchmark artifacts are written to `benchmarks_data/` on the host (for example `benchmarks_data/results.csv` and the generated `*_base.mlir` / `*_opt.mlir` files).
+
+### Notes
+
+- LaTeX sources under `paper/` are excluded from the Docker build context.
+- The compose setup mounts only `C2Q/`, `tests/`, and `benchmarks_data/` into containers for a clean runtime environment.
+
+---
+
 ## Project Structure
 
 ```
