@@ -1,0 +1,24 @@
+services:
+  c2q:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: c2q:py312
+    working_dir: /app
+    volumes:
+      - ./C2Q:/app/C2Q
+      - ./tests:/app/tests
+      - ./benchmarks_data:/app/benchmarks_data
+    command: python -m C2Q tests/inputs/test_add.c
+
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: c2q:py312
+    working_dir: /app
+    volumes:
+      - ./C2Q:/app/C2Q
+      - ./tests:/app/tests
+      - ./benchmarks_data:/app/benchmarks_data
+    command: python -m C2Q.benchmark.run_benchmarks

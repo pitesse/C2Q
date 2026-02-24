@@ -94,7 +94,7 @@
 
       \begin{abstract}
         \textbf{\textit{Abstract}---}
-        This paper presents \textbf{C2Q}, a complete compilation framework
+        This report presents \textbf{C2Q}, a complete compilation framework
         that translates classical C programs into executable quantum circuits
         using Draper's QFT-based quantum arithmetic. The compiler implements a
         multi-stage pipeline consisting of frontend parsing, MLIR-based intermediate
@@ -136,7 +136,7 @@ The current implementation focuses on \textbf{integer arithmetic} using Draper's
 based algorithms \cite{draper2000addition}, supporting:
 \begin{itemize}
   \item Addition and subtraction of arbitrary-width integers
-  \item Multiplication through repeated addition
+  \item Multiplication via doubly-controlled phase accumulation
   \item Mixed-precision arithmetic with automatic width handling
   \item Multi-stage optimization to reduce gate count and circuit depth
 \end{itemize}
@@ -148,13 +148,13 @@ This project makes the following contributions:
   \item A complete compilation infrastructure from C source to validated quantum circuits, including lexer,
         parser, IR generator, optimizer, and backend.
   \item Implementation of Draper QFT arithmetic with support for mixed-width operands and dynamic register allocation.
-  \item An integrated optimization framework achieving 22.5\% average gate reduction through iterative phase precision
-        filtering and supporting passes.
+  \item An integrated optimization framework achieving 34.9\% average gate reduction, 42.1\% average depth reduction,
+    and 34.6\% MLIR operation reduction across the benchmark suite.
   \item SSA-aware backend circuit generation that correctly handles aggressive optimization and register renaming.
   \item Comprehensive validation framework using Matrix Product State simulation for circuits with 24+ qubits.
 \end{enumerate}
 
-The remainder of this paper is organized as follows: Section II describes
+The remainder of this report is organized as follows: Section II describes
 the compiler architecture and pipeline stages. Section III explains the quantum
 arithmetic algorithms. Section IV details the optimization framework. Section V presents
 evaluation results on a benchmark suite. Section VI concludes with future directions.
@@ -266,16 +266,17 @@ The QFT is implemented using Hadamard gates and controlled phase rotations:
 
 \begin{lstlisting}[language=Python, caption={QFT Implementation (simplified)}]
 def qft_on_vector(builder, vec):
-    n = vector_width(vec)
-    for i in range(n):
-        # Hadamard on qubit i
-        vec = OnQubitHadamardOp(vec, i)
-        # Controlled phase rotations
-        for j in range(i+1, n):
-            angle = 2*pi / 2**(j-i+1)
-            vec = OnQubitControlledPhaseOp(
-                vec, j, i, angle)
-    return swap_reverse_qubits(vec)
+  n = vector_width(vec)
+  # Matches current implementation: high index -> low index
+  for i in reversed(range(n)):
+    vec = OnQubitHadamardOp(vec, i)
+    # control qubits j < i
+    for j in reversed(range(i)):
+      angle = 2*pi / 2**(i - j + 1)
+      vec = OnQubitControlledPhaseOp(
+        vec, j, i, angle)
+  # no final swap in this implementation
+  return vec
 \end{lstlisting}
 
 The circuit depth is $O(n^2)$ due to the nested controlled phase rotations. The inverse QFT (IQFT) reverses this
@@ -292,7 +293,7 @@ to the first operand, then transforms back:
 \end{equation}
 
 The key insight is that in the Fourier basis, addition becomes phase multiplication. For each bit $a_i$ of the first
-operand, we apply controlled phase rotations to all qubits of the second operand:
+operand, we apply controlled phase rotations to target bits $j \ge i$ of the second operand:
 
 \begin{lstlisting}[language=Python, caption={Addition Implementation}]
 def quantum_add(builder, a, b):
@@ -303,8 +304,8 @@ def quantum_add(builder, a, b):
     n_a = vector_width(a)
     n_b = vector_width(b)
     for i in range(n_a):
-        for j in range(n_b):
-            angle = 2*pi / 2**(j+1)
+        for j in range(i, n_b):
+            angle = 2*pi / 2**(j - i + 1)
             b = OnQubitControlledPhaseOp(
                 b, i, j, angle, control=a)
     
@@ -321,40 +322,37 @@ Subtraction uses the same structure as addition but with negated phase angles, e
 
 \begin{lstlisting}[language=Python, caption={Subtraction via Negated Phases}]
 def quantum_subtract(builder, a, b):
-    b = qft_on_vector(builder, b)
-    for i in range(n_a):
-        for j in range(n_b):
-            angle = -2*pi / 2**(j+1)  # Negative!
-            b = OnQubitControlledPhaseOp(
-                b, i, j, angle, control=a)
-    return iqft_on_vector(builder, b)
+  b = qft_on_vector(builder, b)
+  for i in range(n_a):
+    for j in range(i, n_b):
+      angle = -2*pi / 2**(j - i + 1)
+      b = OnQubitControlledPhaseOp(
+        b, i, j, angle, control=a)
+  return iqft_on_vector(builder, b)
 \end{lstlisting}
 
 \subsection{Multiplication}
 
-Multiplication is implemented through repeated addition, leveraging the quantum adder as a subroutine. For $a \times b$,
-we perform $b$ additions of $a$ to an accumulator register:
+Multiplication is implemented by accumulating doubly-controlled phase rotations directly in Fourier space. The product register
+is first transformed with QFT, then each bit-pair $(a_i, b_j)$ contributes phase to product bits $k \ge i+j$:
 
-\begin{lstlisting}[language=Python, caption={Multiplication via Repeated Addition}]
+\begin{lstlisting}[language=Python, caption={Multiplication via CCPhase Accumulation}]
 def quantum_multiply(builder, a, b):
     width = vector_width(a) + vector_width(b)
-    acc = InitOp(VectorType(IntegerType(1), [width]))
-    
-    # Classical iteration over bits of b
-    for i in range(vector_width(b)):
-        # If bit i of b is 1, add (a << i) to acc
-        shifted_a = shift_left(a, i)
-        acc = quantum_add_conditional(
-            builder, shifted_a, acc, 
-            control_bit=b[i])
-    return acc
+    prod = InitOp(VectorType(IntegerType(1), [width]))
+    prod = qft_on_vector(builder, prod)
+
+    for i in range(vector_width(a)):
+        for j in range(vector_width(b)):
+            for k in range(i + j, width):
+                angle = 2*pi / 2**(k - (i + j) + 1)
+                prod = CCPhase(builder, a, i, b, j, prod, k, angle)
+
+    return iqft_on_vector(builder, prod)
 \end{lstlisting}
 
-The conditional addition uses controlled arithmetic: if the $i$-th bit of $b$ is 1, add $(a \ll i)$ to the accumulator.
-This requires extending the adder with an additional control qubit.
-
 For small operands (e.g., $2 \times 3$), the base circuit contains approximately 3,155 gates and depth 2,051.
-Multiplication has $O(n_a \cdot n_b \cdot (n_a + n_b)^2)$ complexity due to repeated applications of the $O(n^2)$ adder.
+For balanced widths ($n_a \approx n_b \approx n$), the implemented triple loop gives $O(n^3)$ phase-accumulation complexity.
 
 \subsection{Mixed-Width Arithmetic}
 
@@ -439,7 +437,7 @@ Uses SSA def-use chains to identify truly dead operations.
 gates using the Barenco construction. The current benchmark circuits do not heavily utilize CCNOT gates, 
 so this pass shows minimal impact but is included for completeness.
 
-	extbf{Adjacent CNOT Cancellation} (\texttt{cnot\_cancellation.py}): Cancels adjacent identical CNOT pairs:
+\textbf{Adjacent CNOT Cancellation} (\texttt{cnot\_cancellation.py}): Cancels adjacent identical CNOT pairs:
 
 \begin{equation}
   \mathrm{CNOT}\;\mathrm{CNOT} = I
@@ -472,7 +470,7 @@ Table~\ref{tab:opt-impact} summarizes the per-pass contribution across the bench
 filtering is responsible for the majority of improvements, with supporting passes providing incremental 
 benefits depending on circuit structure.
 
-\begin{table}[h]
+\begin{table}[htbp]
   \centering
   \caption{Optimization Pass Impact}
   \label{tab:opt-impact}
@@ -545,29 +543,29 @@ substantial improvements across all metrics:
     Overflow           & 125                 & 107                & -14.4\%            & 39                  & 36                 & -7.7\%                  \\
     Mixed Add/Mult     & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
     \midrule
-          extbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.1\%}        \\
+        \textbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.1\%}        \\
     \bottomrule
   \end{tabular}
   }
 \end{table*}
 
-	extbf{Key Observations:}
+\textbf{Key Observations:}
 
-	extbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.1\% average depth reduction. 
+\textbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.1\% average depth reduction. 
 Best-case improvements reach 55.5\% gate reduction and 73.1\% depth reduction (multiplication-heavy circuits).
 
-  extbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
+\textbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
 while multiplication and compound expressions benefit significantly (54--56\%). This reflects the distribution 
 of optimization opportunities---multiplication generates many high-precision phase gates that are aggressively filtered.
 
-  extbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
+\textbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
 (73\% vs. 56\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
 
 \subsection{MLIR-Level Optimization}
 
 Table~\ref{tab:mlir-ops} shows the correlation between MLIR operation count and final gate count:
 
-\begin{table}[h]
+\begin{table}[htbp]
   \centering
   \caption{MLIR Operations vs. Quantum Gates}
   \label{tab:mlir-ops}
@@ -591,7 +589,7 @@ effectively at the IR level before circuit generation. This validates the choice
 
 Phase gates dominate Draper arithmetic circuits. Table~\ref{tab:phase-gates} shows their distribution:
 
-\begin{table}[h]
+\begin{table}[htbp]
   \centering
   \caption{Phase Gate Optimization}
   \label{tab:phase-gates}
@@ -609,7 +607,7 @@ Phase gates dominate Draper arithmetic circuits. Table~\ref{tab:phase-gates} sho
 \end{table}
 
 Phase precision filtering eliminates 20--56\% of phase gates depending on circuit complexity. 
-Multiplication circuits benefit most due to cumulative high-precision rotations from repeated additions.
+Multiplication circuits benefit most due to cumulative high-precision rotations from nested CCPhase accumulation.
 
 \subsection{Validation and Correctness}
 
@@ -638,7 +636,7 @@ require $\sim$8 seconds. This is acceptable for a research prototype.
 
 \section{Conclusion}
 
-This paper presented C2Q, a complete compiler infrastructure for translating classical C programs 
+This report presented C2Q, a complete compiler infrastructure for translating classical C programs 
 into optimized quantum circuits. The system successfully bridges the gap between high-level programming 
 abstractions and low-level quantum gate sequences, demonstrating that automated quantum circuit 
 synthesis is both feasible and practical for arithmetic-intensive algorithms.
@@ -659,7 +657,7 @@ handles arbitrary register widths and automatically manages width promotion.
 separation between frontend parsing and backend circuit generation. The SSA-based representation enables 
 powerful pattern-based optimizations.
 
-	extbf{Effective Optimization:} An integrated optimization framework achieving 34.9\% average gate 
+\textbf{Effective Optimization:} An integrated optimization framework achieving 34.9\% average gate 
 reduction and 42.1\% depth reduction across 8 test cases. The iterative optimization strategy with phase 
 precision filtering as the primary pass demonstrates clear practical value.
 

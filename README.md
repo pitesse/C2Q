@@ -138,7 +138,9 @@ Benchmark results from the integrated optimization pipeline across 8 test cases:
 
 ## Quick Start
 
-### Installation
+> **New here?** If you want a zero-configuration setup, start with **Docker** in the next section and skip native dependency installation.
+
+### Native Installation (without Docker)
 
 **Python Version Requirement:** Python 3.11 or 3.12 is required. Python 3.13+ is not yet supported by qiskit-aer.
 
@@ -146,8 +148,12 @@ Benchmark results from the integrated optimization pipeline across 8 test cases:
 # Clone repository
 git clone https://github.com/pitesse/C2Q.git
 cd C2Q
+```
 
-# Create virtual environment with Python 3.12
+Use this path only if you want to run the project directly on your machine.
+
+```bash
+# Create virtual environment with Python 3.12 
 python3.12 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
@@ -155,7 +161,55 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install xdsl qiskit qiskit-aer matplotlib
 ```
 
-### Basic Usage
+## Docker Setup and Usage
+
+This repository includes a zero-configuration Docker environment based on `python:3.12`.
+The container image installs all runtime dependencies used by the compiler and benchmark pipeline:
+`xdsl`, `qiskit`, `qiskit-aer`, `matplotlib`, and `typing_extensions`.
+
+### 1) Build the Docker image
+
+```bash
+docker compose build
+```
+
+### 2) Run the compiler in Docker
+
+Compile a test input with the default command:
+
+```bash
+docker compose run --rm c2q
+```
+
+Run custom compiler commands (copy-pasteable examples):
+
+```bash
+# Emit IR and print it
+docker compose run --rm c2q python -m C2Q tests/inputs/test_add.c --emit ir --ir
+
+# Compile with optimization disabled
+docker compose run --rm c2q python -m C2Q tests/inputs/test_add.c --no-optimize
+
+# Validate expected output
+docker compose run --rm c2q python -m C2Q tests/inputs/test_add.c --force-optimize --validate 8
+```
+
+### 3) Run benchmarks in Docker
+
+```bash
+docker compose run --rm benchmark
+```
+
+Benchmark artifacts are written to `benchmarks_data/` on the host (for example `benchmarks_data/results.csv` and the generated `*_base.mlir` / `*_opt.mlir` files).
+
+### Notes
+
+- LaTeX sources under `paper/` are excluded from the Docker build context.
+- The compose setup mounts only `C2Q/`, `tests/`, and `benchmarks_data/` into containers for a clean runtime environment.
+
+---
+
+### Basic Usage (Without Docker)
 
 The compiler is invoked as a Python module with various options:
 
