@@ -73,6 +73,12 @@ The container image installs all runtime dependencies used by the compiler and b
 ### 1) Build the Docker image
 
 ```bash
+# Clone repository
+git clone https://github.com/pitesse/C2Q.git
+cd C2Q
+```
+
+```bash
 docker compose build
 ```
 
