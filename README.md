@@ -47,9 +47,9 @@ For a comprehensive understanding of the project's scope, results, and the acade
 │               └───────────────────────────────────────────────────────────┘ │
 │                                                             │               │
 │                                                             ▼               │
-│  Executable   ┌───────────────────┐    ┌────────────────────────────────┐   │
+│               ┌───────────────────┐    ┌────────────────────────────────┐   │
 │  Circuit  ◄───│  Qiskit Backend   │◄───│  SSA-Aware Circuit Generation  │   │
-│  (.qasm)      │  (Simulation/     │    │  (Handles Aggressive Renaming) │   │
+│               │  (Simulation/     │    │  (Handles Aggressive Renaming) │   │
 │               │  Visualization)   │    │                                │   │
 │               └───────────────────┘    └────────────────────────────────┘   │
 │                                                                             │
