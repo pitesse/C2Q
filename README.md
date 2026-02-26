@@ -78,7 +78,7 @@ docker compose build
 
 ### 2) Run the compiler in Docker
 
-Compile a test input with the default command:
+Compile a test input with the default command (`--rm` ensures the container is removed after computation):
 
 ```bash
 docker compose run --rm c2q
