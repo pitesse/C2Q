@@ -93,7 +93,6 @@
 
 
       \begin{abstract}
-        \textbf{\textit{Abstract}---}
         This report presents \textbf{C2Q}, a complete compilation framework
         that translates classical C programs into executable quantum circuits
         using Draper's QFT-based quantum arithmetic. The compiler implements a
@@ -101,7 +100,7 @@
         representation using the xDSL framework, an integrated optimization pipeline,
         and backend circuit generation with Qiskit. The system supports basic arithmetic
         operations (addition, subtraction, multiplication) with mixed-precision operands
-        and features a comprehensive optimization framework that achieves 14--56\% gate
+        and features a optimization framework that achieves 14--56\% gate
         count reduction and 8--73\% depth reduction across a benchmark suite of 8 test cases.
         All optimized circuits pass validation against expected results using Matrix Product
         State simulation. The project demonstrates the feasibility of automated quantum circuit
@@ -118,7 +117,7 @@ Quantum computing promises exponential speedups for specific computational probl
 algorithms remains challenging due to the significant conceptual gap between classical programming paradigms
 and quantum circuit design. While classical programmers work with familiar abstractions like variables, arithmetic
 operations, and control flow, quantum programming requires reasoning about qubits, superposition states, and gate
-sequences---a barrier that limits accessibility to quantum computing.
+sequences which limits accessibility to quantum computing.
 
 The \textbf{C2Q} (C-to-Quantum) compiler addresses this challenge by automatically translating a subset of Standard C
 into executable quantum circuits. The system accepts classical C programs with integer arithmetic and generates functionally
@@ -128,8 +127,7 @@ algorithms using familiar high-level constructs while the compiler handles the c
 \subsection{Motivation and Scope}
 
 The primary motivation for C2Q is to explore automatic quantum circuit synthesis from classical code, particularly
-for arithmetic-intensive algorithms. Rather than manual quantum circuit design---which is error-prone and requires
-deep quantum expertise---the compiler automates the translation process, ensuring correctness while applying optimizations
+for arithmetic-intensive algorithms. Rather than manual quantum circuit design the compiler automates the translation process, ensuring correctness while applying optimizations
 that would be tedious to implement manually.
 
 The current implementation focuses on \textbf{integer arithmetic} using Draper's Quantum Fourier Transform (QFT)
@@ -141,7 +139,7 @@ based algorithms \cite{draper2000addition}, supporting:
   \item Multi-stage optimization to reduce gate count and circuit depth
 \end{itemize}
 
-\subsection{Key Contributions}
+\subsection{Achievements}
 
 This project makes the following contributions:
 \begin{enumerate}
@@ -196,10 +194,10 @@ Representation (MLIR) infrastructure via the xDSL framework.
 xDSL's IRDL (IR Definition Language) framework. The dialect includes over 20 operation types:
 \begin{itemize}
   \item \textbf{Initialization:} \texttt{InitOp} creates quantum registers
-  \item \textbf{Single-qubit gates:} \texttt{OnQubitHadamardOp}, \texttt{OnQubitPhaseOp}, \texttt{OnQubitNotOp}
-  \item \textbf{Multi-qubit gates:} \texttt{OnQubitCNotOp}, \texttt{OnQubitCCnotOp}, \texttt{OnQubitControlledPhaseOp}, \texttt{OnQubitSwapOp}
+  \item \textbf{Single-qubit gates:} \texttt{HadamardOp}, \texttt{PhaseOp}, \texttt{NotOp}
+  \item \textbf{Multi-qubit gates:} \texttt{OnQubitCNotOp}, \texttt{OnQubitCCnotOp}, \texttt{OnQubitControlledPhaseOp}
   \item \textbf{Measurement:} \texttt{MeasureOp} extracts classical results
-  \item \textbf{Metadata:} \texttt{CommentOp} for IR annotation
+  \item \textbf{Metadata:} \texttt{CommentOp} for IR comments
 \end{itemize}
 
 The quantum dialect represents quantum registers as \texttt{VectorType} with element type \texttt{IntegerType(1)},
@@ -231,7 +229,7 @@ typically achieving stability in 2--3 iterations. Details of the optimization fr
 The backend (\texttt{backend/}) converts optimized MLIR to executable Qiskit circuits:
 
 \textbf{Circuit Generation} (\texttt{run\_qasm.py}): Traverses the MLIR module and maps quantum operations to Qiskit gates.
-A critical challenge is handling SSA value chains after aggressive optimization---the backend implements SSA-aware tracking
+A critical challenge is handling SSA value chains after aggressive optimization, the backend implements SSA-aware tracking
 to maintain correct qubit mappings even when register names have been renamed multiple times.
 
 The generator collects metrics during traversal:
@@ -264,7 +262,7 @@ the QFT produces:
 
 The QFT is implemented using Hadamard gates and controlled phase rotations:
 
-\begin{lstlisting}[language=Python, caption={QFT Implementation (simplified)}]
+\begin{lstlisting}[language=Python, caption={QFT Implementation}]
 def qft_on_vector(builder, vec):
   n = vector_width(vec)
   # Matches current implementation: high index -> low index
@@ -292,7 +290,7 @@ to the first operand, then transforms back:
   \xrightarrow{IQFT} |a\rangle|a+b\rangle
 \end{equation}
 
-The key insight is that in the Fourier basis, addition becomes phase multiplication. For each bit $a_i$ of the first
+In the Fourier basis, addition becomes phase multiplication. For each bit $a_i$ of the first
 operand, we apply controlled phase rotations to target bits $j \ge i$ of the second operand:
 
 \begin{lstlisting}[language=Python, caption={Addition Implementation}]
@@ -422,7 +420,7 @@ def optimize_phase_precision(module, threshold):
   \item Mixed-width operations: $\sim$55\% phase gate reduction
 \end{itemize}
 
-The effectiveness varies with circuit structure---multiplication generates more high-precision phases due to
+The effectiveness varies with circuit structure, multiplication generates more high-precision phases due to
 repeated additions, providing more optimization opportunities.
 
 \subsection{Supporting Optimization Passes}
@@ -549,14 +547,14 @@ substantial improvements across all metrics:
   }
 \end{table*}
 
-\textbf{Key Observations:}
+\textbf{Observations:}
 
 \textbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.1\% average depth reduction. 
 Best-case improvements reach 55.5\% gate reduction and 73.1\% depth reduction (multiplication-heavy circuits).
 
 \textbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
 while multiplication and compound expressions benefit significantly (54--56\%). This reflects the distribution 
-of optimization opportunities---multiplication generates many high-precision phase gates that are aggressively filtered.
+of optimization opportunities, multiplication generates many high-precision phase gates that are aggressively filtered.
 
 \textbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
 (73\% vs. 56\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
@@ -618,8 +616,6 @@ All 8 test cases pass validation with 100\% success rate:
   \item Measurement distributions are deterministic (single outcome with $>$99\% probability)
 \end{itemize}
 
-Matrix Product State simulation completes in $<$5 seconds per circuit on a MacBook Pro (M2), 
-demonstrating practical validation for circuits up to 72 qubits (Stress Test).
 
 \subsection{Limitations and Edge Cases}
 
@@ -736,12 +732,29 @@ foundational techniques and validates the overall approach.
 
 The open-source nature of the implementation (available at \texttt{github.com/pitesse/C2Q}) 
 enables other researchers to build upon this work, extending the compiler with new optimizations, 
-arithmetic algorithms, or language features. We hope this contributes to the broader effort to make 
+arithmetic algorithms, or language features. I hope this contributes to the broader effort to make 
 quantum computing more accessible to software developers without quantum expertise.
 
-As quantum hardware matures and error correction becomes practical, compilers like C2Q will play a 
-crucial role in bridging the abstraction gap between classical programming paradigms and quantum 
-execution models. This work represents one step toward that future.
+
+\subsection{Paradigm Reflections and Future Language Design}
+
+While C2Q successfully demonstrates the feasibility of translating a classical procedural language into quantum circuits, 
+the development process highlighted a fundamental paradigm mismatch between classical von Neumann architectures and quantum mechanics. 
+
+The C language is deeply rooted in the concepts of mutable state, sequential memory overwrites, and unconstrained variable duplication. 
+In the quantum realm, these concepts clash directly with physical constraints: overwriting data requires costly uncomputation to maintain 
+coherence (due to Landauer's principle), and copying quantum states is physically impossible due to the No-Cloning Theorem. While the compiler 
+mitigates these issues through Static Single Assignment (SSA) and Draper's phase-space arithmetic, forcing a procedural language to behave 
+quantum-mechanically introduces unavoidable overhead.
+
+For future research in quantum compiler design, I hypothesize that functional languages (such as Haskell) and languages with 
+linear type systems (such as Rust) represent a much more natural fit for quantum abstractions. 
+Functional languages rely on immutability and pure function evaluation, which perfectly mirrors the application of unitary, reversible 
+transformations to quantum statevectors. Furthermore, the strict ownership and borrowing model of Rust, where a variable cannot be implicitly 
+copied once its ownership is moved, acts as a perfect software-level analogue to the No-Cloning Theorem. 
+
+Ultimately, while translating legacy C code is a valuable bridging exercise, the future of native quantum software engineering will likely 
+rely on paradigms that enforce quantum physical constraints directly at the compile-time type level.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
