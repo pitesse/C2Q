@@ -13,6 +13,8 @@ A research compiler framework that translates a subset of **Standard C** into ex
 
 C2Q is a complete compilation infrastructure designed to bridge classical programming and quantum computation. The compiler transforms C source code through a multi-stage pipeline, ultimately producing optimized quantum circuits that can be simulated or executed on quantum hardware.
 
+For a comprehensive understanding of the project's scope, results, and the academic contributions it enabled, please refer to the detailed project paper,  see [paper.pdf](paper/main.pdf).
+
 ### Architecture
 
 ```
@@ -58,108 +60,9 @@ The compiler leverages the **xDSL** framework for MLIR-based intermediate repres
 
 ---
 
-## Features
-
-### Draper QFT Arithmetic
-Implements quantum addition, subtraction, and multiplication using the **Quantum Fourier Transform** basis. Arithmetic operations are performed in the frequency domain via controlled phase rotations, achieving O(n²) gate complexity for n-bit operations.
-
-```c
-// Automatically compiled to QFT-based quantum arithmetic
-int a = 3;
-int b = 5;
-int c = a + b;  // Draper addition in Fourier basis
-```
-
-### Dynamic Width Handling
-Supports **mixed-precision arithmetic** with automatic width detection and promotion. The compiler correctly handles operations between operands of different bit widths (e.g., 8-bit + 16-bit) and determines appropriate result register sizes.
-
-### Advanced Optimization Pipeline
-Multi-pass optimization framework with **iterative convergence**, achieving 15--56% gate count reduction across test cases (34.9% average).
-
-#### Primary Optimization: Phase Precision Filtering
-The dominant optimization pass that drives circuit improvements:
-
-- **Eliminates negligible phase rotations** below a configurable threshold (default: 0.1 radians in benchmarks)
-- **Iterative refinement**: Typically converges in 2 iterations
-- **Impact**: Reduces phase gates by 19-56% depending on circuit complexity
-  - Simple arithmetic (8-bit add/sub): ~20% reduction
-  - Multiplication circuits: ~55% reduction
-  - Mixed-width operations: ~55% reduction
-
-The Draper QFT arithmetic inherently generates many fine-grained phase rotations. For practical integer operands, high-precision rotations (< 0.1 rad ≈ 5.7°) have negligible effect on measurement outcomes and can be safely eliminated without affecting computational correctness.
-
-#### Supporting Optimization Passes
-Additional passes available in the pipeline (impact varies by circuit structure):
-
-| Optimization Pass | Implementation | Description |
-|:---|:---|:---|
-| **Phase Precision Filtering** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Eliminates negligible controlled-phase rotations below threshold (primary optimization) |
-| **Dead Code Elimination** | [remove_unused_op.py](C2Q/middle_end/optimizations/remove_unused_op.py) · `RemoveUnusedOperations` | Quantum-safe removal of unused operations preserving measurement dependencies |
-| **CCNOT Decomposition** | [ccnot_decomposition.py](C2Q/middle_end/optimizations/ccnot_decomposition.py) · `CCnot_decomposition` | Barenco construction decomposing Toffoli gates into 1- and 2-qubit gates |
-| **Adjacent Phase Consolidation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Merges consecutive controlled-phase gates acting on the same qubit pair |
-| **QFT Depth Analysis** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Reduces QFT depth when operands use fewer bits than register width |
-| **Hadamard Cancellation** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Cancels adjacent Hadamard gates at QFT/IQFT boundaries |
-| **Redundant SWAP Elimination** | [draper_optimizer.py](C2Q/middle_end/optimizations/draper_optimizer.py) · `DraperOptimizer` | Cancels adjacent identical SWAP pairs (SWAP·SWAP = I) |
-
-**Orchestration**: All passes are coordinated by [integrated_optimizer.py](C2Q/middle_end/optimizations/integrated_optimizer.py) · `IntegratedQuantumOptimizer.optimize_circuit()`, which applies the Draper optimizer iteratively until convergence.
-
-> **Note**: The supporting passes show circuit-dependent effectiveness. In the benchmark suite, phase precision filtering is the primary contributor to gate count and depth reductions.
-
-### Robust Backend
-**SSA-aware circuit generation** that correctly handles aggressive optimization and register renaming. The backend traces SSA value chains to maintain correct qubit mappings even after extensive IR transformations.
-
-### Validation Framework
-Built-in simulation using Qiskit Aer's **Matrix Product State (MPS)** method for efficient validation of circuits with 24+ qubits without exponential memory overhead.
-
----
-
-## Performance Results
-
-Benchmark results from the integrated optimization pipeline across 8 test cases:
-
-| Metric | Average Improvement | Best Case |
-|:---|:---:|:---:|
-| **Gate Count** | -34.9% | -55.5% |
-| **Circuit Depth** | -42.1% | -73.1% |
-| **MLIR Operations** | -34.6% | -55.4% |
-
-### Detailed Benchmark Results
-
-| Test Case | Base Gates | Opt Gates | Reduction | Base Depth | Opt Depth | Depth Δ |
-|:---|---:|---:|---:|---:|---:|---:|
-| Add (8-bit) | 120 | 102 | -15.0% | 39 | 36 | -7.7% |
-| Sub (8-bit) | 119 | 101 | -15.1% | 39 | 36 | -7.7% |
-| Mult (2×3) | 3,155 | 1,403 | -55.5% | 2,051 | 552 | -73.1% |
-| Complex Math | 3,573 | 1,623 | -54.6% | 2,083 | 562 | -73.0% |
-
-> **Note**: All 8/8 benchmark circuits pass validation, confirming functional correctness after optimization.
-
----
-
 ## Quick Start
 
 > **New here?** If you want a zero-configuration setup, start with **Docker** in the next section and skip native dependency installation.
-
-### Native Installation (without Docker)
-
-**Python Version Requirement:** Python 3.11 or 3.12 is required. Python 3.13+ is not yet supported by qiskit-aer.
-
-```bash
-# Clone repository
-git clone https://github.com/pitesse/C2Q.git
-cd C2Q
-```
-
-Use this path only if you want to run the project directly on your machine.
-
-```bash
-# Create virtual environment with Python 3.12 
-python3.12 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install xdsl qiskit qiskit-aer matplotlib
-```
 
 ## Docker Setup and Usage
 
@@ -208,6 +111,27 @@ Benchmark artifacts are written to `benchmarks_data/` on the host (for example `
 - The compose setup mounts only `C2Q/`, `tests/`, and `benchmarks_data/` into containers for a clean runtime environment.
 
 ---
+
+### Native Installation (without Docker)
+
+**Python Version Requirement:** Python 3.11 or 3.12 is required. Python 3.13+ is not yet supported by qiskit-aer.
+
+```bash
+# Clone repository
+git clone https://github.com/pitesse/C2Q.git
+cd C2Q
+```
+
+Use this path only if you want to run the project directly on your machine.
+
+```bash
+# Create virtual environment with Python 3.12 
+python3.12 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install xdsl qiskit qiskit-aer matplotlib
+```
 
 ### Basic Usage (Without Docker)
 
@@ -371,45 +295,6 @@ The compiler produces:
 
 ---
 
-## Technical Details
-
-### Draper QFT Arithmetic
-
-The compiler implements Thomas Draper's quantum arithmetic algorithms:
-
-1. **Quantum Fourier Transform (QFT)**: Transforms the target register to the frequency domain
-2. **Controlled Phase Rotations**: Applies phase gates proportional to the addend values
-3. **Inverse QFT**: Transforms back to the computational basis
-
-```
-Addition: |a⟩|b⟩ → |a⟩|a+b⟩
-
-     ┌─────┐                     ┌──────┐
-|a⟩──┤     ├─── controlled ──────┤      ├── |a⟩
-     │     │    phase gates      │      │
-|b⟩──┤ QFT ├─────────────────────┤ IQFT ├── |a+b⟩
-     └─────┘                     └──────┘
-```
-
-### Register Naming Convention
-
-Quantum registers follow the `qX_Y` naming scheme:
-- `X`: Register number (unique per variable)
-- `Y`: Version number (incremented on each operation)
-
-This SSA-style naming enables precise tracking through optimization passes.
-
----
-
-## Limitations
-
-### Dynamic Control Flow (Loops & Conditionals)
-The current implementation supports linear sequences of operations but excludes dynamic control flow constructs (such as `while` loops and `if/else` conditionals). Implementing these in a quantum context presents fundamental theoretical challenges:
-
-1.  **Measurement Collapse**: In classical C, a loop condition (e.g., `while(x > 0)`) is evaluated to decide the control path. In a quantum circuit, `x` exists in superposition. Measuring it to make a branching decision would instantly collapse the quantum state, destroying the superposition and halting any parallelism.
-2.  **Coherent Control Overhead**: To avoid measurement, the compiler would need to implement *coherent control* (quantum multiplexing), executing **both** branches for every run. For loops, this requires unrolling to the worst-case depth, leading to an exponential explosion in gate count ($O(2^n)$) that exceeds the capacity of current NISQ hardware.
-3.  **Reversibility & Garbage Collection**: Quantum operations must be unitary (reversible). Merging control paths after an `if` statement is inherently irreversible without retaining "path information" in ancilla qubits. Managing the uncomputation of this "garbage" state to preserve interference patterns adds significant complexity to the IR generation.
-
 ## Citation
 
 If you use C2Q in academic research, please cite:
@@ -419,7 +304,7 @@ If you use C2Q in academic research, please cite:
   title     = {C2Q: A Compiler Framework for Translating C Programs to Quantum Circuits},
   author    = {Pizzoccheri, Pietro},
   journal   = {Politecnico di Milano},
-  year      = {2025}
+  year      = {2026}
 }
 ```
 

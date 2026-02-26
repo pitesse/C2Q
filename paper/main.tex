@@ -1,5 +1,4 @@
 \documentclass[a4paper,twocolumn]{article}
-
 %------------------------------------------------------------------------------
 %   POLIMI STYLE AND PACKAGES
 %------------------------------------------------------------------------------
@@ -147,7 +146,7 @@ This project makes the following contributions:
         parser, IR generator, optimizer, and backend.
   \item Implementation of Draper QFT arithmetic with support for mixed-width operands and dynamic register allocation.
   \item An integrated optimization framework achieving 34.9\% average gate reduction, 42.1\% average depth reduction,
-    and 34.6\% MLIR operation reduction across the benchmark suite.
+        and 34.6\% MLIR operation reduction across the benchmark suite.
   \item SSA-aware backend circuit generation that correctly handles aggressive optimization and register renaming.
   \item Comprehensive validation framework using Matrix Product State simulation for circuits with 24+ qubits.
 \end{enumerate}
@@ -431,8 +430,8 @@ The framework includes several additional passes, though their impact is circuit
 results are never used. Preserves measurement operations and their dependencies to maintain observable behavior.
 Uses SSA def-use chains to identify truly dead operations.
 
-\textbf{CCNOT Decomposition} (\texttt{ccnot\_decomposition.py}): Decomposes Toffoli gates into 1- and 2-qubit 
-gates using the Barenco construction. The current benchmark circuits do not heavily utilize CCNOT gates, 
+\textbf{CCNOT Decomposition} (\texttt{ccnot\_decomposition.py}): Decomposes Toffoli gates into 1- and 2-qubit
+gates using the Barenco construction. The current benchmark circuits do not heavily utilize CCNOT gates,
 so this pass shows minimal impact but is included for completeness.
 
 \textbf{Adjacent CNOT Cancellation} (\texttt{cnot\_cancellation.py}): Cancels adjacent identical CNOT pairs:
@@ -456,16 +455,16 @@ After phase precision filtering removes some gates, previously non-adjacent phas
 
 When a QFT immediately follows an IQFT (common in compound expressions), the final Hadamards of IQFT cancel with the initial Hadamards of QFT.
 
-\textbf{QFT Depth Reduction} (\texttt{draper\_optimizer.py}): Optimizes QFT depth when operands use 
+\textbf{QFT Depth Reduction} (\texttt{draper\_optimizer.py}): Optimizes QFT depth when operands use
 fewer bits than the register width. If only the lower $k$ bits are non-zero, the QFT need not process all $n$ qubits.
 
-\textbf{Redundant SWAP Elimination} (\texttt{draper\_optimizer.py}): Removes unnecessary SWAP operations in QFT circuits, 
+\textbf{Redundant SWAP Elimination} (\texttt{draper\_optimizer.py}): Removes unnecessary SWAP operations in QFT circuits,
 particularly when SWAPs are used for qubit reordering but the ordering is irrelevant to subsequent operations.
 
 \subsection{Optimization Statistics}
 
-Table~\ref{tab:opt-impact} summarizes the per-pass contribution across the benchmark suite. Phase precision 
-filtering is responsible for the majority of improvements, with supporting passes providing incremental 
+Table~\ref{tab:opt-impact} summarizes the per-pass contribution across the benchmark suite. Phase precision
+filtering is responsible for the majority of improvements, with supporting passes providing incremental
 benefits depending on circuit structure.
 
 \begin{table}[htbp]
@@ -473,26 +472,26 @@ benefits depending on circuit structure.
   \caption{Optimization Pass Impact}
   \label{tab:opt-impact}
   \resizebox{\columnwidth}{!}{%
-  \begin{tabular}{lcc}
-    \toprule
-    \textbf{Pass}       & \textbf{Avg Gates Eliminated} & \textbf{Primary Benefit} \\
-    \midrule
-    Phase Precision     & 19--56\%                      & Gate count               \\
-    Hadamard Cancel     & 0--2\%                        & Depth                    \\
-    Phase Consolidation & 1--3\%                        & Gate count               \\
-    Dead Code Elim.     & 0--1\%                        & Cleanliness              \\
-    \bottomrule
-  \end{tabular}
+    \begin{tabular}{lcc}
+      \toprule
+      \textbf{Pass}       & \textbf{Avg Gates Eliminated} & \textbf{Primary Benefit} \\
+      \midrule
+      Phase Precision     & 19--56\%                      & Gate count               \\
+      Hadamard Cancel     & 0--2\%                        & Depth                    \\
+      Phase Consolidation & 1--3\%                        & Gate count               \\
+      Dead Code Elim.     & 0--1\%                        & Cleanliness              \\
+      \bottomrule
+    \end{tabular}
   }
 \end{table}
 
-The iterative strategy is crucial: the first iteration eliminates outer redundancy, enabling subsequent iterations 
+The iterative strategy is crucial: the first iteration eliminates outer redundancy, enabling subsequent iterations
 to optimize inner circuit structure. Without iteration, many consolidation opportunities would be missed.
 
 \section{Evaluation}
 
-We evaluate C2Q on a benchmark suite of 8 test cases covering basic arithmetic, compound expressions, and edge cases. 
-All tests execute on Python 3.12 with Qiskit 1.3.1 and xDSL 0.25.0. Validation uses Qiskit Aer's Matrix Product State 
+We evaluate C2Q on a benchmark suite of 8 test cases covering basic arithmetic, compound expressions, and edge cases.
+All tests execute on Python 3.12 with Qiskit 1.3.1 and xDSL 0.25.0. Validation uses Qiskit Aer's Matrix Product State
 simulator with 1,024 shots per circuit.
 
 \subsection{Benchmark Suite}
@@ -519,7 +518,7 @@ Each test is compiled twice: once without optimizations (baseline) and once with
 
 \subsection{Performance Results}
 
-Table~\ref{tab:benchmark-results} presents detailed benchmark results. The optimization pipeline achieves 
+Table~\ref{tab:benchmark-results} presents detailed benchmark results. The optimization pipeline achieves
 substantial improvements across all metrics:
 
 \begin{table*}[t]
@@ -528,35 +527,35 @@ substantial improvements across all metrics:
   \label{tab:benchmark-results}
   \small
   \resizebox{\textwidth}{!}{%
-  \begin{tabular}{lrrrrrr}
-    \toprule
-    \textbf{Test Case} & \textbf{Base Gates} & \textbf{Opt Gates} & \textbf{Reduction} & \textbf{Base Depth} & \textbf{Opt Depth} & \textbf{Depth $\Delta$} \\
-    \midrule
-    Add (8-bit)        & 120                 & 102                & -15.0\%            & 39                  & 36                 & -7.7\%                  \\
-    Sub (8-bit)        & 119                 & 101                & -15.1\%            & 39                  & 36                 & -7.7\%                  \\
-    Mult (2$\times$3)  & 3,155               & 1,403              & -55.5\%            & 2,051               & 552                & -73.1\%                 \\
-    Opt Showcase       & 3,274               & 1,501              & -54.2\%            & 2,051               & 552                & -73.1\%                 \\
-    Stress Test        & 699                 & 591                & -15.5\%            & 142                 & 112                & -21.1\%                 \\
-    Complex Math       & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
-    Overflow           & 125                 & 107                & -14.4\%            & 39                  & 36                 & -7.7\%                  \\
-    Mixed Add/Mult     & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
-    \midrule
-        \textbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.1\%}        \\
-    \bottomrule
-  \end{tabular}
+    \begin{tabular}{lrrrrrr}
+      \toprule
+      \textbf{Test Case} & \textbf{Base Gates} & \textbf{Opt Gates} & \textbf{Reduction} & \textbf{Base Depth} & \textbf{Opt Depth} & \textbf{Depth $\Delta$} \\
+      \midrule
+      Add (8-bit)        & 120                 & 102                & -15.0\%            & 39                  & 36                 & -7.7\%                  \\
+      Sub (8-bit)        & 119                 & 101                & -15.1\%            & 39                  & 36                 & -7.7\%                  \\
+      Mult (2$\times$3)  & 3,155               & 1,403              & -55.5\%            & 2,051               & 552                & -73.1\%                 \\
+      Opt Showcase       & 3,274               & 1,501              & -54.2\%            & 2,051               & 552                & -73.1\%                 \\
+      Stress Test        & 699                 & 591                & -15.5\%            & 142                 & 112                & -21.1\%                 \\
+      Complex Math       & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
+      Overflow           & 125                 & 107                & -14.4\%            & 39                  & 36                 & -7.7\%                  \\
+      Mixed Add/Mult     & 3,573               & 1,623              & -54.6\%            & 2,083               & 562                & -73.0\%                 \\
+      \midrule
+      \textbf{Average}   &                     &                    & \textbf{-34.9\%}   &                     &                    & \textbf{-42.1\%}        \\
+      \bottomrule
+    \end{tabular}
   }
 \end{table*}
 
 \textbf{Observations:}
 
-\textbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.1\% average depth reduction. 
+\textbf{1. Optimization Effectiveness:} The pipeline achieves 34.9\% average gate reduction and 42.1\% average depth reduction.
 Best-case improvements reach 55.5\% gate reduction and 73.1\% depth reduction (multiplication-heavy circuits).
 
-\textbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%), 
-while multiplication and compound expressions benefit significantly (54--56\%). This reflects the distribution 
+\textbf{2. Circuit-Dependent Performance:} Simple addition/subtraction shows modest improvements (15\%),
+while multiplication and compound expressions benefit significantly (54--56\%). This reflects the distribution
 of optimization opportunities, multiplication generates many high-precision phase gates that are aggressively filtered.
 
-\textbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication 
+\textbf{3. Depth Reduction:} Circuit depth improves more dramatically than gate count for multiplication
 (73\% vs. 56\%). Phase precision filtering disproportionately affects the critical path by removing gates in series.
 
 \subsection{MLIR-Level Optimization}
@@ -568,19 +567,19 @@ Table~\ref{tab:mlir-ops} shows the correlation between MLIR operation count and 
   \caption{MLIR Operations vs. Quantum Gates}
   \label{tab:mlir-ops}
   \resizebox{\columnwidth}{!}{%
-  \begin{tabular}{lccc}
-    \toprule
-    \textbf{Test}     & \textbf{Base MLIR} & \textbf{Opt MLIR} & \textbf{MLIR $\Delta$} \\
-    \midrule
-    Add (8-bit)       & 125                & 107               & -14.4\%                \\
-    Mult (2$\times$3) & 3,160              & 1,408             & -55.4\%                \\
-    Complex Math      & 3,580              & 1,630             & -54.5\%                \\
-    \bottomrule
-  \end{tabular}
+    \begin{tabular}{lccc}
+      \toprule
+      \textbf{Test}     & \textbf{Base MLIR} & \textbf{Opt MLIR} & \textbf{MLIR $\Delta$} \\
+      \midrule
+      Add (8-bit)       & 125                & 107               & -14.4\%                \\
+      Mult (2$\times$3) & 3,160              & 1,408             & -55.4\%                \\
+      Complex Math      & 3,580              & 1,630             & -54.5\%                \\
+      \bottomrule
+    \end{tabular}
   }
 \end{table}
 
-MLIR operation reduction closely tracks gate count reduction, indicating optimizations operate 
+MLIR operation reduction closely tracks gate count reduction, indicating optimizations operate
 effectively at the IR level before circuit generation. This validates the choice of MLIR as the optimization substrate.
 
 \subsection{Phase Gate Analysis}
@@ -592,19 +591,19 @@ Phase gates dominate Draper arithmetic circuits. Table~\ref{tab:phase-gates} sho
   \caption{Phase Gate Optimization}
   \label{tab:phase-gates}
   \resizebox{\columnwidth}{!}{%
-  \begin{tabular}{lrrr}
-    \toprule
-    \textbf{Test}     & \textbf{Base Phase} & \textbf{Opt Phase} & \textbf{Reduction} \\
-    \midrule
-    Add (8-bit)       & 92                  & 74                 & -19.6\%            \\
-    Mult (2$\times$3) & 1,968               & 864                & -56.1\%            \\
-    Complex Math      & 2,344               & 1,042              & -55.6\%            \\
-    \bottomrule
-  \end{tabular}
+    \begin{tabular}{lrrr}
+      \toprule
+      \textbf{Test}     & \textbf{Base Phase} & \textbf{Opt Phase} & \textbf{Reduction} \\
+      \midrule
+      Add (8-bit)       & 92                  & 74                 & -19.6\%            \\
+      Mult (2$\times$3) & 1,968               & 864                & -56.1\%            \\
+      Complex Math      & 2,344               & 1,042              & -55.6\%            \\
+      \bottomrule
+    \end{tabular}
   }
 \end{table}
 
-Phase precision filtering eliminates 20--56\% of phase gates depending on circuit complexity. 
+Phase precision filtering eliminates 20--56\% of phase gates depending on circuit complexity.
 Multiplication circuits benefit most due to cumulative high-precision rotations from nested CCPhase accumulation.
 
 \subsection{Validation and Correctness}
@@ -619,141 +618,141 @@ All 8 test cases pass validation with 100\% success rate:
 
 \subsection{Limitations and Edge Cases}
 
-\textbf{Overflow Handling:} The compiler correctly implements wrap-around arithmetic for overflow 
-cases (e.g., 255 + 1 = 0 for 8-bit registers), matching C semantics. This is inherent to fixed-width 
+\textbf{Overflow Handling:} The compiler correctly implements wrap-around arithmetic for overflow
+cases (e.g., 255 + 1 = 0 for 8-bit registers), matching C semantics. This is inherent to fixed-width
 quantum arithmetic.
 
-\textbf{Assignment-Only Code:} Circuits without arithmetic operations show no optimization benefit, as expected. 
+\textbf{Assignment-Only Code:} Circuits without arithmetic operations show no optimization benefit, as expected.
 The framework correctly identifies such cases and skips unnecessary passes.
 
-\textbf{Scalability:} Compilation time grows quadratically with register width due to $O(n^2)$ 
-QFT complexity. For 16-bit operands, compilation takes $\sim$2 seconds; 32-bit operands would 
+\textbf{Scalability:} Compilation time grows quadratically with register width due to $O(n^2)$
+QFT complexity. For 16-bit operands, compilation takes $\sim$2 seconds; 32-bit operands would
 require $\sim$8 seconds. This is acceptable for a research prototype.
 
 \section{Conclusion}
 
-This report presented C2Q, a complete compiler infrastructure for translating classical C programs 
-into optimized quantum circuits. The system successfully bridges the gap between high-level programming 
-abstractions and low-level quantum gate sequences, demonstrating that automated quantum circuit 
+This report presented C2Q, a complete compiler infrastructure for translating classical C programs
+into optimized quantum circuits. The system successfully bridges the gap between high-level programming
+abstractions and low-level quantum gate sequences, demonstrating that automated quantum circuit
 synthesis is both feasible and practical for arithmetic-intensive algorithms.
 
 \subsection{Achievements}
 
 The project delivers several concrete contributions:
 
-\textbf{Complete Compilation Pipeline:} A working end-to-end system including lexer, parser, IR generator, 
-optimizer, and backend. The implementation spans over 4,000 lines of Python code across 20+ modules, 
+\textbf{Complete Compilation Pipeline:} A working end-to-end system including lexer, parser, IR generator,
+optimizer, and backend. The implementation spans over 4,000 lines of Python code across 20+ modules,
 with comprehensive error handling and diagnostic messages.
 
-\textbf{Draper QFT Arithmetic:} Full implementation of quantum addition, subtraction, 
-and multiplication with support for mixed-precision operands. The quantum arithmetic module 
+\textbf{Draper QFT Arithmetic:} Full implementation of quantum addition, subtraction,
+and multiplication with support for mixed-precision operands. The quantum arithmetic module
 handles arbitrary register widths and automatically manages width promotion.
 
-\textbf{MLIR-Based IR:} A custom quantum dialect using xDSL's IRDL framework, providing a clean 
-separation between frontend parsing and backend circuit generation. The SSA-based representation enables 
+\textbf{MLIR-Based IR:} A custom quantum dialect using xDSL's IRDL framework, providing a clean
+separation between frontend parsing and backend circuit generation. The SSA-based representation enables
 powerful pattern-based optimizations.
 
-\textbf{Effective Optimization:} An integrated optimization framework achieving 34.9\% average gate 
-reduction and 42.1\% depth reduction across 8 test cases. The iterative optimization strategy with phase 
+\textbf{Effective Optimization:} An integrated optimization framework achieving 34.9\% average gate
+reduction and 42.1\% depth reduction across 8 test cases. The iterative optimization strategy with phase
 precision filtering as the primary pass demonstrates clear practical value.
 
-\textbf{Validated Correctness:} All test cases pass validation with 100\% accuracy, confirming that 
-optimizations preserve functional correctness. The MPS-based validation framework efficiently handles 
+\textbf{Validated Correctness:} All test cases pass validation with 100\% accuracy, confirming that
+optimizations preserve functional correctness. The MPS-based validation framework efficiently handles
 circuits with 24--72 qubits.
 
 \subsection{Limitations and Challenges}
 
 Several limitations remain in the current implementation:
 
-\textbf{Challenges of Dynamic Control Flow:} While the compiler supports linear sequences of operations, 
-dynamic control flow constructs (such as \texttt{while} loops and \texttt{if-else} conditionals) 
-are excluded due to fundamental conflicts between classical branching and quantum state coherence. Implementing 
+\textbf{Challenges of Dynamic Control Flow:} While the compiler supports linear sequences of operations,
+dynamic control flow constructs (such as \texttt{while} loops and \texttt{if-else} conditionals)
+are excluded due to fundamental conflicts between classical branching and quantum state coherence. Implementing
 these features introduces three critical barriers:
 
 \begin{enumerate}
-  \item \textit{Measurement Collapse:} In classical compilation, control flow depends on evaluating a 
-  condition (e.g., a loop counter). In a quantum circuit, this variable exists in superposition. Measuring 
-  it to decide a branch path instantly collapses the state to a classical value, destroying the superposition 
-  and halting any quantum parallelism dependent on that state.
+  \item \textit{Measurement Collapse:} In classical compilation, control flow depends on evaluating a
+        condition (e.g., a loop counter). In a quantum circuit, this variable exists in superposition. Measuring
+        it to decide a branch path instantly collapses the state to a classical value, destroying the superposition
+        and halting any quantum parallelism dependent on that state.
 
-  \item \textit{Coherent Control Overhead:} To avoid measurement, the compiler would need to implement 
-  coherent control (quantum multiplexing), where operations are conditioned on a control qubit. 
-  For conditional branching, this requires executing \textit{both} branches for every run. For loops, it 
-  necessitates unrolling the loop to its worst-case maximum depth. Both approaches lead to an exponential 
-  explosion in gate count and circuit depth that exceeds current hardware capabilities.
+  \item \textit{Coherent Control Overhead:} To avoid measurement, the compiler would need to implement
+        coherent control (quantum multiplexing), where operations are conditioned on a control qubit.
+        For conditional branching, this requires executing \textit{both} branches for every run. For loops, it
+        necessitates unrolling the loop to its worst-case maximum depth. Both approaches lead to an exponential
+        explosion in gate count and circuit depth that exceeds current hardware capabilities.
 
-  \item \textit{Reversibility and Uncomputation:} Quantum circuits must be unitary (reversible). 
-  Merging control paths (e.g., after an \texttt{if} statement) is inherently irreversible without 
-  retaining "path information" in ancilla qubits. Automatically managing the creation and subsequent 
-  uncomputation of this "garbage" state to preserve interference patterns adds significant complexity to the 
-  IR generation and optimization phases.
+  \item \textit{Reversibility and Uncomputation:} Quantum circuits must be unitary (reversible).
+        Merging control paths (e.g., after an \texttt{if} statement) is inherently irreversible without
+        retaining "path information" in ancilla qubits. Automatically managing the creation and subsequent
+        uncomputation of this "garbage" state to preserve interference patterns adds significant complexity to the
+        IR generation and optimization phases.
 \end{enumerate}
 
-\textbf{Arithmetic-Only:} The focus on Draper arithmetic means other quantum algorithmic 
-patterns (e.g., oracles, amplitude amplification) are not supported. Extending to non-arithmetic 
+\textbf{Arithmetic-Only:} The focus on Draper arithmetic means other quantum algorithmic
+patterns (e.g., oracles, amplitude amplification) are not supported. Extending to non-arithmetic
 operations would require additional algorithm libraries.
 
-\textbf{Scalability:} The $O(n^2)$ gate complexity of QFT arithmetic becomes prohibitive for large 
-bit widths. 64-bit arithmetic would generate circuits with tens of thousands of gates, challenging 
+\textbf{Scalability:} The $O(n^2)$ gate complexity of QFT arithmetic becomes prohibitive for large
+bit widths. 64-bit arithmetic would generate circuits with tens of thousands of gates, challenging
 for current NISQ hardware.
 
-\textbf{Hardware Constraints:} Generated circuits exceed the qubit capacity and coherence times of current 
-quantum hardware. Near-term execution requires either simulation or significant additional work on 
+\textbf{Hardware Constraints:} Generated circuits exceed the qubit capacity and coherence times of current
+quantum hardware. Near-term execution requires either simulation or significant additional work on
 error correction and resource management.
 
 \subsection{Future Directions}
 
 Several promising directions could extend this work:
 
-\textbf{1. Control Flow:} Implementing quantum conditionals and loops using amplitude amplification 
+\textbf{1. Control Flow:} Implementing quantum conditionals and loops using amplitude amplification
 or measurement-based control. This would enable compilation of more complex algorithms like GCD or factorization.
 
-\textbf{2. Alternative Arithmetic:} Exploring carry-save adders or other arithmetic encodings that 
+\textbf{2. Alternative Arithmetic:} Exploring carry-save adders or other arithmetic encodings that
 may offer better gate complexity or depth characteristics than Draper QFT.
 
-\textbf{3. Advanced Optimizations:} Incorporating template-based peephole optimizations, global 
+\textbf{3. Advanced Optimizations:} Incorporating template-based peephole optimizations, global
 phase kickback analysis, or machine learning-guided optimization policies.
 
-\textbf{4. Target-Specific Backends:} Generating circuits optimized for specific quantum hardware 
+\textbf{4. Target-Specific Backends:} Generating circuits optimized for specific quantum hardware
 architectures (e.g., ion traps, superconducting qubits) with native gate sets and connectivity constraints.
 
-\textbf{5. Reversible Computing:} Extending the compiler to generate reversible circuits with 
+\textbf{5. Reversible Computing:} Extending the compiler to generate reversible circuits with
 explicit uncomputation, reducing ancilla requirements and enabling garbage collection.
 
-\textbf{6. Quantum-Classical Hybrid:} Integrating with classical control systems to support 
+\textbf{6. Quantum-Classical Hybrid:} Integrating with classical control systems to support
 variational algorithms and quantum-classical hybrid workflows.
 
 \subsection{Broader Impact}
 
-C2Q demonstrates that quantum circuit synthesis from classical code is technically viable, 
-providing a proof of concept for higher-level quantum programming abstractions. While significant work 
-remains before such tools can be used for production quantum applications, this project establishes 
+C2Q demonstrates that quantum circuit synthesis from classical code is technically viable,
+providing a proof of concept for higher-level quantum programming abstractions. While significant work
+remains before such tools can be used for production quantum applications, this project establishes
 foundational techniques and validates the overall approach.
 
-The open-source nature of the implementation (available at \texttt{github.com/pitesse/C2Q}) 
-enables other researchers to build upon this work, extending the compiler with new optimizations, 
-arithmetic algorithms, or language features. I hope this contributes to the broader effort to make 
+The open-source nature of the implementation (available at \texttt{github.com/pitesse/C2Q})
+enables other researchers to build upon this work, extending the compiler with new optimizations,
+arithmetic algorithms, or language features. I hope this contributes to the broader effort to make
 quantum computing more accessible to software developers without quantum expertise.
 
 
 \subsection{Paradigm Reflections and Future Language Design}
 
-While C2Q successfully demonstrates the feasibility of translating a classical procedural language into quantum circuits, 
-the development process highlighted a fundamental paradigm mismatch between classical von Neumann architectures and quantum mechanics. 
+While C2Q successfully demonstrates the feasibility of translating a classical procedural language into quantum circuits,
+the development process highlighted a fundamental paradigm mismatch between classical von Neumann architectures and quantum mechanics.
 
-The C language is deeply rooted in the concepts of mutable state, sequential memory overwrites, and unconstrained variable duplication. 
-In the quantum realm, these concepts clash directly with physical constraints: overwriting data requires costly uncomputation to maintain 
-coherence (due to Landauer's principle), and copying quantum states is physically impossible due to the No-Cloning Theorem. While the compiler 
-mitigates these issues through Static Single Assignment (SSA) and Draper's phase-space arithmetic, forcing a procedural language to behave 
+The C language is deeply rooted in the concepts of mutable state, sequential memory overwrites, and unconstrained variable duplication.
+In the quantum realm, these concepts clash directly with physical constraints: overwriting data requires costly uncomputation to maintain
+coherence (due to Landauer's principle), and copying quantum states is physically impossible due to the No-Cloning Theorem. While the compiler
+mitigates these issues through Static Single Assignment (SSA) and Draper's phase-space arithmetic, forcing a procedural language to behave
 quantum-mechanically introduces unavoidable overhead.
 
-For future research in quantum compiler design, I hypothesize that functional languages (such as Haskell) and languages with 
-linear type systems (such as Rust) represent a much more natural fit for quantum abstractions. 
-Functional languages rely on immutability and pure function evaluation, which perfectly mirrors the application of unitary, reversible 
-transformations to quantum statevectors. Furthermore, the strict ownership and borrowing model of Rust, where a variable cannot be implicitly 
-copied once its ownership is moved, acts as a perfect software-level analogue to the No-Cloning Theorem. 
+For future research in quantum compiler design, I hypothesize that functional languages (such as Haskell) and languages with
+linear type systems (such as Rust) represent a much more natural fit for quantum abstractions.
+Functional languages rely on immutability and pure function evaluation, which perfectly mirrors the application of unitary, reversible
+transformations to quantum statevectors. Furthermore, the strict ownership and borrowing model of Rust, where a variable cannot be implicitly
+copied once its ownership is moved, acts as a perfect software-level analogue to the No-Cloning Theorem.
 
-Ultimately, while translating legacy C code is a valuable bridging exercise, the future of native quantum software engineering will likely 
+Ultimately, while translating legacy C code is a valuable bridging exercise, the future of native quantum software engineering will likely
 rely on paradigms that enforce quantum physical constraints directly at the compile-time type level.
 
 \bibliographystyle{IEEEtran}
