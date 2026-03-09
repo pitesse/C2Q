@@ -118,7 +118,7 @@ Benchmark artifacts are written to `benchmarks_data/` on the host (for example `
 
 ---
 
-### Native Installation (without Docker)
+## Native Installation (without Docker)
 
 **Python Version Requirement:** Python 3.11 or 3.12 is required. Python 3.13+ is not yet supported by qiskit-aer.
 
